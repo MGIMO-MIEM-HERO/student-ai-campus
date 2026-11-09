@@ -1,0 +1,16 @@
+services:
+  campus:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    environment:
+      CAMPUS_SECURE_COOKIE: "1"
+      CAMPUS_AI_URL: ${CAMPUS_AI_URL:-}
+      CAMPUS_AI_MODEL: ${CAMPUS_AI_MODEL:-}
+      CAMPUS_AI_KEY: ${CAMPUS_AI_KEY:-}
+    volumes:
+      - campus-data:/data
+
+volumes:
+  campus-data:

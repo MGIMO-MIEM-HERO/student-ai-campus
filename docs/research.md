@@ -16,6 +16,10 @@
 
 OWASP советует задавать cookie флаги `HttpOnly`, `Secure` и `SameSite`, а SameSite считать одним из слоёв защиты от CSRF. В проекте добавлены проверки `Origin` и Fetch Metadata для POST-запросов. При настройке HTTPS включается `Secure` и cookie с префиксом `__Host-`. Это снижает риск подделки запросов, но не заменяет аудит, HTTPS-конфигурацию и мониторинг настоящей production-системы.
 
+### Размещение
+
+Для SQLite нужен постоянный диск: локальная база хранит заявки и отметки о прочтении. Поэтому добавлен Dockerfile с непользовательским процессом и Compose с именованным томом; порт приложения привязан к loopback, чтобы его закрывал reverse proxy с HTTPS. Render Free здесь не подходит без изменения архитектуры: официальный справочник говорит, что локальные файлы бесплатных сервисов теряются при перезапуске или простое, бесплатный сервис засыпает после 15 минут без запросов, а постоянный диск доступен платным сервисам. Доступность внешнего хостинга из российских сетей нужно проверить самим с нескольких операторов; облачный VM в российском регионе проще проверить, но потребует оплаты и постоянного контроля до 28 ноября.
+
 ## Источники
 
 - [Systematic review: Have Learning Analytics Dashboards Lived Up to the Hype?](https://arxiv.org/abs/2312.15042) — обзор 38 работ; авторы отмечают ограничения доказательств влияния dashboard на результаты обучения.
@@ -23,6 +27,9 @@ OWASP советует задавать cookie флаги `HttpOnly`, `Secure` �
 - [W3C WAI: Complex Images](https://www.w3.org/WAI/tutorials/images/complex/) — сложную графику сопровождают текстовым представлением данных и тенденций.
 - [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) — флаги cookie и управление сессиями.
 - [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) — SameSite как дополнительный слой; токены или проверка происхождения для подходящих архитектур.
+- [Render: Deploy for Free](https://render.com/docs/free) — ограничения локальной файловой системы и простоя бесплатных сервисов.
+- [Yandex Cloud: Compute Cloud](https://yandex.cloud/en/docs/compute/) — виртуальные машины и подключаемые диски; тарифы нужно проверять перед созданием ресурсов.
+- [Yandex Cloud: Pricing](https://yandex.cloud/en/docs/compute/pricing) — виртуальная машина и внешний IP тарифицируются.
 
 ## Ограничения прототипа
 
