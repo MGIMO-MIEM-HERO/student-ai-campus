@@ -118,11 +118,12 @@ dt,dd{margin:0}
 @media(max-width:1080px){.layout{grid-template-columns:180px minmax(0,1fr);gap:23px}.sidebar{padding-right:12px}.sidebar a{font-size:.75rem}.sidebar a small{display:none}.columns{gap:15px}}
 @media(max-width:790px){
   .layout{display:block;padding-top:0}.sidebar{border-right:0;border-bottom:1px solid var(--ink);padding:0;margin-bottom:19px}
-  .sidebar nav{display:flex;overflow-x:auto;gap:5px;padding:6px 1px}
-  .sidebar a{white-space:nowrap;padding-inline:9px}.sidebar .eyebrow,.sidebar-end,.mast-date{display:none}
+  .sidebar nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:6px 1px}
+  .sidebar a{white-space:normal;padding:8px;line-height:1.35}.sidebar .eyebrow,.sidebar-end,.mast-date{display:none}
   .mast-inner{min-height:62px}.brand{font-size:1.8rem}.hero{padding-top:20px}
 }
 @media(max-width:545px){
+  .sidebar nav{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hero,.columns,.columns.forms,.login{grid-template-columns:minmax(0,1fr);gap:19px}
   .hero{padding-bottom:12px}.hero figure{max-width:380px}.hero figure img{max-height:145px;object-fit:cover}
   .hero .button{margin-top:15px}.quick{margin:12px 0 22px}.quick-item{padding-inline:7px}.quick-item .mono{font-size:.6rem}
@@ -136,3 +137,30 @@ dt,dd{margin:0}
   .message{max-width:100%} .chat-input .button{padding-inline:8px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+
+/* Practical additions: clear performance summaries and calendar export. */
+.quick{grid-template-columns:repeat(4,minmax(0,1fr))}
+.quick-item strong{overflow-wrap:anywhere}
+.grade-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:4px 0 24px}
+.grade-overview article{min-width:0;border-top:3px solid var(--ink);background:var(--panel);padding:12px}
+.grade-overview article>span{display:block;color:var(--muted);font-size:.62rem}
+.grade-overview article>strong{display:block;font:800 clamp(1.8rem,3vw,2.45rem)/1.15 var(--serif);overflow-wrap:anywhere;margin:7px 0}
+.grade-overview article>strong small{font:500 .8rem var(--mono);color:var(--muted)}
+.grade-overview article>p{font-size:.77rem;color:var(--muted)}
+.grade-overview article>.grade-best{font-size:1.25rem;min-height:2.3em}
+.grade-course{min-width:0}
+.grade-course progress{display:block;width:min(100%,280px);height:8px;margin-top:8px;accent-color:var(--ultra)}
+.calendar-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 21px}
+.calendar-actions>div{display:flex;gap:8px;flex-wrap:wrap}
+.calendar-actions .button{min-height:40px;padding:8px 11px;font-size:.78rem}
+.empty{line-height:1.6}
+@media(max-width:790px){.quick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:545px){
+  .grade-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .grade-overview article:last-child{grid-column:1/-1}
+  .grade-overview article{padding:10px}
+  .calendar-actions{align-items:flex-start}
+  .calendar-actions>div{width:100%}
+  .calendar-actions .button{flex:1;justify-content:center}
+}
+@media(hover:hover){.button:hover{transform:translateY(-1px)}.chip:hover{background:var(--panel)}}

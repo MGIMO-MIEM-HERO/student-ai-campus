@@ -19,6 +19,49 @@ const shortDate = (v) => formatDate(v, {day:'numeric',month:'short'});
 const link = (page, label, cls='text-link') => `<a class="${cls}" href="#${page}">${label} <span aria-hidden="true">↗</span></a>`;
 const brand = `<span class="brand-mark" aria-hidden="true">К</span><span>Кампус<span class="brand-dot">.</span></span>`;
 
+function gradeSummary() {
+  const average = Math.round(data.grades.reduce((sum, grade) => sum + grade.points, 0) / data.grades.length);
+  const passed = data.grades.filter(grade => grade.result === 'Зачтено').length;
+  const next = [...data.grades].sort((a,b) => a.date.localeCompare(b.date))[0];
+  return {average, passed, next};
+}
+
+function icsEscape(value) {
+  return String(value).replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/([,;])/g,'\\$1');
+}
+function icsFold(line) {
+  let output = '', segment = '', bytes = 0;
+  for (const char of line) {
+    const size = new TextEncoder().encode(char).length;
+    if (bytes + size > 75) { output += segment + '\r\n '; segment = ''; bytes = 1; }
+    segment += char; bytes += size;
+  }
+  return output + segment;
+}
+function downloadCalendar(scope) {
+  const days = scope === 'week' ? data.week : [data.week[day]];
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const events = days.flatMap(d => d.lessons.map((lesson,index) => {
+    const date = d.date.replaceAll('-','');
+    const start = lesson.start.replace(':','') + '00';
+    const end = lesson.end.replace(':','') + '00';
+    return ['BEGIN:VEVENT',`UID:${encodeURIComponent(lesson.title)}-${date}-${index}@campus-demo`,
+      `DTSTAMP:${stamp}`,`DTSTART;TZID=Europe/Moscow:${date}T${start}`,`DTEND;TZID=Europe/Moscow:${date}T${end}`,
+      `SUMMARY:${icsEscape(lesson.title)}`,`DESCRIPTION:${icsEscape(`${lesson.type} · ${lesson.teacher}${lesson.change ? ` · ${lesson.change}` : ''}`)}`,
+      `LOCATION:${icsEscape(lesson.room)}`,'END:VEVENT'].join('\r\n');
+  }));
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Campus//Student Schedule//RU','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VTIMEZONE','TZID:Europe/Moscow','BEGIN:STANDARD','DTSTART:19700101T000000','TZOFFSETFROM:+0300','TZOFFSETTO:+0300','TZNAME:MSK','END:STANDARD','END:VTIMEZONE',
+    ...events.flatMap(event => event.split('\r\n')),'END:VCALENDAR'];
+  const calendar = lines.map(icsFold).join('\r\n');
+  const url = URL.createObjectURL(new Blob([calendar],{type:'text/calendar;charset=utf-8'}));
+  const anchor = document.createElement('a');
+  anchor.href = url; anchor.download = `kampus-${scope==='week'?'week':days[0].date}.ics`;
+  document.body.append(anchor); anchor.click(); anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+  flash(`Выгружено занятий: ${events.length}. Файл можно импортировать в календарь.`);
+}
+
 async function api(path, body) {
   const response = await fetch('/api/' + path, body === undefined ? {} : {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body),
@@ -59,6 +102,7 @@ function noticeRows(notices, condensed=false) {
 }
 function home() {
   const profile = data.profile;
+  const stats = gradeSummary();
   return `<section class="hero">
     <div class="hero-copy"><p class="eyebrow"><span class="dot"></span> ЛИЧНЫЙ КАБИНЕТ · ${escape(profile.group_name)}</p>
     <h1>Привет, <em>${escape(profile.name.split(' ')[0])}.</em></h1>
@@ -67,7 +111,7 @@ function home() {
     <figure><img src="/print.svg" alt="Рисунок корпуса кампуса на жёлтой миллиметровой бумаге"><figcaption>РИС. 01 · УЧЕБНЫЙ КВАРТАЛ</figcaption></figure>
   </section>
   <div class="quick">
-    ${[['schedule','Пар сегодня',data.week[0].lessons.length],['grades','Дисциплины',data.grades.length],['requests','Заявки',data.requests.length]].map(([key,label,value],i) => `<a href="#${key}" class="quick-item tone-${i}"><span class="mono">${label}</span><strong>${value}</strong><span class="quick-arrow" aria-hidden="true">↗</span></a>`).join('')}
+    ${[['schedule','Пар сегодня',data.week[0].lessons.length],['grades','Средний балл',stats.average],['grades','Зачтено',`${stats.passed}/${data.grades.length}`],['requests','Заявки',data.requests.length]].map(([key,label,value],i) => `<a href="#${key}" class="quick-item tone-${i%3}"><span class="mono">${label}</span><strong>${value}</strong><span class="quick-arrow" aria-hidden="true">↗</span></a>`).join('')}
   </div>
   <div class="columns">
     <section>${section('Сегодня', link('schedule','Вся неделя'))}${lessonRows(data.week[0].lessons)}</section>
@@ -79,13 +123,15 @@ function schedule() {
   const current = data.week[day];
   return heading('02','Расписание','Пары, преподаватели и изменения на ближайшие семь дней.') + `
   <div class="week" aria-label="Дни недели">${data.week.map((d,i) => `<button data-day="${i}" aria-pressed="${i===day}"><span class="mono">${formatDate(d.date,{weekday:'short'})}</span><strong>${formatDate(d.date,{day:'numeric'})}</strong></button>`).join('')}</div>
+  <div class="calendar-actions"><p class="mono muted">Время указано по Москве</p><div><button class="button secondary" data-calendar="day">Скачать этот день <span aria-hidden="true">↓</span></button><button class="button secondary" data-calendar="week">Добавить неделю в календарь <span aria-hidden="true">↓</span></button></div></div>
   <section>${section(day===0 ? 'Сегодня' : formatDate(current.date,{weekday:'long',day:'numeric',month:'long'}), `<span class="mono muted">${shortDate(current.date)}</span>`)}${lessonRows(current.lessons)}</section>`;
 }
 function grades() {
-  const count = data.grades.filter(g => g.result === 'Зачтено').length;
+  const {average,passed,next} = gradeSummary();
+  const top = [...data.grades].sort((a,b) => b.points-a.points)[0];
   return heading('03','Успеваемость','Текущие баллы и даты экзаменов и зачётов.') + `
-  <p class="highlight"><strong>${count} из ${data.grades.length}</strong> дисциплин зачтено</p>
-  <section>${section('Дисциплины')}<ul class="rows grades">${data.grades.map(g=>`<li><div><h3>${escape(g.title)}</h3><p>${escape(g.assessment)} · ${shortDate(g.date)}</p></div><span class="tag ${g.result==='Зачтено'?'green':'orange'}">${escape(g.result)}</span><strong class="grade">${g.points}<small>/100</small></strong></li>`).join('')}</ul></section>`;
+  <div class="grade-overview"><article><span class="mono">СРЕДНИЙ ТЕКУЩИЙ БАЛЛ</span><strong>${average}<small>/100</small></strong><p>Среднее арифметическое, без весов дисциплин</p></article><article><span class="mono">ЗАЧТЕНО</span><strong>${passed}<small>/${data.grades.length}</small></strong><p>Ближайший контроль · ${shortDate(next.date)}</p></article><article><span class="mono">СИЛЬНАЯ ДИСЦИПЛИНА</span><strong class="grade-best">${escape(top.title)}</strong><p>${top.points} из 100 · ${escape(top.assessment.toLowerCase())}</p></article></div>
+  <section>${section('Баллы и даты контроля')}<ul class="rows grades">${data.grades.map(g=>`<li><div class="grade-course"><h3>${escape(g.title)}</h3><p>${escape(g.assessment)} · ${shortDate(g.date)}</p><progress aria-label="${escape(g.title)}: ${g.points} из 100 баллов" max="100" value="${g.points}">${g.points}%</progress></div><span class="tag ${g.result==='Зачтено'?'green':'orange'}">${escape(g.result)}</span><strong class="grade">${g.points}<small>/100</small></strong></li>`).join('')}</ul></section>`;
 }
 function requests() {
   return heading('04','Заявки и справки','Закажи справку или напиши в деканат. Статусы сохраняются в истории.') + `
@@ -95,12 +141,12 @@ function requests() {
     <label for="note">Комментарий <span class="muted">(необязательно)</span></label><textarea name="note" id="note" maxlength="1000" rows="3" placeholder="Например, нужна справка для стажировки"></textarea>
     <button class="button primary">Отправить заявку <span aria-hidden="true">↗</span></button><p class="form-error" role="alert"></p>
   </form></section>
-  <section>${section('История')}<ul class="rows history">${data.requests.map(r=>`<li><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)}</p><h3>${escape(r.kind)}</h3>${r.note ? `<p>${escape(r.note)}</p>` : ''}<span class="tag blue">${escape(r.status)}</span></li>`).join('')}</ul></section></div>`;
+  <section>${section('История')}${data.requests.length ? `<ul class="rows history">${data.requests.map(r=>`<li><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)}</p><h3>${escape(r.kind)}</h3>${r.note ? `<p>${escape(r.note)}</p>` : ''}<span class="tag blue">${escape(r.status)}</span></li>`).join('')}</ul>` : '<p class="empty">Заявок пока нет. После отправки они появятся здесь.</p>'}</section></div>`;
 }
 function assistant() {
   return heading('06','Помощник','Спроси о парах, сроках, сессии или справках.') + `
   <section class="chat"><div class="section-head"><h2>Беседа</h2><span class="tag blue">${data.ai_live?'ИИ подключён':'Справочный режим'}</span></div>
-  <div class="messages" aria-live="polite">${messages.length ? messages.map(m=>`<div class="message ${m.from}"><span class="mono">${m.from==='user'?'ТЫ':'КАМПУС'}</span><p>${escape(m.text)}</p></div>`).join('') : '<p class="empty">Привет! С чего начнём?</p>'}</div>
+  <div class="messages" role="log" aria-label="Сообщения помощника" aria-relevant="additions text" aria-live="polite" aria-busy="${busy}">${messages.length ? messages.map(m=>`<div class="message ${m.from}"><span class="mono">${m.from==='user'?'ТЫ':'КАМПУС'}</span><p>${escape(m.text)}</p></div>`).join('') : '<p class="empty">Привет! С чего начнём?</p>'}</div>
   <div class="suggestions">${questions.map((q,i)=>`<button class="chip" data-question="${i}" ${busy?'disabled':''}>${q}</button>`).join('')}</div>
   <form id="assistant-form"><label for="question">Твой вопрос</label><div class="chat-input"><input id="question" name="question" maxlength="500" required placeholder="Например, что у меня завтра?" ${busy?'disabled':''}><button class="button primary" ${busy?'disabled':''}>${busy?'Отвечаю…':'Отправить'} <span aria-hidden="true">↗</span></button></div></form></section>`;
 }
@@ -173,6 +219,7 @@ app.addEventListener('click', async (event) => {
   if(button.dataset.demo) return login(button.dataset.demo,'Campus-demo-2026');
   if(button.dataset.day !== undefined) { day=Number(button.dataset.day); render(); app.querySelector(`[data-day="${day}"]`)?.focus(); }
   if(button.dataset.question !== undefined) return ask(questions[button.dataset.question]);
+  if(button.dataset.calendar) return downloadCalendar(button.dataset.calendar);
   try {
     if(button.dataset.read) { const version=sessionVersion; button.disabled=true; const updated=await api('notice',{id:button.dataset.read}); if(version===sessionVersion) { data=updated; render(); flash('Уведомление прочитано.'); } }
     if(button.hasAttribute('data-logout')) { button.disabled=true; await api('logout',{}); sessionVersion++; data=null; messages=[]; busy=false; location.hash=''; render(); }
