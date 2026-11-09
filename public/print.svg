@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" fill="none">
+<defs>
+ <pattern id="grid" width="15" height="15" patternUnits="userSpaceOnUse"><path d="M15 0H0V15" stroke="#55516e" stroke-opacity=".27" stroke-width="1"/></pattern>
+ <pattern id="dot" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r=".75" fill="#242247" opacity=".42"/></pattern>
+</defs>
+<rect x="8" y="8" width="464" height="284" fill="#f7df91"/>
+<rect x="8" y="8" width="464" height="284" fill="url(#grid)"/>
+<circle cx="329" cy="110" r="76" fill="#e98c65" opacity=".8"/>
+<circle cx="334" cy="115" r="75" fill="url(#dot)"/>
+<path d="M54 227h366M59 236h354M95 218h292" stroke="#252247" stroke-width="2"/>
+<path d="m88 216 0-95 77-39 87 35 0 99z" fill="#e9e3e2" stroke="#252247" stroke-width="2"/>
+<path d="m252 117 78-24 59 30v94H252z" fill="#b1b7dc" stroke="#252247" stroke-width="2"/>
+<path d="m78 123 87-52 99 46-12 12-88-37-76 42z" fill="#344ba8" stroke="#252247" stroke-width="2"/>
+<path d="m252 115 79-34 67 41-10 10-59-28-76 24z" fill="#344ba8" stroke="#252247" stroke-width="2"/>
+<path d="M102 138v72m14-79v79m14-86v86m15-93v93m35-100v100m15-93v93m15-86v86m15-80v80m39-79v79m19-86v86m20-94v94m40-95v95m16-86v86m15-78v78" stroke="#353569" stroke-width="2" opacity=".8"/>
+<path d="M150 217v-59c0-16 25-16 25 0v59m140 0v-53c0-14 18-14 18 0v53" fill="#26234a" stroke="#252247" stroke-width="2"/>
+<path d="M58 82h33m-17-16v32m318 74h31m-15-15v30M72 263h117m-117-4v8m117-8v8M399 51h32m-16-16v32" stroke="#27234a" stroke-width="1"/>
+<g font-family="monospace" fill="#27234a" font-size="12" letter-spacing="1"><text x="203" y="267">РИС. 01 / КАМПУС</text><text x="26" y="35">СХЕМА · А–01</text></g>
+</svg>
