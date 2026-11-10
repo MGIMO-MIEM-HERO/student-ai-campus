@@ -20,7 +20,7 @@ const link = (page, label, cls='text-link') => `<a class="${cls}" href="#${page}
 const brand = `<span class="brand-mark" aria-hidden="true">К</span><span>Кампус<span class="brand-dot">.</span></span>`;
 
 function gradeSummary() {
-  const average = Math.round(data.grades.reduce((sum, grade) => sum + grade.points, 0) / data.grades.length);
+  const average = data.grades.length ? Math.round(data.grades.reduce((sum, grade) => sum + grade.points, 0) / data.grades.length) : 0;
   const passed = data.grades.filter(grade => grade.result === 'Зачтено').length;
   const next = [...data.grades].sort((a,b) => a.date.localeCompare(b.date))[0];
   return {average, passed, next};
@@ -40,6 +40,7 @@ function icsFold(line) {
 }
 function downloadCalendar(scope) {
   const days = scope === 'week' ? data.week : [data.week[day]];
+  if (!days.some(item => item.lessons.length)) return flash('На выбранный день занятий нет.');
   const stamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
   const events = days.flatMap(d => d.lessons.map((lesson,index) => {
     const date = d.date.replaceAll('-','');
@@ -66,7 +67,8 @@ async function api(path, body) {
   const response = await fetch('/api/' + path, body === undefined ? {} : {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body),
   });
-  const result = await response.json();
+  let result;
+  try { result = await response.json(); } catch { throw new Error('Не удалось получить ответ сервера. Попробуй ещё раз.'); }
   if (!response.ok) throw Object.assign(new Error(result.error), {status:response.status});
   return result;
 }
@@ -108,14 +110,15 @@ function home() {
     <h1>Привет, <em>${escape(profile.name.split(' ')[0])}.</em></h1>
     <p class="lede">Твой учебный день в одном месте. Здесь пары, оценки, справки и всё, что изменилось.</p>
     ${link('schedule','Моё расписание','button primary')}</div>
-    <figure><img src="/print.svg" alt="Рисунок корпуса кампуса на жёлтой миллиметровой бумаге"><figcaption>ТВОЁ ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</figcaption></figure>
+    <figure><img src="/print.svg" alt="Иллюстрация учебного корпуса"><figcaption>ТВОЁ ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</figcaption></figure>
   </section>
+  <div class="overview-label"><div><p class="eyebrow">ТВОЯ УЧЁБА</p><h2>Всё важное — рядом</h2></div><p>Коротко о твоём учебном дне</p></div>
   <div class="quick">
     ${[['schedule','Пар сегодня',data.week[0].lessons.length],['grades','Средний балл',stats.average],['grades','Зачтено',`${stats.passed}/${data.grades.length}`],['requests','Заявки',data.requests.length]].map(([key,label,value],i) => `<a href="#${key}" class="quick-item tone-${i%3}"><span class="mono">${label}</span><strong>${value}</strong><span class="quick-arrow" aria-hidden="true">↗</span></a>`).join('')}
   </div>
   <div class="columns">
-    <section>${section('Сегодня', link('schedule','Вся неделя'))}${lessonRows(data.week[0].lessons)}</section>
-    <section>${section('На заметку', link('notices','Все'))}${noticeRows(data.notices.slice(0,2),true)}</section>
+    <section class="content-card">${section('Сегодня', link('schedule','Вся неделя'))}${lessonRows(data.week[0].lessons)}</section>
+    <section class="content-card">${section('На заметку', link('notices','Все'))}${noticeRows(data.notices.slice(0,2),true)}</section>
   </div>
   <aside class="assistant-banner"><div><p class="eyebrow">ПОМОЩНИК РЯДОМ</p><h2>Спроси помощника</h2><p>Подскажет, где пара и что нужно сдать на неделе.</p></div>${link('assistant','Открыть','button secondary')}</aside>`;
 }
@@ -128,6 +131,7 @@ function schedule() {
 }
 function grades() {
   const {average,passed,next} = gradeSummary();
+  if (!data.grades.length) return heading('03','Успеваемость','Текущие баллы и даты экзаменов и зачётов.') + '<p class="empty">Оценок пока нет. Они появятся здесь, когда их опубликуют.</p>';
   const top = [...data.grades].sort((a,b) => b.points-a.points)[0];
   return heading('03','Успеваемость','Текущие баллы и даты экзаменов и зачётов.') + `
   <div class="grade-overview"><article><span class="mono">СРЕДНИЙ ТЕКУЩИЙ БАЛЛ</span><strong>${average}<small>/100</small></strong><p>Среднее арифметическое, без весов дисциплин</p></article><article><span class="mono">ЗАЧТЕНО</span><strong>${passed}<small>/${data.grades.length}</small></strong><p>Ближайший контроль · ${shortDate(next.date)}</p></article><article><span class="mono">СИЛЬНАЯ ДИСЦИПЛИНА</span><strong class="grade-best">${escape(top.title)}</strong><p>${top.points} из 100 · ${escape(top.assessment.toLowerCase())}</p></article></div>
@@ -136,16 +140,16 @@ function grades() {
 function requests() {
   return heading('04','Заявки и справки','Закажи справку или напиши в деканат. Статусы сохраняются в истории.') + `
   <div class="columns forms">
-  <section>${section('Новая заявка')}<form id="request-form">
+  <section class="content-card">${section('Новая заявка')}<form id="request-form">
     <label for="kind">Тип заявки</label><select id="kind" name="kind">${kinds.map(k=>`<option>${k}</option>`).join('')}</select>
     <label for="note">Комментарий <span class="muted">(необязательно)</span></label><textarea name="note" id="note" maxlength="1000" rows="3" placeholder="Например, нужна справка для стажировки"></textarea>
     <button class="button primary">Отправить заявку <span aria-hidden="true">↗</span></button><p class="form-error" role="alert"></p>
   </form></section>
-  <section>${section('История')}${data.requests.length ? `<ul class="rows history">${data.requests.map(r=>`<li><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)}</p><h3>${escape(r.kind)}</h3>${r.note ? `<p>${escape(r.note)}</p>` : ''}<span class="tag blue">${escape(r.status)}</span></li>`).join('')}</ul>` : '<p class="empty">Заявок пока нет. После отправки они появятся здесь.</p>'}</section></div>`;
+  <section class="content-card">${section('История')}${data.requests.length ? `<ul class="rows history">${data.requests.map(r=>`<li><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)}</p><h3>${escape(r.kind)}</h3>${r.note ? `<p>${escape(r.note)}</p>` : ''}<span class="tag blue">${escape(r.status)}</span></li>`).join('')}</ul>` : '<p class="empty">Заявок пока нет. После отправки они появятся здесь.</p>'}</section></div>`;
 }
 function assistant() {
   return heading('06','Помощник','Спроси о парах, сроках, сессии или справках.') + `
-  <section class="chat"><div class="section-head"><h2>Беседа</h2><span class="tag blue">${data.ai_live?'ИИ подключён':'Справочный режим'}</span></div>
+  <section class="chat content-card"><div class="section-head"><h2>Беседа</h2><span class="tag blue">${data.ai_live?'ИИ подключён':'Справочный режим'}</span></div>
   <div class="messages" role="log" aria-label="Сообщения помощника" aria-relevant="additions text" aria-live="polite" aria-busy="${busy}">${messages.length ? messages.map(m=>`<div class="message ${m.from}"><span class="mono">${m.from==='user'?'ТЫ':'КАМПУС'}</span><p>${escape(m.text)}</p></div>`).join('') : '<p class="empty">Привет! С чего начнём?</p>'}</div>
   <div class="suggestions">${questions.map((q,i)=>`<button class="chip" data-question="${i}" ${busy?'disabled':''}>${q}</button>`).join('')}</div>
   <form id="assistant-form"><label for="question">Твой вопрос</label><div class="chat-input"><input id="question" name="question" maxlength="500" required placeholder="Например, что у меня завтра?" ${busy?'disabled':''}><button class="button primary" ${busy?'disabled':''}>${busy?'Отвечаю…':'Отправить'} <span aria-hidden="true">↗</span></button></div></form></section>`;
