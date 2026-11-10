@@ -17,7 +17,7 @@ const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'
 const formatDate = (value, opts) => new Intl.DateTimeFormat('ru-RU', {...opts, timeZone:'UTC'}).format(new Date(value + 'T12:00:00Z'));
 const shortDate = (v) => formatDate(v, {day:'numeric',month:'short'});
 const link = (page, label, cls='text-link') => `<a class="${cls}" href="#${page}">${label} <span aria-hidden="true">↗</span></a>`;
-const brand = `<span class="brand-mark" aria-hidden="true">К</span><span>Кампус<span class="brand-dot">.</span></span>`;
+const brand = `<span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M9 20.5l7 7L31 12" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 11h6M24 29h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>зачёт<span class="brand-dot">.</span></span>`;
 
 function gradeSummary() {
   const average = data.grades.length ? Math.round(data.grades.reduce((sum, grade) => sum + grade.points, 0) / data.grades.length) : 0;
@@ -82,7 +82,7 @@ function page() {
   return Object.hasOwn(paths, key) ? key : 'home';
 }
 function heading(index, title, description) {
-  return `<div class="page-heading"><p class="eyebrow">КАМПУС / ${index}</p><h1>${title}</h1><p class="lede">${description}</p></div>`;
+  return `<div class="page-heading"><p class="eyebrow">ЗАЧЁТ / ${index}</p><h1>${title}</h1><p class="lede">${description}</p></div>`;
 }
 function section(title, extra='') {
   return `<div class="section-head"><h2>${title}</h2>${extra}</div>`;
@@ -110,7 +110,7 @@ function home() {
     <h1>Привет, <em>${escape(profile.name.split(' ')[0])}.</em></h1>
     <p class="lede">Твой учебный день в одном месте. Здесь пары, оценки, справки и всё, что изменилось.</p>
     ${link('schedule','Моё расписание','button primary')}</div>
-    <figure><img src="/print.svg" alt="Иллюстрация учебного корпуса"><figcaption>ТВОЁ ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</figcaption></figure>
+    <figure><img src="/print.svg" alt="Иллюстрация учебного блокнота"><figcaption>ЗАМЕТКИ О ТВОЕЙ УЧЁБЕ</figcaption></figure>
   </section>
   <div class="overview-label"><div><p class="eyebrow">ТВОЯ УЧЁБА</p><h2>Всё важное — рядом</h2></div><p>Коротко о твоём учебном дне</p></div>
   <div class="quick">
@@ -150,7 +150,7 @@ function requests() {
 function assistant() {
   return heading('06','Помощник','Спроси о парах, сроках, сессии или справках.') + `
   <section class="chat content-card"><div class="section-head"><h2>Беседа</h2><span class="tag blue">${data.ai_live?'ИИ подключён':'Справочный режим'}</span></div>
-  <div class="messages" role="log" aria-label="Сообщения помощника" aria-relevant="additions text" aria-live="polite" aria-busy="${busy}">${messages.length ? messages.map(m=>`<div class="message ${m.from}"><span class="mono">${m.from==='user'?'ТЫ':'КАМПУС'}</span><p>${escape(m.text)}</p></div>`).join('') : '<p class="empty">Привет! С чего начнём?</p>'}</div>
+  <div class="messages" role="log" aria-label="Сообщения помощника" aria-relevant="additions text" aria-live="polite" aria-busy="${busy}">${messages.length ? messages.map(m=>`<div class="message ${m.from}"><span class="mono">${m.from==='user'?'ТЫ':'ЗАЧЁТ'}</span><p>${escape(m.text)}</p></div>`).join('') : '<p class="empty">Привет! С чего начнём?</p>'}</div>
   <div class="suggestions">${questions.map((q,i)=>`<button class="chip" data-question="${i}" ${busy?'disabled':''}>${q}</button>`).join('')}</div>
   <form id="assistant-form"><label for="question">Твой вопрос</label><div class="chat-input"><input id="question" name="question" maxlength="500" required placeholder="Например, что у меня завтра?" ${busy?'disabled':''}><button class="button primary" ${busy?'disabled':''}>${busy?'Отвечаю…':'Отправить'} <span aria-hidden="true">↗</span></button></div></form></section>`;
 }
@@ -163,7 +163,7 @@ function profile() {
 }
 function signIn(error='') {
   app.innerHTML = `<header class="mast"><div class="frame mast-inner"><a class="brand" href="/">${brand}</a><span class="mono muted">КОНКУРСНЫЙ ПРОТОТИП</span></div></header>
-  <main id="main" class="frame login"><section class="login-intro"><p class="eyebrow">ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</p><h1>Твой день<br>в <em>Кампусе.</em></h1><p class="lede">Расписание, оценки и деканат в одном личном кабинете.</p><img src="/print.svg" alt="Рисунок корпуса кампуса"></section>
+  <main id="main" class="frame login"><section class="login-intro"><p class="eyebrow">ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</p><h1>Учёба —<br>на <em>отлично.</em></h1><p class="lede">Расписание, оценки и деканат в одном личном кабинете.</p><img src="/print.svg" alt="Иллюстрация учебного блокнота"></section>
   <section class="login-panel">${section('Вход в кабинет')}
     <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username">
     <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
@@ -179,14 +179,14 @@ function render() {
     notices:()=>heading('05','Уведомления','Объявления деканата, дедлайны и изменения расписания.') + noticeRows(data.notices)};
   const unread = data.notices.filter(n=>!n.read).length;
   app.innerHTML = `<header class="mast"><div class="frame mast-inner">
-  <a href="#home" class="brand" aria-label="Кампус, обзор">${brand}</a>
+  <a href="#home" class="brand" aria-label="Зачёт, обзор">${brand}</a>
   <span class="mast-date mono">${formatDate(data.week[0].date,{weekday:'long',day:'numeric',month:'long'})}</span>
   <a class="mast-profile" href="#profile"><span class="avatar" aria-hidden="true">${escape(data.profile.name[0])}</span><span>${escape(data.profile.name)}</span></a>
   </div></header>
   <div class="frame layout"><aside class="sidebar"><p class="eyebrow">РАЗДЕЛЫ</p><nav aria-label="Разделы кабинета">
     ${Object.entries(paths).map(([id,[label]],i)=>`<a href="#${id}" ${id===key?'aria-current="page"':''}>${icon(id)}<span>${label}</span>${id==='notices'&&unread?`<small>${unread}</small>`:`<small>0${i+1}</small>`}</a>`).join('')}
-  </nav><div class="sidebar-end mono">КАМПУС<br>КОНЦЕПТ ДЛЯ КОНКУРСА</div></aside>
-  <main id="main" tabindex="-1">${content[key]()}<footer class="mono">КАМПУС · КОНКУРСНЫЙ ПРОТОТИП · ВЫМЫШЛЕННЫЕ ДАННЫЕ</footer></main></div>`;
+  </nav><div class="sidebar-end mono">ЗАЧЁТ<br>КОНЦЕПТ ДЛЯ КОНКУРСА</div></aside>
+  <main id="main" tabindex="-1">${content[key]()}<footer class="mono">ЗАЧЁТ · КОНКУРСНЫЙ ПРОТОТИП · ВЫМЫШЛЕННЫЕ ДАННЫЕ</footer></main></div>`;
   app.setAttribute('aria-busy','false');
 }
 async function login(login,password) {

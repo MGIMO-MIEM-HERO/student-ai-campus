@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <rect x="6" y="6" width="36" height="36" fill="#e5432d"/>
-  <rect x="3" y="3" width="36" height="36" fill="#1c1b33"/>
-  <text x="21" y="30" fill="#f4eedf" font-family="Georgia,serif" font-size="27" font-weight="700" text-anchor="middle">К</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect x="3" y="3" width="42" height="42" rx="14" fill="#154d4b"/><path d="M12 24.5l8 8 16-18" fill="none" stroke="#f8f6ea" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 14h6M29 35h5" stroke="#f0a08e" stroke-width="2.5" stroke-linecap="round"/></svg>

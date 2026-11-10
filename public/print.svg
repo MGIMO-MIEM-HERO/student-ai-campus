@@ -1,19 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" fill="none">
-<defs>
- <pattern id="grid" width="15" height="15" patternUnits="userSpaceOnUse"><path d="M15 0H0V15" stroke="#55516e" stroke-opacity=".27" stroke-width="1"/></pattern>
- <pattern id="dot" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r=".75" fill="#242247" opacity=".42"/></pattern>
-</defs>
-<rect x="8" y="8" width="464" height="284" fill="#dcefed"/>
-<rect x="8" y="8" width="464" height="284" fill="url(#grid)"/>
-<circle cx="329" cy="110" r="76" fill="#d6aec1" opacity=".8"/>
-<circle cx="334" cy="115" r="75" fill="url(#dot)"/>
-<path d="M54 227h366M59 236h354M95 218h292" stroke="#283338" stroke-width="2"/>
-<path d="m88 216 0-95 77-39 87 35 0 99z" fill="#f2f8f7" stroke="#283338" stroke-width="2"/>
-<path d="m252 117 78-24 59 30v94H252z" fill="#a2cbcd" stroke="#283338" stroke-width="2"/>
-<path d="m78 123 87-52 99 46-12 12-88-37-76 42z" fill="#1c5d5f" stroke="#283338" stroke-width="2"/>
-<path d="m252 115 79-34 67 41-10 10-59-28-76 24z" fill="#1c5d5f" stroke="#283338" stroke-width="2"/>
-<path d="M102 138v72m14-79v79m14-86v86m15-93v93m35-100v100m15-93v93m15-86v86m15-80v80m39-79v79m19-86v86m20-94v94m40-95v95m16-86v86m15-78v78" stroke="#2a7779" stroke-width="2" opacity=".8"/>
-<path d="M150 217v-59c0-16 25-16 25 0v59m140 0v-53c0-14 18-14 18 0v53" fill="#16325a" stroke="#283338" stroke-width="2"/>
-<path d="M58 82h33m-17-16v32m318 74h31m-15-15v30M72 263h117m-117-4v8m117-8v8M399 51h32m-16-16v32" stroke="#283338" stroke-width="1"/>
-<g font-family="monospace" fill="#283338" font-size="12" letter-spacing="1"><text x="203" y="267">РИС. 01 / КАМПУС</text><text x="26" y="35">СХЕМА · А–01</text></g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 330" fill="none">
+<rect width="480" height="330" rx="24" fill="#f3e6d8"/>
+<circle cx="370" cy="80" r="48" fill="#e9a595"/><path d="M55 60c40-23 75-24 105-4M336 265c35 14 70 12 99-3" stroke="#15514e" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 7"/>
+<g transform="rotate(-7 230 165)"><rect x="118" y="51" width="230" height="242" rx="12" fill="#15514e"/><rect x="108" y="41" width="230" height="242" rx="12" fill="#fffdf4" stroke="#15514e" stroke-width="2.5"/><path d="M143 42v240M165 111h140M165 144h140M165 177h105M165 210h125M165 243h85" stroke="#9ebdb4" stroke-width="2"/><path d="M120 74h-25M120 105h-25M120 136h-25M120 167h-25M120 198h-25M120 229h-25" stroke="#15514e" stroke-width="5" stroke-linecap="round"/><rect x="165" y="65" width="106" height="25" rx="12.5" fill="#d7ece1"/><path d="M178 77h74" stroke="#15514e" stroke-width="3" stroke-linecap="round"/><path d="M287 204l8 8 16-20" stroke="#dc745e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M67 213l7 13 14 2-10 10 2 14-13-7-13 7 2-14-10-10 14-2z" fill="#e9a595" stroke="#15514e" stroke-width="2"/><path d="M365 187l34-27 9 11-34 27-15 4z" fill="#e8a18f" stroke="#15514e" stroke-width="2"/><path d="M359 202l4-14 11 10z" fill="#fffdf4" stroke="#15514e" stroke-width="2"/><path d="M383 156l7 12M390 151l7 12" stroke="#15514e" stroke-width="2"/><path d="M384 105v27m-13-14h26M66 130v20m-10-10h20" stroke="#15514e" stroke-width="2" stroke-linecap="round"/>
 </svg>
