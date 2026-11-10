@@ -80,7 +80,7 @@ function page() {
   return Object.hasOwn(paths, key) ? key : 'home';
 }
 function heading(index, title, description) {
-  return `<div class="page-heading"><p class="eyebrow">ВЫПУСК 01 / ${index}</p><h1>${title}</h1><p class="lede">${description}</p></div>`;
+  return `<div class="page-heading"><p class="eyebrow">КАМПУС / ${index}</p><h1>${title}</h1><p class="lede">${description}</p></div>`;
 }
 function section(title, extra='') {
   return `<div class="section-head"><h2>${title}</h2>${extra}</div>`;
@@ -104,11 +104,11 @@ function home() {
   const profile = data.profile;
   const stats = gradeSummary();
   return `<section class="hero">
-    <div class="hero-copy"><p class="eyebrow"><span class="dot"></span> ЛИЧНЫЙ КАБИНЕТ · ${escape(profile.group_name)}</p>
+    <div class="hero-copy"><p class="eyebrow"><span class="dot"></span> УЧЁБА · ${escape(profile.group_name)}</p>
     <h1>Привет, <em>${escape(profile.name.split(' ')[0])}.</em></h1>
-    <p class="lede">Твой учебный день в одном выпуске. Здесь пары, оценки, справки и всё, что изменилось.</p>
+    <p class="lede">Твой учебный день в одном месте. Здесь пары, оценки, справки и всё, что изменилось.</p>
     ${link('schedule','Моё расписание','button primary')}</div>
-    <figure><img src="/print.svg" alt="Рисунок корпуса кампуса на жёлтой миллиметровой бумаге"><figcaption>РИС. 01 · УЧЕБНЫЙ КВАРТАЛ</figcaption></figure>
+    <figure><img src="/print.svg" alt="Рисунок корпуса кампуса на жёлтой миллиметровой бумаге"><figcaption>ТВОЁ ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</figcaption></figure>
   </section>
   <div class="quick">
     ${[['schedule','Пар сегодня',data.week[0].lessons.length],['grades','Средний балл',stats.average],['grades','Зачтено',`${stats.passed}/${data.grades.length}`],['requests','Заявки',data.requests.length]].map(([key,label,value],i) => `<a href="#${key}" class="quick-item tone-${i%3}"><span class="mono">${label}</span><strong>${value}</strong><span class="quick-arrow" aria-hidden="true">↗</span></a>`).join('')}
@@ -117,7 +117,7 @@ function home() {
     <section>${section('Сегодня', link('schedule','Вся неделя'))}${lessonRows(data.week[0].lessons)}</section>
     <section>${section('На заметку', link('notices','Все'))}${noticeRows(data.notices.slice(0,2),true)}</section>
   </div>
-  <aside class="assistant-banner"><div><p class="eyebrow">ДОПОЛНЕНИЕ К ВЫПУСКУ</p><h2>Спроси помощника</h2><p>Подскажет, где пара и что нужно сдать на неделе.</p></div>${link('assistant','Открыть','button secondary')}</aside>`;
+  <aside class="assistant-banner"><div><p class="eyebrow">ПОМОЩНИК РЯДОМ</p><h2>Спроси помощника</h2><p>Подскажет, где пара и что нужно сдать на неделе.</p></div>${link('assistant','Открыть','button secondary')}</aside>`;
 }
 function schedule() {
   const current = data.week[day];
@@ -159,7 +159,7 @@ function profile() {
 }
 function signIn(error='') {
   app.innerHTML = `<header class="mast"><div class="frame mast-inner"><a class="brand" href="/">${brand}</a><span class="mono muted">КОНКУРСНЫЙ ПРОТОТИП</span></div></header>
-  <main id="main" class="frame login"><section class="login-intro"><p class="eyebrow">УЧЕБНЫЙ ВЫПУСК № 01</p><h1>Твой день<br>в <em>Кампусе.</em></h1><p class="lede">Расписание, оценки и деканат в одном личном кабинете.</p><img src="/print.svg" alt="Рисунок корпуса кампуса"></section>
+  <main id="main" class="frame login"><section class="login-intro"><p class="eyebrow">ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</p><h1>Твой день<br>в <em>Кампусе.</em></h1><p class="lede">Расписание, оценки и деканат в одном личном кабинете.</p><img src="/print.svg" alt="Рисунок корпуса кампуса"></section>
   <section class="login-panel">${section('Вход в кабинет')}
     <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username">
     <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
@@ -179,9 +179,9 @@ function render() {
   <span class="mast-date mono">${formatDate(data.week[0].date,{weekday:'long',day:'numeric',month:'long'})}</span>
   <a class="mast-profile" href="#profile"><span class="avatar" aria-hidden="true">${escape(data.profile.name[0])}</span><span>${escape(data.profile.name)}</span></a>
   </div></header>
-  <div class="frame layout"><aside class="sidebar"><p class="eyebrow">ОГЛАВЛЕНИЕ</p><nav aria-label="Разделы кабинета">
+  <div class="frame layout"><aside class="sidebar"><p class="eyebrow">РАЗДЕЛЫ</p><nav aria-label="Разделы кабинета">
     ${Object.entries(paths).map(([id,[label]],i)=>`<a href="#${id}" ${id===key?'aria-current="page"':''}>${icon(id)}<span>${label}</span>${id==='notices'&&unread?`<small>${unread}</small>`:`<small>0${i+1}</small>`}</a>`).join('')}
-  </nav><div class="sidebar-end mono">ИЗДАНИЕ № 01<br>КОНЦЕПТ ДЛЯ КОНКУРСА</div></aside>
+  </nav><div class="sidebar-end mono">КАМПУС<br>КОНЦЕПТ ДЛЯ КОНКУРСА</div></aside>
   <main id="main" tabindex="-1">${content[key]()}<footer class="mono">КАМПУС · КОНКУРСНЫЙ ПРОТОТИП · ВЫМЫШЛЕННЫЕ ДАННЫЕ</footer></main></div>`;
   app.setAttribute('aria-busy','false');
 }

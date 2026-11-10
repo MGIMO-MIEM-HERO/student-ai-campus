@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap');
 :root {
   --paper:#f4eedf; --panel:#eae2cf; --ink:#1c1b33; --muted:#57556e; --rule:#aea499;
@@ -164,3 +165,11 @@ dt,dd{margin:0}
   .calendar-actions .button{flex:1;justify-content:center}
 }
 @media(hover:hover){.button:hover{transform:translateY(-1px)}.chip:hover{background:var(--panel)}}
+
+/* User Interviews: warm research notes and calm student workspace */
+:root{--paper:#f2f8f7;--panel:#e4f0f1;--ink:#283338;--muted:#4c5d60;--rule:#bfd4d2;--red:#1c5d5f;--ultra:#1c5d5f;--serif:'Source Serif 4',Georgia,serif;--sans:'DM Sans',Inter,Arial,sans-serif}
+body{background-image:none;font-size:15px}.frame{max-width:1200px}h1,h2,h3{letter-spacing:-.025em}h1{font-weight:700}em{color:#1c5d5f}.spectrum{height:5px;background:linear-gradient(90deg,#1c5d5f,#65b8a2,#d6aec1)}
+.mast{border-bottom:1px solid var(--rule)}.brand-mark{background:#1c5d5f;box-shadow:none;border-radius:9px}.brand-dot{color:#1c5d5f}.avatar{background:#cae1e2;color:#0e4749}.sidebar{border-color:var(--rule)}.sidebar a{border-radius:88px;padding-inline:12px}.sidebar a[aria-current]{background:#1c5d5f;color:white}.sidebar-end{border-color:var(--rule)}
+.hero{border:0;background:#e4f0f1;border-radius:16px;padding:32px;gap:32px}.hero figure img,.login-intro img{border:0;border-radius:12px;background:#cae1e2}.button,.chip{border-radius:48px;box-shadow:none;padding-inline:20px}.primary{background:#1c5d5f;border-color:#1c5d5f;color:white}.primary:hover{background:#156152}.secondary{border-color:#0e4749;color:#0e4749;background:transparent}.text-link{color:#0e4749}.quick{gap:10px;background:transparent;border:0}.quick-item{border:0;border-radius:12px;background:#e4f0f1;padding:16px}.quick-item:nth-child(even){background:#f2e8e2}.quick-item:hover{background:#cae1e2}.section-head{border-top:0;border-bottom:1px solid var(--rule);padding-top:16px}.rows>li{border-color:var(--rule)}.lesson-info{border-color:#65b8a2}.tag{border-radius:100px}.orange{background:#f2e8e2;color:#704535}.blue{background:#d5e6e7;color:#164e50}.green{background:#d8ebe3;color:#205636}.dot{background:#1c5d5f}.assistant-banner{background:#f2e8e2;border:0;border-radius:12px;padding:24px}.page-heading,.profile-card{border-top:0}.week button{border-radius:12px;border-color:#bfd4d2}.week button[aria-pressed=true]{background:#1c5d5f;border-color:#1c5d5f}.grade-overview article{border:0;border-radius:12px;background:#e4f0f1;padding:20px}.grade-overview article:nth-child(2){background:#f2e8e2}.login-panel{border:0;border-radius:16px;background:#e4f0f1;padding:24px}.message{border-color:#65b8a2;background:#e4f0f1;border-radius:10px}.message.user{border-color:#d6aec1;background:#f2e8e2}input,textarea,select{border-color:#9cb9b7;border-radius:10px;background:white}footer{border-top:1px solid var(--rule)}
+@media(max-width:790px){.sidebar{border-bottom:1px solid var(--rule)}}
+@media(max-width:545px){.hero{padding:22px}.quick-item{padding:12px}.assistant-banner{padding:18px;flex-wrap:wrap}.grade-overview article{padding:14px}}
