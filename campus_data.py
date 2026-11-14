@@ -4,6 +4,7 @@
 вузовского графика: номера пар и звонки, чётные и нечётные недели, подгруппы,
 онлайн-занятия, корпуса и этажи, а также оперативные изменения.
 """
+import hashlib
 from datetime import date, timedelta
 
 SEMESTER_START = date(2026, 8, 31)  # понедельник первой учебной недели
@@ -249,11 +250,65 @@ def build_session(login):
     return items
 
 
-def directory():
+def _inventory():
+    """Полный фонд аудиторий по этажам: именованные аудитории плюс типовые учебные."""
+    rooms = {}
+    plan = {"А": (range(1, 7), range(1, 9)), "Б": (range(1, 6), range(10, 16)), "С": (range(1, 3), range(1, 3))}
+    for building, (floors, numbers) in plan.items():
+        for floor in floors:
+            for number in numbers:
+                room = f"{floor}{number:02d}"
+                kind = "Спортивный зал" if building == "С" else "Учебная аудитория"
+                rooms[(building, room)] = (kind, 60 if building == "С" else 30, f"{floor} этаж")
+    rooms.update(ROOMS)
+    return dict(sorted(rooms.items()))
+
+
+ALL_ROOMS = _inventory()
+
+
+def room_key(building, room):
+    return f"{building}-{room}"
+
+
+def occupancy(day, marks=()):
+    """Занятость аудиторий по парам на день.
+
+    Источники по приоритету: отметка деканата, занятия демо-групп, условная загрузка других потоков.
+    marks: записи (pair, building, room, state, note); pair 0 означает весь день.
+    Возвращает {пара: {"А-304": {"by": "schedule" | "staff", "note": str}}} только для занятых.
+    """
+    result = {str(pair): {} for pair in BELLS}
+    if day.weekday() != 6:
+        _, parity = week_info(day)
+        for slots in SLOTS.values():
+            for weekday, pair, _course, _kind, building, room, slot_parity, _sub, _fmt in slots:
+                if weekday == day.weekday() and slot_parity in (None, parity) and building:
+                    result[str(pair)][room_key(building, room)] = {"by": "schedule", "note": "Занятие по расписанию"}
+        for pair in BELLS:
+            for (building, room), (_kind, seats, _hint) in ALL_ROOMS.items():
+                if not seats:
+                    continue
+                noise = int(hashlib.md5(f"{day.isoformat()}-{pair}-{building}{room}".encode()).hexdigest(), 16) % 100
+                if noise < (20 if day.weekday() == 5 else 48):
+                    result[str(pair)].setdefault(room_key(building, room), {"by": "schedule", "note": "Занятие по расписанию"})
+    for pair, building, room, state, note in marks:
+        for target in (BELLS if pair == 0 else (pair,)):
+            key = room_key(building, room)
+            if state == "busy":
+                result[str(target)][key] = {"by": "staff", "note": note or "Отмечено деканатом"}
+            elif state == "free":
+                result[str(target)].pop(key, None)
+    return result
+
+
+def directory(day=None, marks=()):
     return {
         "note": CAMPUS_NOTE,
         "bells": [{"pair": pair, "start": start, "end": end} for pair, (start, end) in BELLS.items()],
+        "busy": occupancy(day, marks) if day else {},
         "buildings": [{"id": key, **value} for key, value in BUILDINGS.items()],
-        "rooms": [{"building": b, "room": r, "kind": kind, "seats": seats, "hint": hint, "floor": floor_of(r),
-                   "place": place(b, r)} for (b, r), (kind, seats, hint) in ROOMS.items()],
+        "rooms": [{"building": b, "room": r, "key": room_key(b, r), "kind": kind, "seats": seats, "hint": hint,
+                   "floor": floor_of(r), "place": place(b, r), "named": (b, r) in ROOMS}
+                  for (b, r), (kind, seats, hint) in ALL_ROOMS.items()],
     }

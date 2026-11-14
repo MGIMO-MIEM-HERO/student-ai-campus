@@ -124,6 +124,51 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(item["events"][-1]["comment"], "Кабинет 101")
         self.assertEqual(staff.call(f"/api/staff/requests/{request_id}", {"status": "Взломана"})[0], 400)
 
+    def test_document_verification(self):
+        mark = self.client("mark")
+        _, created = mark.call("/api/requests", {"kind": "Справка об обучении", "note": ""})
+        request_id = created["requests"][0]["id"]
+        self.assertIsNone(created["requests"][0]["document"])
+        staff = self.client("dekanat")
+        self.assertEqual(staff.call(f"/api/staff/requests/{request_id}", {"status": "Готова"})[0], 200)
+        code = mark.call(f"/api/requests/{request_id}")[1]["document"]["code"]
+        status, found = Client(self.base).call(f"/api/verify/{code}")
+        self.assertEqual((status, found["valid"], found["kind"]), (200, True, "Справка об обучении"))
+        self.assertEqual(found["holder"], "Марк Л.", "в публичной проверке фамилия скрыта")
+        self.assertNotIn("Луговой", json.dumps(found, ensure_ascii=False))
+        self.assertEqual(Client(self.base).call("/api/verify/d-wrong-code-123")[1], {"valid": False})
+        staff.call(f"/api/staff/requests/{request_id}", {"status": "Отклонена", "comment": "Отозвана"})
+        self.assertEqual(Client(self.base).call(f"/api/verify/{code}")[1], {"valid": False}, "отозванный документ не проходит проверку")
+
+    def test_student_card_verification_and_free_rooms(self):
+        data = self.client("alina").call("/api/dashboard")[1]
+        status, card = Client(self.base).call(f"/api/verify/{data['profile']['card_code']}")
+        self.assertEqual((status, card["type"], card["status"]), (200, "card", "Обучается"))
+        self.assertNotEqual(data["profile"]["card_code"], self.client("mark").call("/api/dashboard")[1]["profile"]["card_code"])
+        for day in data["schedule"]:
+            if day["date"] != data["today"]:
+                continue
+            for lesson in day["lessons"]:
+                if lesson["building"] and not lesson["change"]:
+                    self.assertIn(f"{lesson['building']}-{lesson['room']}", data["campus"]["busy"][str(lesson["pair"])])
+
+    def test_staff_marks_room_and_students_see_it(self):
+        staff = self.client("dekanat")
+        free_key = next(r["key"] for r in staff.call("/api/dashboard")[1]["campus"]["rooms"]
+                        if r["seats"] and r["key"] not in staff.call("/api/dashboard")[1]["campus"]["busy"]["3"])
+        building, room = free_key.split("-")
+        status, _ = staff.call("/api/staff/rooms", {"building": building, "room": room, "pair": 3, "state": "busy", "note": "Ремонт"})
+        self.assertEqual(status, 200)
+        seen = self.client("alina").call("/api/dashboard")[1]["campus"]["busy"]
+        self.assertEqual(seen["3"][free_key], {"by": "staff", "note": "Ремонт"})
+        self.assertNotEqual(seen["2"].get(free_key, {}).get("by"), "staff")
+        staff.call("/api/staff/rooms", {"building": building, "room": room, "pair": 0, "state": "busy", "note": "Конференция"})
+        self.assertEqual(self.client("mark").call("/api/dashboard")[1]["campus"]["busy"]["5"][free_key]["note"], "Конференция")
+        staff.call("/api/staff/rooms", {"building": building, "room": room, "pair": 0, "state": "auto"})
+        self.assertNotEqual(self.client("mark").call("/api/dashboard")[1]["campus"]["busy"]["3"].get(free_key, {}).get("by"), "staff")
+        self.assertEqual(self.client("alina").call("/api/staff/rooms", {"building": building, "room": room, "pair": 1, "state": "busy"})[0], 403)
+        self.assertEqual(staff.call("/api/staff/rooms", {"building": "Я", "room": "999", "pair": 1, "state": "busy"})[0], 400)
+
     def test_announcement_reaches_only_target_group(self):
         staff = self.client("dekanat")
         status, _ = staff.call("/api/staff/announcements", {

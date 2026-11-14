@@ -70,6 +70,11 @@ def initialize():
             CREATE TABLE IF NOT EXISTS announcements (
               id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT, title TEXT, body TEXT,
               audience TEXT, author TEXT, created TEXT);
+            CREATE TABLE IF NOT EXISTS documents (request_id TEXT PRIMARY KEY, code TEXT UNIQUE, issued TEXT);
+            CREATE TABLE IF NOT EXISTS cards (login TEXT PRIMARY KEY, code TEXT UNIQUE);
+            CREATE TABLE IF NOT EXISTS room_marks (
+              day TEXT, pair INTEGER, building TEXT, room TEXT, state TEXT, note TEXT, author TEXT, at TEXT,
+              PRIMARY KEY (day, pair, building, room));
             CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);
             CREATE INDEX IF NOT EXISTS requests_owner ON requests(login, created);
             CREATE INDEX IF NOT EXISTS events_request ON request_events(request_id, at);
@@ -86,12 +91,55 @@ def initialize():
                     created = (msk_today() - timedelta(days=1)).isoformat()
                     request_id = secrets.token_hex(8)
                     db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
-                        request_id, person[0], KINDS[0 if person[0] == "alina" else 1], "", "В работе", created))
+                        request_id, person[0], KINDS[1], "", "В работе", created))
                     db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (
                         request_id, "Принята", "", "Студент", created + "T10:12"))
                     db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (
-                        request_id, "В работе", "Готовим документ, обычно это занимает 1–2 рабочих дня.",
+                        request_id, "В работе", "Готовим документ, обычно это занимает 2–3 рабочих дня.",
                         STAFF[1], created + "T14:40"))
+                    if person[0] == "alina":
+                        earlier = (msk_today() - timedelta(days=4)).isoformat()
+                        ready = (msk_today() - timedelta(days=2)).isoformat()
+                        ready_id = secrets.token_hex(8)
+                        db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
+                            ready_id, "alina", KINDS[0], "Для оформления стажировки", "Готова", earlier))
+                        for status, comment, author, at in (
+                                ("Принята", "", "Студент", earlier + "T09:05"),
+                                ("В работе", "", STAFF[1], earlier + "T11:30"),
+                                ("Готова", "Оригинал можно получить в ауд. 112. Электронная версия доступна в кабинете.",
+                                 STAFF[1], ready + "T15:10")):
+                            db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (ready_id, status, comment, author, at))
+                        db.execute("INSERT INTO documents VALUES (?,?,?)", (ready_id, "d" + secrets.token_urlsafe(9), ready))
+        for row in db.execute("SELECT login FROM users WHERE role='student'").fetchall():
+            db.execute("INSERT OR IGNORE INTO cards VALUES (?,?)", (row["login"], "s" + secrets.token_urlsafe(9)))
+
+
+def room_marks(db, day):
+    return [(r["pair"], r["building"], r["room"], r["state"], r["note"]) for r in db.execute(
+        "SELECT pair,building,room,state,note FROM room_marks WHERE day=? ORDER BY pair ASC", (day.isoformat(),))]
+
+
+def mask_name(name):
+    parts = name.split()
+    return f"{parts[0]} {parts[1][0]}." if len(parts) > 1 else parts[0]
+
+
+def verify_code(db, code):
+    if not isinstance(code, str) or not 8 <= len(code) <= 24:
+        return None
+    doc = db.execute(
+        "SELECT documents.issued,requests.id,requests.kind,requests.status,users.name,users.group_name "
+        "FROM documents JOIN requests ON requests.id=documents.request_id JOIN users ON users.login=requests.login "
+        "WHERE documents.code=?", (code,)).fetchone()
+    if doc:
+        return {"type": "document", "valid": True, "kind": doc["kind"], "number": doc["id"][:6].upper(),
+                "issued": doc["issued"], "holder": mask_name(doc["name"]), "group": doc["group_name"]}
+    card = db.execute("SELECT users.* FROM cards JOIN users ON users.login=cards.login WHERE cards.code=?", (code,)).fetchone()
+    if card:
+        return {"type": "card", "valid": True, "holder": mask_name(card["name"]), "faculty": card["faculty"],
+                "program": card["program"], "group": card["group_name"], "year": card["year"],
+                "status": "Обучается", "valid_until": "2027-08-31"}
+    return None
 
 
 def now():
@@ -106,6 +154,8 @@ def request_rows(db, where, params):
     for row in rows:
         row["events"] = [dict(e) for e in db.execute(
             "SELECT status,comment,author,at FROM request_events WHERE request_id=? ORDER BY rowid", (row["id"],))]
+        document = db.execute("SELECT code,issued FROM documents WHERE request_id=?", (row["id"],)).fetchone()
+        row["document"] = dict(document) if document else None
     return rows
 
 
@@ -152,13 +202,16 @@ def student_data(user, db):
          "body": f"{deadline_course}: загрузить работу до {(today + timedelta(days=2)).strftime('%d.%m')}, 23:59.",
          "date": (today - timedelta(days=1)).isoformat(), "read": "deadline" in read},
     ]
-    requests = [{k: r[k] for k in ("id", "kind", "note", "status", "created", "events")}
+    requests = [{k: r[k] for k in ("id", "kind", "note", "status", "created", "events", "document")}
                 for r in request_rows(db, "requests.login=?", (login,))]
     profile = {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")}
     profile.update(campus_data.PROFILE_EXTRA.get(login, {}))
+    card = db.execute("SELECT code FROM cards WHERE login=?", (login,)).fetchone()
+    profile.update(card_code=card["code"] if card else None, card_valid_until="2027-08-31")
     return {"role": "student", "today": today.isoformat(), "profile": profile,
             "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
-            "notices": notices, "requests": requests, "campus": campus_data.directory(),
+            "notices": notices, "requests": requests, "campus": campus_data.directory(today, room_marks(db, today)),
+            "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
 
@@ -166,8 +219,13 @@ def staff_data(user, db):
     requests = request_rows(db, "1=1", ())
     requests.sort(key=lambda r: (r["status"] in CLOSED, r["created"]), reverse=False)
     groups = sorted({row["group_name"] for row in db.execute("SELECT group_name FROM users WHERE role='student'")})
-    return {"role": "staff", "profile": {k: user[k] for k in ("login", "name", "faculty", "program")},
-            "requests": requests, "statuses": STATUSES, "tags": TAGS, "groups": groups,
+    today = msk_today()
+    marks = [dict(r) for r in db.execute(
+        "SELECT pair,building,room,state,note,author,at FROM room_marks WHERE day=? ORDER BY at DESC", (today.isoformat(),))]
+    return {"role": "staff", "today": today.isoformat(), "profile": {k: user[k] for k in ("login", "name", "faculty", "program")},
+            "requests": requests, "statuses": STATUSES, "tags": TAGS, "groups": groups, "updated": now(),
+            "campus": campus_data.directory(today, room_marks(db, today)), "marks": marks,
+            "semester": campus_data.semester(today),
             "announcements": [dict(r) for r in db.execute(
                 "SELECT id,tag,title,body,audience,author,created FROM announcements ORDER BY id DESC")]}
 
@@ -303,6 +361,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, self.dashboard(user, db), cookie=self.cookie(raw, 28800))
             user = db.execute("""SELECT users.* FROM users JOIN sessions ON users.login=sessions.login
                 WHERE sessions.token=? AND sessions.expires>?""", (self.session(), int(time.time()))).fetchone()
+            if self.command == "GET" and path.startswith("/api/verify/"):
+                found = verify_code(db, path.rsplit("/", 1)[1])
+                return self.reply(200, found or {"valid": False})
             if self.command == "GET" and path == "/api/session":
                 return self.reply(200, self.dashboard(user, db) if user else {"anonymous": True})
             if not user:
@@ -324,7 +385,7 @@ class Handler(BaseHTTPRequestHandler):
                 items = request_rows(db, "requests.login=? AND requests.id=?", (user["login"], path.rsplit("/", 1)[1]))
                 if not items:
                     return self.reply(404, {"error": "Заявка не найдена."})
-                return self.reply(200, {k: items[0][k] for k in ("id", "kind", "note", "status", "created", "events")})
+                return self.reply(200, {k: items[0][k] for k in ("id", "kind", "note", "status", "created", "events", "document")})
             if self.command == "POST" and path == "/api/requests":
                 body = self.body()
                 kind, note = body.get("kind"), body.get("note", "")
@@ -382,8 +443,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(400, {"error": "Измените статус или добавьте комментарий."})
             request_id = path.rsplit("/", 1)[1]
             db.execute("UPDATE requests SET status=? WHERE id=?", (status, request_id))
+            kind = db.execute("SELECT kind FROM requests WHERE id=?", (request_id,)).fetchone()["kind"]
+            if status in ("Готова", "Выдана") and kind != KINDS[2]:
+                db.execute("INSERT OR IGNORE INTO documents VALUES (?,?,?)", (
+                    request_id, "d" + secrets.token_urlsafe(9), msk_today().isoformat()))
+            elif status == "Отклонена":
+                db.execute("DELETE FROM documents WHERE request_id=?", (request_id,))
             db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (
                 request_id, status, comment.strip(), user["name"], now()))
+            db.commit()
+            return self.reply(200, staff_data(user, db))
+        if self.command == "POST" and path == "/api/staff/rooms":
+            body = self.body()
+            building, room, pair, state, note = (body.get(k) for k in ("building", "room", "pair", "state", "note"))
+            note = note if isinstance(note, str) else ""
+            if ((building, room) not in campus_data.ALL_ROOMS or pair not in (0, *campus_data.BELLS)
+                    or state not in ("busy", "free", "auto") or len(note) > 120):
+                raise ValueError()
+            day = msk_today().isoformat()
+            targets = [pair] if pair else [0, *campus_data.BELLS]
+            for target in targets:
+                db.execute("DELETE FROM room_marks WHERE day=? AND pair=? AND building=? AND room=?", (day, target, building, room))
+            if state != "auto":
+                db.execute("INSERT INTO room_marks VALUES (?,?,?,?,?,?,?,?)", (
+                    day, pair, building, room, state, note.strip(), user["name"], now()))
             db.commit()
             return self.reply(200, staff_data(user, db))
         if self.command == "POST" and path == "/api/staff/announcements":
