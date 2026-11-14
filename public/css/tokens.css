@@ -1,0 +1,40 @@
+/* Дизайн-токены. Вся тема меняется в этом файле. Основа: Craft Docs style reference (тёплая бумага, засечки, пастель) */
+:root{
+  --canvas:#fff3e7;--ink:#030302;--white:#ffffff;--linen:#f7f7f7;--cloud:#efefef;--ash:#e1e1e1;--stone:#bebbba;--graphite:#41413f;
+  --mint:#9bd8a9;--marigold:#fde99b;--periwinkle:#b8caf5;--sky:#9ed4ef;--papaya:#ff4500;--azure:#0087ff;
+
+  --bg:var(--canvas);--surface:#ffffff;--surface-2:#fbf4ec;--surface-3:#f4e8da;
+  --text:var(--ink);--text-2:var(--graphite);--muted:#6b645c;
+  --line:#eadccd;--line-strong:#d3c2ae;--link:#0b57c2;
+  --btn-bg:var(--ink);--btn-text:#fff3e7;
+  --ok-bg:#cdeed6;--ok-text:#12391d;--warn-bg:var(--marigold);--warn-text:#4a3a00;
+  --info-bg:var(--periwinkle);--info-text:#1b2a5c;--bad-bg:#ffd8c9;--bad-text:#7a1c00;--neutral-bg:var(--cloud);--neutral-text:var(--graphite);
+  --mint-card:#e3f4e6;--marigold-card:#fff4c7;--periwinkle-card:#e7eefc;
+  --shadow-card:0 1px 2px rgba(60,40,10,.05),0 8px 20px -10px rgba(60,40,10,.12);
+  --shadow-pop:rgba(0,0,0,.01) 0 50px 40px 0,rgba(0,0,0,.02) 0 50px 40px 0,rgba(0,0,0,.05) 0 20px 40px 0,rgba(0,0,0,.08) 0 3px 10px 0;
+
+  --font-serif:"Lora",ui-serif,Georgia,Cambria,"Times New Roman",serif;
+  --font-sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+
+  --radius-card:16px;--radius-ctl:10px;--radius-pill:9999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-10:40px;--space-12:48px;
+  --page-max:1120px;--nav-h:64px;
+}
+:root[data-theme="dark"]{
+  --bg:#15110d;--surface:#211b15;--surface-2:#2a231b;--surface-3:#342b21;
+  --text:#fff3e7;--text-2:#e6d9ca;--muted:#b6a99a;--line:#3a3128;--line-strong:#554839;--link:#8fbfff;
+  --btn-bg:#fff3e7;--btn-text:#030302;
+  --mint-card:#22372a;--marigold-card:#3b3414;--periwinkle-card:#232b45;
+  --neutral-bg:#3a3228;--neutral-text:#e6d9ca;
+  --shadow-card:0 1px 2px rgba(0,0,0,.4);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]){
+    --bg:#15110d;--surface:#211b15;--surface-2:#2a231b;--surface-3:#342b21;
+    --text:#fff3e7;--text-2:#e6d9ca;--muted:#b6a99a;--line:#3a3128;--line-strong:#554839;--link:#8fbfff;
+    --btn-bg:#fff3e7;--btn-text:#030302;
+    --mint-card:#22372a;--marigold-card:#3b3414;--periwinkle-card:#232b45;
+    --neutral-bg:#3a3228;--neutral-text:#e6d9ca;
+    --shadow-card:0 1px 2px rgba(0,0,0,.4);
+  }
+}

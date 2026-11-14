@@ -19,6 +19,7 @@ TMP = tempfile.mkdtemp()
 os.environ["CAMPUS_DB"] = str(Path(TMP) / "test.sqlite3")
 os.environ.pop("CAMPUS_AI_KEY", None)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import campus_data  # noqa: E402
 import server  # noqa: E402
 
 server.Handler.log_message = lambda *args: None
@@ -79,12 +80,18 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(Client(self.base).login("alina", "wrong")[0], 401)
         self.assertEqual(Client(self.base).call("/api/dashboard")[0], 401)
 
+    def test_session_endpoint_is_quiet_for_anonymous(self):
+        status, body = Client(self.base).call("/api/session")
+        self.assertEqual((status, body), (200, {"anonymous": True}))
+        client = self.client("alina")
+        self.assertEqual(client.call("/api/session")[1]["profile"]["login"], "alina")
+
     def test_students_see_only_their_profile(self):
         _, alina = self.client("alina").call("/api/dashboard")
         _, mark = self.client("mark").call("/api/dashboard")
         self.assertEqual(alina["profile"]["login"], "alina")
         self.assertEqual(mark["profile"]["login"], "mark")
-        self.assertNotEqual(alina["week"][0]["lessons"], mark["week"][0]["lessons"])
+        self.assertNotEqual([d["lessons"] for d in alina["schedule"]], [d["lessons"] for d in mark["schedule"]])
         self.assertTrue({r["id"] for r in alina["requests"]}.isdisjoint({r["id"] for r in mark["requests"]}))
 
     def test_foreign_request_is_not_reachable_by_url(self):
@@ -137,13 +144,26 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(client.login("mark", "wrong")[0], 401)
         self.assertEqual(client.login("mark")[0], 429)
 
-    def test_demo_week_has_free_sunday(self):
-        week = self.client("alina").call("/api/dashboard")[1]["week"]
+    def test_schedule_is_realistic(self):
         from datetime import date
-        for day in week:
-            if date.fromisoformat(day["date"]).weekday() == 6:
-                self.assertEqual(day["lessons"], [])
-        self.assertEqual(sum(1 for d in week for l in d["lessons"] if l["change"]), 1)
+        for login in ("alina", "mark"):
+            data = self.client(login).call("/api/dashboard")[1]
+            self.assertEqual(len(data["schedule"]), 14)
+            self.assertEqual(date.fromisoformat(data["schedule"][0]["date"]).weekday(), 0, "неделя начинается с понедельника")
+            for day in data["schedule"]:
+                if date.fromisoformat(day["date"]).weekday() == 6:
+                    self.assertEqual(day["lessons"], [], "воскресенье свободно")
+                pairs = [(l["pair"]) for l in day["lessons"]]
+                self.assertEqual(len(pairs), len(set(pairs)), "две пары в один слот у одной группы")
+                for lesson in day["lessons"]:
+                    self.assertIn(lesson["start"], [b[0] for b in campus_data.BELLS.values()])
+                    self.assertTrue(lesson["place"])
+            self.assertGreaterEqual(sum(1 for d in data["schedule"] for l in d["lessons"] if l["change"]), 2)
+            self.assertLess(min(g["points"] for g in data["grades"]), 101)
+
+    def test_mark_has_a_risk_course(self):
+        grades = self.client("mark").call("/api/dashboard")[1]["grades"]
+        self.assertTrue(any(g["result"] == "Нет допуска" for g in grades))
 
     def test_cross_site_post_is_rejected(self):
         alina = self.client("alina")
@@ -158,10 +178,28 @@ class ApiTest(unittest.TestCase):
 
     def test_no_secrets_in_frontend(self):
         root = Path(server.ROOT) / "public"
-        for path in root.iterdir():
-            text = path.read_text(encoding="utf-8")
-            self.assertNotIn("CAMPUS_AI_KEY", text)
-            self.assertNotIn("Bearer", text)
+        for path in root.rglob("*"):
+            if path.suffix in (".js", ".html", ".css", ".svg"):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("CAMPUS_AI_KEY", text, path)
+                self.assertNotIn("Bearer", text, path)
+
+    def test_static_files_are_confined_to_public(self):
+        client = Client(self.base)
+        for path in ("/../server.py", "/%2e%2e/server.py", "/..%2fserver.py", "/fonts/", "/data/campus.sqlite3"):
+            request = urllib.request.Request(self.base + path)
+            try:
+                response = urllib.request.urlopen(request)
+                body = response.read()
+                self.assertNotIn(b"import hashlib", body, path)
+            except urllib.error.HTTPError as error:
+                self.assertIn(error.code, (400, 404), path)
+
+    def test_mark_all_notices_read(self):
+        alina = self.client("alina")
+        self.assertEqual(alina.call("/api/notice", {"id": "all"})[0], 200)
+        notices = alina.call("/api/dashboard")[1]["notices"]
+        self.assertTrue(all(n["read"] for n in notices))
 
 
 if __name__ == "__main__":

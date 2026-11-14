@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
     CAMPUS_DB=/data/campus.sqlite3
 
 WORKDIR /app
-COPY server.py /app/server.py
+COPY server.py campus_data.py /app/
 COPY public/ /app/public/
 
 RUN mkdir -p /data && chown 10001:10001 /data

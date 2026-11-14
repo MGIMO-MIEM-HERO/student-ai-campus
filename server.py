@@ -8,15 +8,26 @@ import sqlite3
 import threading
 import time
 from contextlib import closing
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+
+import campus_data
 
 ROOT = Path(__file__).resolve().parent
+PUBLIC = (ROOT / "public").resolve()
+MSK = timezone(timedelta(hours=3))
+STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".woff2": "font/woff2",
+                ".webmanifest": "application/manifest+json", ".png": "image/png", ".txt": "text/plain; charset=utf-8"}
+
+
+def msk_today():
+    return datetime.now(MSK).date()
 DB = Path(os.environ.get("CAMPUS_DB", ROOT / "data" / "campus.sqlite3"))
 PASSWORD = os.environ.get("CAMPUS_DEMO_PASSWORD", "Campus-demo-2026")
 KINDS = ("Справка об обучении", "Выписка об успеваемости", "Обращение в деканат")
@@ -25,26 +36,11 @@ CLOSED = ("Выдана", "Отклонена")
 TAGS = ("Деканат", "Расписание", "Дедлайн", "Мероприятие")
 STAFF = ("dekanat", "Вера Деканова", "Деканат", "Учебный офис", "—", 0)
 LOGIN_LIMIT, LOGIN_WINDOW = 10, 300
-WEEKDAY_PLAN = {0: (0, 1, 2), 1: (1, 3), 2: (0, 2, 3), 3: (1, 2), 4: (0, 3), 5: (2,), 6: ()}
 FAILED_LOGINS, FAILED_LOCK = {}, threading.Lock()
 STUDENTS = [
     ("alina", "Алина Северова", "Факультет цифровых технологий", "Прикладная информатика", "ПИ-241", 2),
     ("mark", "Марк Луговой", "Факультет международных исследований", "Международные отношения", "МО-251", 1),
 ]
-COURSES = {
-    "alina": [
-        ("Математический анализ", "Лекция", "Ауд. 304", "И. Ветрова", "09:30", "10:50", ""),
-        ("Базы данных", "Практика", "Ауд. 512", "М. Гранов", "11:10", "12:30", "Новая аудитория"),
-        ("Английский язык", "Семинар", "Ауд. 208", "Н. Лескова", "13:20", "14:40", ""),
-        ("Проектирование интерфейсов", "Практика", "Ауд. 414", "Д. Белова", "15:00", "16:20", ""),
-    ],
-    "mark": [
-        ("История дипломатии", "Лекция", "Ауд. 206", "Е. Вольная", "10:00", "11:20", ""),
-        ("Мировая экономика", "Семинар", "Ауд. 318", "П. Речин", "11:40", "13:00", "Новая аудитория"),
-        ("Испанский язык", "Практика", "Ауд. 105", "А. Зарева", "14:00", "15:20", ""),
-        ("Политическая география", "Лекция", "Ауд. 402", "О. Морская", "15:40", "17:00", ""),
-    ],
-}
 
 
 def connect():
@@ -87,7 +83,7 @@ def initialize():
                 db.execute("INSERT INTO users (login,name,faculty,program,group_name,year,salt,password_hash,role) "
                            "VALUES (?,?,?,?,?,?,?,?,?)", (*person, salt, digest(PASSWORD, salt), role))
                 if role == "student":
-                    created = (date.today() - timedelta(days=1)).isoformat()
+                    created = (msk_today() - timedelta(days=1)).isoformat()
                     request_id = secrets.token_hex(8)
                     db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
                         request_id, person[0], KINDS[0 if person[0] == "alina" else 1], "", "В работе", created))
@@ -99,7 +95,7 @@ def initialize():
 
 
 def now():
-    return time.strftime("%Y-%m-%dT%H:%M", time.localtime())
+    return datetime.now(MSK).strftime("%Y-%m-%dT%H:%M")
 
 
 def request_rows(db, where, params):
@@ -119,46 +115,50 @@ def announcements_for(db, group):
         "WHERE audience='all' OR audience=? ORDER BY id DESC", (group,))]
 
 
-def student_data(user, db):
-    today = date.today()
-    courses = COURSES[user["login"]]
-    week, changed = [], None
-    for offset in range(7):
-        current = today + timedelta(days=offset)
-        lessons = []
-        for index in WEEKDAY_PLAN[current.weekday()]:
-            lesson = dict(zip(("title", "type", "room", "teacher", "start", "end", "change"), courses[index]))
-            if lesson["change"] and changed is None:
-                changed = {"date": current, **lesson}
+def schedule_notices(schedule, read):
+    notices = []
+    for day in schedule:
+        for lesson in day["lessons"]:
+            change = lesson["change"]
+            if not change:
+                continue
+            notice_id = f"chg-{lesson['id']}"
+            when = f"{day['date'][8:10]}.{day['date'][5:7]}, {day['weekday']}"
+            if change["kind"] == "cancel":
+                body = f"{lesson['title']}, {when}, {change['was']}. {change['reason']}."
             else:
-                lesson["change"] = ""
-            lessons.append(lesson)
-        week.append({"date": current.isoformat(), "lessons": lessons})
-    points = [92, 84, 100, 76] if user["login"] == "alina" else [86, 79, 93, 81]
-    assessments = ("Экзамен", "Зачёт", "Зачёт", "Экзамен")
-    grades = [
-        {"title": lesson[0], "points": points[i], "assessment": assessments[i],
-         "result": ("Зачёт автоматом" if points[i] >= 85 else "Допуск к зачёту") if assessments[i] == "Зачёт"
-         else ("Допуск получен" if points[i] >= 60 else "Нет допуска"),
-         "date": (today + timedelta(days=30 + i * 4)).isoformat()}
-        for i, lesson in enumerate(courses)]
-    read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (user["login"],))}
+                body = f"{lesson['title']}, {when}. Было: {change['was']}. Стало: {change['now']}. {change['reason']}."
+            notices.append({"id": notice_id, "tag": "Расписание", "title": f"{change['label']} · {lesson['title']}",
+                            "body": body, "date": change["at"][:10], "read": notice_id in read})
+    return notices
+
+
+def student_data(user, db):
+    today = msk_today()
+    login = user["login"]
+    schedule = campus_data.build_schedule(login, today)
+    grades = campus_data.build_session(login)
+    read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (login,))}
     published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
                   "date": a["created"][:10], "read": f"a{a['id']}" in read}
                  for a in announcements_for(db, user["group_name"])]
-    notices = published + [
-        {"id": "move", "tag": "Расписание", "title": f"{courses[1][0]} · новая аудитория",
-         "body": (f"{'Сегодня' if changed and changed['date'] == today else changed['date'].strftime('%d.%m') if changed else 'На неделе'} "
-                  f"занятие пройдёт в аудитории {courses[1][2].split()[-1]}. Время осталось прежним."), "read": "move" in read},
-        {"id": "exam", "tag": "Деканат", "title": "Опубликованы даты сессии",
-         "body": "Даты экзаменов и зачётов появились в разделе «Успеваемость».", "read": "exam" in read},
-        {"id": "deadline", "tag": "Дедлайн", "title": "Сдача работы по дисциплине",
-         "body": f"{courses[0][0]} · до {(today + timedelta(days=2)).strftime('%d.%m')}, 23:59.", "read": "deadline" in read},
+    first_course = grades[0]["title"] if grades else "дисциплине"
+    deadline_course = next((g["title"] for g in grades if g["assessment"] != "Экзамен"), first_course)
+    notices = published + schedule_notices(schedule, read) + [
+        {"id": "exam", "tag": "Деканат", "title": "Опубликовано расписание сессии",
+         "body": "Экзаменационная сессия начинается 21 декабря. Даты, время и аудитории — в разделе «Учёба».",
+         "date": (today - timedelta(days=3)).isoformat(), "read": "exam" in read},
+        {"id": "deadline", "tag": "Дедлайн", "title": "Срок сдачи работы по дисциплине",
+         "body": f"{deadline_course}: загрузить работу до {(today + timedelta(days=2)).strftime('%d.%m')}, 23:59.",
+         "date": (today - timedelta(days=1)).isoformat(), "read": "deadline" in read},
     ]
     requests = [{k: r[k] for k in ("id", "kind", "note", "status", "created", "events")}
-                for r in request_rows(db, "requests.login=?", (user["login"],))]
-    return {"role": "student", "profile": {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")},
-            "week": week, "grades": grades, "notices": notices, "requests": requests,
+                for r in request_rows(db, "requests.login=?", (login,))]
+    profile = {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")}
+    profile.update(campus_data.PROFILE_EXTRA.get(login, {}))
+    return {"role": "student", "today": today.isoformat(), "profile": profile,
+            "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
+            "notices": notices, "requests": requests, "campus": campus_data.directory(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
 
@@ -186,7 +186,7 @@ def record_failed_login(key):
 
 def assistant_answer(question, data):
     if data["ai_live"]:
-        context = {k: data[k] for k in ("week", "grades", "notices")}
+        context = {k: data[k] for k in ("schedule", "grades", "notices", "semester")}
         instructions = (
             "Ты помощник студенческого кабинета. Отвечай по-русски и кратко. "
             "Учебные факты бери только из переданного JSON. Если сведений нет, скажи об этом. "
@@ -207,33 +207,48 @@ def assistant_answer(question, data):
             raise ValueError("Empty model reply")
         return answer.strip()
     q = question.lower()
+    today_iso = data["today"]
+    days = {d["date"]: d for d in data["schedule"]}
+
+    def describe(day):
+        if not day or not day["lessons"]:
+            return "Занятий нет."
+        rows = []
+        for l in day["lessons"]:
+            mark = " (отменено)" if l["cancelled"] else ""
+            note = f" · {l['change']['label'].lower()}: {l['change']['now']}" if l["change"] and not l["cancelled"] else ""
+            rows.append(f"• {l['pair']} пара, {l['start']}–{l['end']}: {l['title']}, {l['type'].lower()}, {l['place']}{mark}{note}.")
+        return "\n".join(rows)
+
     if any(x in q for x in ("справк", "заявк", "деканат")):
-        return "Открой «Заявки и справки», выбери тип документа и отправь заявку. Её статус появится в истории."
-    if any(x in q for x in ("сесси", "экзамен", "оцен", "балл", "зачёт")):
-        return "По твоим дисциплинам:\n" + "\n".join(
-            f"• {g['title']}: {g['points']} из 100, {g['assessment'].lower()} {g['date'][8:10]}.{g['date'][5:7]}."
-            for g in data["grades"])
-    if any(x in q for x in ("дедлайн", "срок", "измен", "перенос", "новост")):
-        return "\n".join(f"• {n['title']}. {n['body']}" for n in data["notices"] if n["id"] in ("move", "deadline"))
-    if any(x in q for x in ("пар", "занят", "распис", "сегодня", "завтра")):
-        day = data["week"][1 if "завтра" in q else 0]
-        return "Занятия:\n" + "\n".join(f"• {l['start']} · {l['title']}, {l['room']}." for l in day["lessons"])
-    return "Могу подсказать, какие пары сегодня или завтра, где найти оценки и как заказать справку. Для свободного диалога администратор демо может подключить модель."
+        return "Откройте раздел «Заявки», выберите тип документа и отправьте заявку. Статус и комментарии деканата будут в истории заявки."
+    if any(x in q for x in ("сесси", "экзамен", "оцен", "балл", "зачёт", "зачет")):
+        return "Контроль по дисциплинам:\n" + "\n".join(
+            f"• {g['title']}: {g['assessment'].lower()} {g['date'][8:10]}.{g['date'][5:7]} в {g['start']}, {g['place']}; баллов {g['points']} из 100." for g in data["grades"])
+    if any(x in q for x in ("дедлайн", "срок", "измен", "перенос", "новост", "отмен")):
+        changes = [n for n in data["notices"] if n["tag"] in ("Расписание", "Дедлайн")]
+        return "\n".join(f"• {n['title']}. {n['body']}" for n in changes) or "Изменений нет."
+    if "завтра" in q:
+        tomorrow = (datetime.fromisoformat(today_iso) + timedelta(days=1)).date().isoformat()
+        return "Завтра:\n" + describe(days.get(tomorrow))
+    if any(x in q for x in ("пар", "занят", "распис", "сегодня")):
+        return "Сегодня:\n" + describe(days.get(today_iso))
+    return "Могу подсказать расписание на сегодня и завтра, изменения, даты контроля и порядок заказа справки."
 
 
 class Handler(BaseHTTPRequestHandler):
-    def reply(self, code, body, content_type="application/json; charset=utf-8", cookie=None):
+    def reply(self, code, body, content_type="application/json; charset=utf-8", cookie=None, cache="no-store"):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
@@ -288,6 +303,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, self.dashboard(user, db), cookie=self.cookie(raw, 28800))
             user = db.execute("""SELECT users.* FROM users JOIN sessions ON users.login=sessions.login
                 WHERE sessions.token=? AND sessions.expires>?""", (self.session(), int(time.time()))).fetchone()
+            if self.command == "GET" and path == "/api/session":
+                return self.reply(200, self.dashboard(user, db) if user else {"anonymous": True})
             if not user:
                 return self.reply(401, {"error": "Войдите в кабинет."})
             if self.command == "GET" and path == "/api/dashboard":
@@ -315,15 +332,21 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError()
                 request_id = secrets.token_hex(8)
                 db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
-                    request_id, user["login"], kind, note.strip(), "Принята", date.today().isoformat()))
+                    request_id, user["login"], kind, note.strip(), "Принята", msk_today().isoformat()))
                 db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (request_id, "Принята", "", "Студент", now()))
                 db.commit()
                 return self.reply(201, student_data(user, db))
             if self.command == "POST" and path == "/api/notice":
                 notice = self.body().get("id")
-                if not isinstance(notice, str) or notice not in {n["id"] for n in student_data(user, db)["notices"]}:
+                known = {n["id"] for n in student_data(user, db)["notices"]}
+                if notice == "all":
+                    targets = known
+                elif isinstance(notice, str) and notice in known:
+                    targets = {notice}
+                else:
                     raise ValueError()
-                db.execute("INSERT OR IGNORE INTO notice_reads VALUES (?,?)", (user["login"], notice))
+                for target in targets:
+                    db.execute("INSERT OR IGNORE INTO notice_reads VALUES (?,?)", (user["login"], target))
                 db.commit()
                 return self.reply(200, student_data(user, db))
             if self.command == "POST" and path == "/api/assistant":
@@ -385,12 +408,12 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(403, {"error": "Запрос отклонён. Обновите страницу и попробуйте снова."})
             if self.path.startswith("/api/"):
                 return self.api()
-            assets = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"),
-                      "/style.css": ("style.css", "text/css"), "/print.svg": ("print.svg", "image/svg+xml"),
-                      "/mark.svg": ("mark.svg", "image/svg+xml")}
-            if self.command == "GET" and self.path.split("?", 1)[0] in assets:
-                name, mime = assets[self.path.split("?", 1)[0]]
-                return self.reply(200, (ROOT / "public" / name).read_bytes(), mime + "; charset=utf-8")
+            if self.command == "GET":
+                url_path = unquote(self.path.split("?", 1)[0])
+                target = (PUBLIC / ("index.html" if url_path == "/" else url_path.lstrip("/"))).resolve()
+                if PUBLIC in target.parents and target.is_file() and target.suffix in STATIC_TYPES:
+                    cache = "public, max-age=31536000, immutable" if target.suffix == ".woff2" else "no-cache"
+                    return self.reply(200, target.read_bytes(), STATIC_TYPES[target.suffix], cache=cache)
             self.reply(404, {"error": "Страница не найдена."})
         except (ValueError, TypeError, UnicodeDecodeError):
             self.reply(400, {"error": "Проверьте введённые данные."})
