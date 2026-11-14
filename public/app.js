@@ -10,9 +10,25 @@ const paths = {
   assistant: ['Помощник', 'M4 4h16v12h-8l-5 4v-4H4z M8 10h8'],
   profile: ['Профиль', 'M8 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2'],
 };
+const staffPaths = {
+  queue: ['Заявки студентов', 'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h8'],
+  announce: ['Объявления', 'M4 10v4h3l6 5V5L7 10z M17 9a4 4 0 0 1 0 6'],
+  profile: ['Профиль', 'M8 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2'],
+};
+const statusTone = {'Принята':'blue','В работе':'orange','Готова':'green','Выдана':'green','Отклонена':'red'};
+const statusHint = {'Принята':'Деканат получил заявку','В работе':'Документ готовят','Готова':'Можно забрать в деканате','Выдана':'Документ выдан','Отклонена':'Посмотри комментарий деканата'};
+let queueFilter = 'active';
 const kinds = ['Справка об обучении', 'Выписка об успеваемости', 'Обращение в деканат'];
 const questions = ['Какие пары сегодня?', 'Что с дедлайнами?', 'Когда сессия?', 'Как заказать справку?'];
-const icon = (key) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="${paths[key][1]}"/></svg>`;
+const nav = () => data?.role === 'staff' ? staffPaths : paths;
+const icon = (key) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="${nav()[key][1]}"/></svg>`;
+const statusTag = (status) => `<span class="tag ${statusTone[status] || 'blue'}">${escape(status)}</span>`;
+const stamp = (value) => value.length > 10 ? `${shortDate(value.slice(0,10))}, ${value.slice(11,16)}` : shortDate(value);
+function timeline(events) {
+  if (!events?.length) return '';
+  return `<details class="timeline"><summary>История заявки · ${events.length}</summary><ol>${events.map(e => `<li class="${statusTone[e.status] || 'blue'}-line">
+    <p class="mono muted">${stamp(e.at)} · ${escape(e.author)}</p><strong>${escape(e.status)}</strong>${e.comment ? `<p>${escape(e.comment)}</p>` : ''}</li>`).join('')}</ol></details>`;
+}
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const formatDate = (value, opts) => new Intl.DateTimeFormat('ru-RU', {...opts, timeZone:'UTC'}).format(new Date(value + 'T12:00:00Z'));
 const shortDate = (v) => formatDate(v, {day:'numeric',month:'short'});
@@ -79,7 +95,8 @@ function flash(message) {
 }
 function page() {
   const key = location.hash.slice(1);
-  return Object.hasOwn(paths, key) ? key : 'home';
+  const map = nav();
+  return Object.hasOwn(map, key) ? key : Object.keys(map)[0];
 }
 function heading(index, title, description) {
   return `<div class="page-heading"><p class="eyebrow">ЗАЧЁТ / ${index}</p><h1>${title}</h1><p class="lede">${description}</p></div>`;
@@ -97,7 +114,7 @@ function lessonRows(lessons) {
 }
 function noticeRows(notices, condensed=false) {
   return `<ul class="rows notices">${notices.map((n,i) => `<li>
-    <div class="notice-meta"><span class="tag ${['orange','blue','green'][i%3]}">${escape(n.tag)}</span>${n.read ? '' : '<span class="dot" aria-label="Новое"></span>'}</div>
+    <div class="notice-meta"><span class="tag ${['orange','blue','green'][i%3]}">${escape(n.tag)}</span>${n.date ? `<span class="mono muted">${shortDate(n.date)}</span>` : ''}${n.read ? '' : '<span class="dot" aria-label="Новое"></span>'}</div>
     <h3>${escape(n.title)}</h3><p>${escape(n.body)}</p>
     ${!condensed && !n.read ? `<button class="text-link" data-read="${escape(n.id)}">Отметить прочитанным</button>` : ''}
   </li>`).join('')}</ul>`;
@@ -145,7 +162,7 @@ function requests() {
     <label for="note">Комментарий <span class="muted">(необязательно)</span></label><textarea name="note" id="note" maxlength="1000" rows="3" placeholder="Например, нужна справка для стажировки"></textarea>
     <button class="button primary">Отправить заявку <span aria-hidden="true">↗</span></button><p class="form-error" role="alert"></p>
   </form></section>
-  <section class="content-card">${section('История')}${data.requests.length ? `<ul class="rows history">${data.requests.map(r=>`<li><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)}</p><h3>${escape(r.kind)}</h3>${r.note ? `<p>${escape(r.note)}</p>` : ''}<span class="tag blue">${escape(r.status)}</span></li>`).join('')}</ul>` : '<p class="empty">Заявок пока нет. После отправки они появятся здесь.</p>'}</section></div>`;
+  <section class="content-card">${section('История')}${data.requests.length ? `<ul class="rows history">${data.requests.map(r=>{ const last = r.events?.[r.events.length-1]; return `<li><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)}</p><h3>${escape(r.kind)}</h3>${r.note ? `<p>${escape(r.note)}</p>` : ''}<div class="status-line">${statusTag(r.status)}<span class="muted">${statusHint[r.status] || ''}</span></div>${last?.comment ? `<p class="staff-note">«${escape(last.comment)}»</p>` : ''}${timeline(r.events)}</li>`; }).join('')}</ul>` : '<p class="empty">Заявок пока нет. После отправки они появятся здесь.</p>'}</section></div>`;
 }
 function assistant() {
   return heading('06','Помощник','Спроси о парах, сроках, сессии или справках.') + `
@@ -161,6 +178,40 @@ function profile() {
     <dl>${[['Факультет',p.faculty],['Направление',p.program],['Курс',p.year],['Группа',p.group_name]].map(([k,v])=>`<div><dt class="mono muted">${k}</dt><dd>${escape(v)}</dd></div>`).join('')}</dl>
     <button class="button secondary" data-logout>Выйти из кабинета</button></div>`;
 }
+function queue() {
+  const active = data.requests.filter(r => !['Выдана','Отклонена'].includes(r.status));
+  const list = queueFilter === 'active' ? active : data.requests;
+  const counts = Object.fromEntries(data.statuses.map(s => [s, data.requests.filter(r => r.status === s).length]));
+  return heading('01','Заявки студентов','Очередь справок и обращений. Каждое изменение статуса сразу видит студент.') + `
+  <div class="quick">${[['Новые',counts['Принята']],['В работе',counts['В работе']],['Готовы к выдаче',counts['Готова']]].map(([label,value],i)=>`<div class="quick-item tone-${i}"><span class="mono">${label}</span><strong>${value}</strong></div>`).join('')}</div>
+  <div class="suggestions filter" role="group" aria-label="Фильтр заявок">${[['active',`Активные · ${active.length}`],['all',`Все · ${data.requests.length}`]].map(([id,label])=>`<button class="chip" data-filter="${id}" aria-pressed="${queueFilter===id}">${label}</button>`).join('')}</div>
+  ${list.length ? `<ul class="rows queue">${list.map(r=>`<li>
+    <div class="queue-head"><div><p class="mono muted">№ ${escape(r.id.slice(0,6))} · ${shortDate(r.created)} · ${escape(r.group_name)}</p><h3>${escape(r.kind)}</h3><p>${escape(r.student)}</p></div>${statusTag(r.status)}</div>
+    ${r.note ? `<p class="student-note">${escape(r.note)}</p>` : ''}
+    <form class="status-form" data-request="${escape(r.id)}"><label for="st-${escape(r.id)}">Новый статус</label>
+    <select id="st-${escape(r.id)}" name="status">${data.statuses.map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select>
+    <label for="cm-${escape(r.id)}">Комментарий для студента <span class="muted">(необязательно)</span></label>
+    <input id="cm-${escape(r.id)}" name="comment" maxlength="600" placeholder="Например, забрать в кабинете 101 с 10 до 17">
+    <button class="button primary">Сохранить <span aria-hidden="true">↗</span></button><p class="form-error" role="alert"></p></form>
+    ${timeline(r.events)}</li>`).join('')}</ul>` : '<p class="empty">Активных заявок нет. Новые появятся здесь сразу после отправки студентом.</p>'}`;
+}
+function announce() {
+  return heading('02','Объявления','Новости и напоминания для всех студентов или одной группы.') + `
+  <div class="columns forms"><section class="content-card">${section('Новое объявление')}<form id="announce-form">
+    <label for="a-tag">Тип</label><select id="a-tag" name="tag">${data.tags.map(t=>`<option>${escape(t)}</option>`).join('')}</select>
+    <label for="a-audience">Кому</label><select id="a-audience" name="audience"><option value="all">Всем студентам</option>${data.groups.map(g=>`<option value="${escape(g)}">Группе ${escape(g)}</option>`).join('')}</select>
+    <label for="a-title">Заголовок</label><input id="a-title" name="title" required minlength="3" maxlength="120">
+    <label for="a-body">Текст</label><textarea id="a-body" name="body" required minlength="3" maxlength="1000" rows="4"></textarea>
+    <button class="button primary">Опубликовать <span aria-hidden="true">↗</span></button><p class="form-error" role="alert"></p></form></section>
+  <section class="content-card">${section('Опубликовано')}${data.announcements.length ? `<ul class="rows notices">${data.announcements.map(a=>`<li><div class="notice-meta"><span class="tag blue">${escape(a.tag)}</span><span class="mono muted">${stamp(a.created)} · ${a.audience==='all'?'всем':escape(a.audience)}</span></div><h3>${escape(a.title)}</h3><p>${escape(a.body)}</p></li>`).join('')}</ul>` : '<p class="empty">Объявлений пока нет. Опубликованное сразу появится у студентов в «Уведомлениях».</p>'}</section></div>`;
+}
+function staffProfile() {
+  const p = data.profile;
+  return heading('03','Профиль','Учётная запись сотрудника деканата.') + `<div class="profile-card">
+    <span class="avatar large" aria-hidden="true">${escape(p.name[0])}</span><h2>${escape(p.name)}</h2>
+    <dl>${[['Подразделение',p.faculty],['Роль',p.program],['Доступ','Заявки всех студентов, публикация объявлений']].map(([k,v])=>`<div><dt class="mono muted">${k}</dt><dd>${escape(v)}</dd></div>`).join('')}</dl>
+    <button class="button secondary" data-logout>Выйти из кабинета</button></div>`;
+}
 function signIn(error='') {
   app.innerHTML = `<header class="mast"><div class="frame mast-inner"><a class="brand" href="/">${brand}</a><span class="mono muted">КОНКУРСНЫЙ ПРОТОТИП</span></div></header>
   <main id="main" class="frame login"><section class="login-intro"><p class="eyebrow">ПРОСТРАНСТВО ДЛЯ УЧЁБЫ</p><h1>Учёба —<br>на <em>отлично.</em></h1><p class="lede">Расписание, оценки и деканат в одном личном кабинете.</p><img src="/print.svg" alt="Иллюстрация учебного блокнота"></section>
@@ -168,23 +219,25 @@ function signIn(error='') {
     <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username">
     <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
     <button class="button primary">Войти <span aria-hidden="true">↗</span></button><p class="form-error" role="alert">${escape(error)}</p></form>
-    <p class="mono demo-label">ДЕМО-АККАУНТЫ</p><div class="suggestions"><button class="chip" data-demo="alina">Войти как Алина ↗</button><button class="chip" data-demo="mark">Войти как Марк ↗</button></div>
+    <p class="mono demo-label">ДЕМО-АККАУНТЫ</p><div class="suggestions"><button class="chip" data-demo="alina">Войти как Алина ↗</button><button class="chip" data-demo="mark">Войти как Марк ↗</button><button class="chip" data-demo="dekanat">Войти как деканат ↗</button></div>
     <p class="muted">Вымышленные учебные данные. Концепт для конкурса.</p></section></main>`;
   app.setAttribute('aria-busy','false');
 }
 function render() {
   if (!data) return signIn();
   const key = page();
-  const content = {home,schedule,grades,requests,assistant,profile,
+  const staff = data.role === 'staff';
+  const content = staff ? {queue, announce, profile: staffProfile} : {home,schedule,grades,requests,assistant,profile,
     notices:()=>heading('05','Уведомления','Объявления деканата, дедлайны и изменения расписания.') + noticeRows(data.notices)};
-  const unread = data.notices.filter(n=>!n.read).length;
+  const unread = staff ? 0 : data.notices.filter(n=>!n.read).length;
+  const active = staff ? data.requests.filter(r => !['Выдана','Отклонена'].includes(r.status)).length : 0;
   app.innerHTML = `<header class="mast"><div class="frame mast-inner">
-  <a href="#home" class="brand" aria-label="Зачёт, обзор">${brand}</a>
-  <span class="mast-date mono">${formatDate(data.week[0].date,{weekday:'long',day:'numeric',month:'long'})}</span>
+  <a href="#${Object.keys(nav())[0]}" class="brand" aria-label="Зачёт, главная">${brand}</a>
+  <span class="mast-date mono">${staff ? 'КАБИНЕТ ДЕКАНАТА' : formatDate(data.week[0].date,{weekday:'long',day:'numeric',month:'long'})}</span>
   <a class="mast-profile" href="#profile"><span class="avatar" aria-hidden="true">${escape(data.profile.name[0])}</span><span>${escape(data.profile.name)}</span></a>
   </div></header>
   <div class="frame layout"><aside class="sidebar"><p class="eyebrow">РАЗДЕЛЫ</p><nav aria-label="Разделы кабинета">
-    ${Object.entries(paths).map(([id,[label]],i)=>`<a href="#${id}" ${id===key?'aria-current="page"':''}>${icon(id)}<span>${label}</span>${id==='notices'&&unread?`<small>${unread}</small>`:`<small>0${i+1}</small>`}</a>`).join('')}
+    ${Object.entries(nav()).map(([id,[label]],i)=>`<a href="#${id}" ${id===key?'aria-current="page"':''}>${icon(id)}<span>${label}</span>${id==='notices'&&unread?`<small>${unread}</small>`:id==='queue'&&active?`<small>${active}</small>`:`<small>0${i+1}</small>`}</a>`).join('')}
   </nav><div class="sidebar-end mono">ЗАЧЁТ<br>КОНЦЕПТ ДЛЯ КОНКУРСА</div></aside>
   <main id="main" tabindex="-1">${content[key]()}<footer class="mono">ЗАЧЁТ · КОНКУРСНЫЙ ПРОТОТИП · ВЫМЫШЛЕННЫЕ ДАННЫЕ</footer></main></div>`;
   app.setAttribute('aria-busy','false');
@@ -192,7 +245,7 @@ function render() {
 async function login(login,password) {
   const controls = [...app.querySelectorAll('button')];
   controls.forEach(b=>b.disabled=true);
-  try { data = await api('login',{login,password}); sessionVersion++; day=0; messages=[]; busy=false; location.hash='home'; render(); }
+  try { data = await api('login',{login,password}); sessionVersion++; day=0; messages=[]; busy=false; queueFilter='active'; location.hash=Object.keys(nav())[0]; render(); }
   catch(e) { app.querySelector('.form-error').textContent = e.message || 'Не удалось войти.'; }
   finally { controls.forEach(b=>b.disabled=false); }
 }
@@ -209,6 +262,15 @@ app.addEventListener('submit', async (event) => {
   const form=event.target, fields=Object.fromEntries(new FormData(form));
   if(form.id==='login-form') return login(fields.login,fields.password);
   if(form.id==='assistant-form') return ask(fields.question);
+  if(form.id==='announce-form' || form.classList.contains('status-form')) {
+    const button=form.querySelector('button'); button.disabled=true;
+    const version = sessionVersion;
+    try {
+      const updated = form.id==='announce-form' ? await api('staff/announcements',fields) : await api(`staff/requests/${form.dataset.request}`,fields);
+      if(version===sessionVersion) { data=updated; render(); flash(form.id==='announce-form' ? 'Объявление опубликовано. Студенты увидят его в уведомлениях.' : 'Статус обновлён. Студент увидит его в истории заявки.'); }
+    } catch(e) { form.querySelector('.form-error').textContent=e.message; button.disabled=false; }
+    return;
+  }
   if(form.id==='request-form') {
     const button=form.querySelector('button'); button.disabled=true;
     const version = sessionVersion;
@@ -221,6 +283,7 @@ app.addEventListener('click', async (event) => {
   const button=event.target.closest('button');
   if(!button) return;
   if(button.dataset.demo) return login(button.dataset.demo,'Campus-demo-2026');
+  if(button.dataset.filter) { queueFilter=button.dataset.filter; render(); return app.querySelector(`[data-filter="${queueFilter}"]`)?.focus(); }
   if(button.dataset.day !== undefined) { day=Number(button.dataset.day); render(); app.querySelector(`[data-day="${day}"]`)?.focus(); }
   if(button.dataset.question !== undefined) return ask(questions[button.dataset.question]);
   if(button.dataset.calendar) return downloadCalendar(button.dataset.calendar);

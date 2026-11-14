@@ -5,6 +5,7 @@ import json
 import os
 import secrets
 import sqlite3
+import threading
 import time
 from contextlib import closing
 from datetime import date, timedelta
@@ -19,6 +20,12 @@ ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get("CAMPUS_DB", ROOT / "data" / "campus.sqlite3"))
 PASSWORD = os.environ.get("CAMPUS_DEMO_PASSWORD", "Campus-demo-2026")
 KINDS = ("Справка об обучении", "Выписка об успеваемости", "Обращение в деканат")
+STATUSES = ("Принята", "В работе", "Готова", "Выдана", "Отклонена")
+CLOSED = ("Выдана", "Отклонена")
+TAGS = ("Деканат", "Расписание", "Дедлайн", "Мероприятие")
+STAFF = ("dekanat", "Вера Деканова", "Деканат", "Учебный офис", "—", 0)
+LOGIN_LIMIT, LOGIN_WINDOW = 5, 900
+FAILED_LOGINS, FAILED_LOCK = {}, threading.Lock()
 STUDENTS = [
     ("alina", "Алина Северова", "Факультет цифровых технологий", "Прикладная информатика", "ПИ-241", 2),
     ("mark", "Марк Луговой", "Факультет международных исследований", "Международные отношения", "МО-251", 1),
@@ -61,16 +68,54 @@ def initialize():
               id TEXT PRIMARY KEY, login TEXT, kind TEXT, note TEXT, status TEXT, created TEXT);
             CREATE TABLE IF NOT EXISTS notice_reads (
               login TEXT, notice_id TEXT, PRIMARY KEY (login, notice_id));
+            CREATE TABLE IF NOT EXISTS request_events (
+              request_id TEXT, status TEXT, comment TEXT, author TEXT, at TEXT);
+            CREATE TABLE IF NOT EXISTS announcements (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT, title TEXT, body TEXT,
+              audience TEXT, author TEXT, created TEXT);
             CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);
             CREATE INDEX IF NOT EXISTS requests_owner ON requests(login, created);
+            CREATE INDEX IF NOT EXISTS events_request ON request_events(request_id, at);
         """)
-        for student in STUDENTS:
-            if not db.execute("SELECT 1 FROM users WHERE login=?", (student[0],)).fetchone():
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(users)")}
+        if "role" not in columns:
+            db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")
+        for person, role in [(s, "student") for s in STUDENTS] + [(STAFF, "staff")]:
+            if not db.execute("SELECT 1 FROM users WHERE login=?", (person[0],)).fetchone():
                 salt = secrets.token_bytes(16)
-                db.execute("INSERT INTO users VALUES (?,?,?,?,?,?,?,?)", (*student, salt, digest(PASSWORD, salt)))
-                db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
-                    secrets.token_hex(8), student[0], KINDS[0 if student[0] == "alina" else 1],
-                    "", "В работе", (date.today() - timedelta(days=1)).isoformat()))
+                db.execute("INSERT INTO users (login,name,faculty,program,group_name,year,salt,password_hash,role) "
+                           "VALUES (?,?,?,?,?,?,?,?,?)", (*person, salt, digest(PASSWORD, salt), role))
+                if role == "student":
+                    created = (date.today() - timedelta(days=1)).isoformat()
+                    request_id = secrets.token_hex(8)
+                    db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
+                        request_id, person[0], KINDS[0 if person[0] == "alina" else 1], "", "В работе", created))
+                    db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (
+                        request_id, "Принята", "", "Студент", created + "T10:12"))
+                    db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (
+                        request_id, "В работе", "Готовим документ, обычно это занимает 1–2 рабочих дня.",
+                        STAFF[1], created + "T14:40"))
+
+
+def now():
+    return time.strftime("%Y-%m-%dT%H:%M", time.localtime())
+
+
+def request_rows(db, where, params):
+    rows = [dict(r) for r in db.execute(
+        "SELECT requests.id,requests.login,requests.kind,requests.note,requests.status,requests.created,"
+        "users.name AS student,users.group_name FROM requests JOIN users ON users.login=requests.login "
+        f"WHERE {where} ORDER BY requests.rowid DESC", params)]
+    for row in rows:
+        row["events"] = [dict(e) for e in db.execute(
+            "SELECT status,comment,author,at FROM request_events WHERE request_id=? ORDER BY rowid", (row["id"],))]
+    return rows
+
+
+def announcements_for(db, group):
+    return [dict(r) for r in db.execute(
+        "SELECT id,tag,title,body,audience,author,created FROM announcements "
+        "WHERE audience='all' OR audience=? ORDER BY id DESC", (group,))]
 
 
 def student_data(user, db):
@@ -88,7 +133,10 @@ def student_data(user, db):
          "date": (today + timedelta(days=18 + i * 3)).isoformat()}
         for i, lesson in enumerate(courses)]
     read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (user["login"],))}
-    notices = [
+    published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
+                  "date": a["created"][:10], "read": f"a{a['id']}" in read}
+                 for a in announcements_for(db, user["group_name"])]
+    notices = published + [
         {"id": "move", "tag": "Расписание", "title": f"{courses[1][0]} · новая аудитория",
          "body": f"Сегодня занятие пройдёт в аудитории {courses[1][2].split()[-1]}. Время осталось прежним.", "read": "move" in read},
         {"id": "exam", "tag": "Деканат", "title": "Опубликованы даты сессии",
@@ -96,11 +144,33 @@ def student_data(user, db):
         {"id": "deadline", "tag": "Дедлайн", "title": "Сдача работы по дисциплине",
          "body": f"{courses[0][0]} · до {(today + timedelta(days=2)).strftime('%d.%m')}, 23:59.", "read": "deadline" in read},
     ]
-    requests = [dict(r) for r in db.execute(
-        "SELECT id,kind,note,status,created FROM requests WHERE login=? ORDER BY rowid DESC", (user["login"],))]
-    return {"profile": {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")},
+    requests = [{k: r[k] for k in ("id", "kind", "note", "status", "created", "events")}
+                for r in request_rows(db, "requests.login=?", (user["login"],))]
+    return {"role": "student", "profile": {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")},
             "week": week, "grades": grades, "notices": notices, "requests": requests,
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
+
+
+def staff_data(user, db):
+    requests = request_rows(db, "1=1", ())
+    requests.sort(key=lambda r: (r["status"] in CLOSED, r["created"]), reverse=False)
+    groups = sorted({row["group_name"] for row in db.execute("SELECT group_name FROM users WHERE role='student'")})
+    return {"role": "staff", "profile": {k: user[k] for k in ("login", "name", "faculty", "program")},
+            "requests": requests, "statuses": STATUSES, "tags": TAGS, "groups": groups,
+            "announcements": [dict(r) for r in db.execute(
+                "SELECT id,tag,title,body,audience,author,created FROM announcements ORDER BY id DESC")]}
+
+
+def check_login_limit(key):
+    with FAILED_LOCK:
+        recent = [t for t in FAILED_LOGINS.get(key, []) if t > time.time() - LOGIN_WINDOW]
+        FAILED_LOGINS[key] = recent
+        return len(recent) < LOGIN_LIMIT
+
+
+def record_failed_login(key):
+    with FAILED_LOCK:
+        FAILED_LOGINS.setdefault(key, []).append(time.time())
 
 
 def assistant_answer(question, data):
@@ -190,43 +260,57 @@ class Handler(BaseHTTPRequestHandler):
                 login, password = body.get("login"), body.get("password")
                 if not isinstance(login, str) or not isinstance(password, str) or len(password) > 128:
                     raise ValueError()
-                user = db.execute("SELECT * FROM users WHERE login=?", (login.strip().lower(),)).fetchone()
+                login = login.strip().lower()[:64]
+                limit_key = (self.client_address[0], login)
+                if not check_login_limit(limit_key):
+                    return self.reply(429, {"error": "Слишком много попыток входа. Подождите 15 минут."})
+                user = db.execute("SELECT * FROM users WHERE login=?", (login,)).fetchone()
                 candidate = digest(password, user["salt"] if user else bytes(16))
                 if not user or not hmac.compare_digest(candidate, user["password_hash"]):
+                    record_failed_login(limit_key)
                     return self.reply(401, {"error": "Проверьте логин и пароль."})
                 raw = secrets.token_urlsafe(32)
                 db.execute("DELETE FROM sessions WHERE token=? OR expires<=?", (self.session(), int(time.time())))
                 db.execute("INSERT INTO sessions VALUES (?,?,?)", (
                     hashlib.sha256(raw.encode()).hexdigest(), user["login"], int(time.time()) + 28800))
                 db.commit()
-                return self.reply(200, student_data(user, db), cookie=self.cookie(raw, 28800))
+                return self.reply(200, self.dashboard(user, db), cookie=self.cookie(raw, 28800))
             user = db.execute("""SELECT users.* FROM users JOIN sessions ON users.login=sessions.login
                 WHERE sessions.token=? AND sessions.expires>?""", (self.session(), int(time.time()))).fetchone()
             if not user:
                 return self.reply(401, {"error": "Войдите в кабинет."})
             if self.command == "GET" and path == "/api/dashboard":
-                return self.reply(200, student_data(user, db))
-            if self.command == "GET" and path.startswith("/api/requests/"):
-                item = db.execute("SELECT id,kind,note,status,created FROM requests WHERE login=? AND id=?",
-                                  (user["login"], path.rsplit("/", 1)[1])).fetchone()
-                return self.reply(200, dict(item)) if item else self.reply(404, {"error": "Заявка не найдена."})
+                return self.reply(200, self.dashboard(user, db))
             if self.command == "POST" and path == "/api/logout":
                 self.body()
                 db.execute("DELETE FROM sessions WHERE token=?", (self.session(),))
                 db.commit()
                 return self.reply(200, {}, cookie=self.cookie("", 0))
+            if path.startswith("/api/staff/"):
+                if user["role"] != "staff":
+                    return self.reply(403, {"error": "Раздел доступен только сотрудникам деканата."})
+                return self.staff_api(path, user, db)
+            if user["role"] != "student":
+                return self.reply(403, {"error": "Этот раздел доступен только студентам."})
+            if self.command == "GET" and path.startswith("/api/requests/"):
+                items = request_rows(db, "requests.login=? AND requests.id=?", (user["login"], path.rsplit("/", 1)[1]))
+                if not items:
+                    return self.reply(404, {"error": "Заявка не найдена."})
+                return self.reply(200, {k: items[0][k] for k in ("id", "kind", "note", "status", "created", "events")})
             if self.command == "POST" and path == "/api/requests":
                 body = self.body()
                 kind, note = body.get("kind"), body.get("note", "")
                 if kind not in KINDS or not isinstance(note, str) or len(note) > 1000:
                     raise ValueError()
+                request_id = secrets.token_hex(8)
                 db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
-                    secrets.token_hex(8), user["login"], kind, note.strip(), "Принята", date.today().isoformat()))
+                    request_id, user["login"], kind, note.strip(), "Принята", date.today().isoformat()))
+                db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (request_id, "Принята", "", "Студент", now()))
                 db.commit()
                 return self.reply(201, student_data(user, db))
             if self.command == "POST" and path == "/api/notice":
                 notice = self.body().get("id")
-                if notice not in ("move", "exam", "deadline"):
+                if not isinstance(notice, str) or notice not in {n["id"] for n in student_data(user, db)["notices"]}:
                     raise ValueError()
                 db.execute("INSERT OR IGNORE INTO notice_reads VALUES (?,?)", (user["login"], notice))
                 db.commit()
@@ -241,6 +325,39 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(502, {"error": "Помощник временно недоступен. Попробуй чуть позже."})
                 return self.reply(200, {"answer": answer})
             return self.reply(404, {"error": "Страница не найдена."})
+
+    def dashboard(self, user, db):
+        return staff_data(user, db) if user["role"] == "staff" else student_data(user, db)
+
+    def staff_api(self, path, user, db):
+        if self.command == "POST" and path.startswith("/api/staff/requests/"):
+            body = self.body()
+            status, comment = body.get("status"), body.get("comment", "")
+            if status not in STATUSES or not isinstance(comment, str) or len(comment) > 600:
+                raise ValueError()
+            item = db.execute("SELECT status FROM requests WHERE id=?", (path.rsplit("/", 1)[1],)).fetchone()
+            if not item:
+                return self.reply(404, {"error": "Заявка не найдена."})
+            if status == item["status"] and not comment.strip():
+                return self.reply(400, {"error": "Измените статус или добавьте комментарий."})
+            request_id = path.rsplit("/", 1)[1]
+            db.execute("UPDATE requests SET status=? WHERE id=?", (status, request_id))
+            db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (
+                request_id, status, comment.strip(), user["name"], now()))
+            db.commit()
+            return self.reply(200, staff_data(user, db))
+        if self.command == "POST" and path == "/api/staff/announcements":
+            body = self.body()
+            tag, title, text, audience = (body.get(k) for k in ("tag", "title", "body", "audience"))
+            groups = staff_data(user, db)["groups"]
+            if (tag not in TAGS or audience not in ("all", *groups) or not isinstance(title, str)
+                    or not isinstance(text, str) or not 3 <= len(title.strip()) <= 120 or not 3 <= len(text.strip()) <= 1000):
+                raise ValueError()
+            db.execute("INSERT INTO announcements (tag,title,body,audience,author,created) VALUES (?,?,?,?,?,?)",
+                       (tag, title.strip(), text.strip(), audience, user["name"], now()))
+            db.commit()
+            return self.reply(201, staff_data(user, db))
+        return self.reply(404, {"error": "Страница не найдена."})
 
     def dispatch(self):
         try:

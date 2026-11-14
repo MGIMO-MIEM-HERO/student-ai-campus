@@ -192,3 +192,24 @@ main{min-width:0}.hero{background:#e3f1ec;border-radius:24px;padding:clamp(28px,
 body{background:#f9f8f0}.spectrum{height:5px;background:linear-gradient(90deg,#15514e 0 60%,#e7a08e 60% 82%,#e9c970 82%)}.mast{background:#f9f8f0;border-bottom:1px solid #dce5d9}.brand{font-family:var(--sans);font-weight:700;letter-spacing:-.065em;font-size:2rem}.brand-mark{width:43px;height:43px;background:#15514e;color:#faf8ee;border-radius:15px;transform:rotate(-5deg)}.brand-mark svg{width:32px;height:32px}.brand-dot{color:#d97760}.mast-profile{background:#fffdf5;border-color:#dfe8dd}.sidebar a[aria-current]{background:#dbece0;color:#154b45}.sidebar a:not([aria-current]):hover{background:#edf3e9}.sidebar .eyebrow,.eyebrow{color:#54766a}
 .hero{background:#dfeee1;border-radius:10px 48px 10px 48px;position:relative}.hero:before{content:'✳';position:absolute;right:25px;top:18px;font-size:30px;color:#d77d67}.hero h1{letter-spacing:-.055em}.hero h1 em{color:#15514e}.hero figure img{border-radius:10px 32px 10px 32px}.hero figcaption{color:#6b8073}.button.primary{background:#15514e;border-color:#15514e;box-shadow:4px 4px 0 #e7a18e}.button.primary:hover{background:#24645d}.quick-item{border-radius:8px 22px 8px 22px;background:#fffdf5;border-color:#e4e9dd}.quick-item:nth-child(2){background:#f9eae1}.quick-item:nth-child(3){background:#e6f0e0}.quick-arrow{background:#e8efe0}.content-card{background:#fffdf6;border-color:#e6e9db;border-radius:8px 24px 8px 24px}.assistant-banner{background:#f4dfd5;border-radius:8px 28px 8px 28px}.grade-overview article{border-radius:8px 24px 8px 24px}.login-panel{background:#e2efe3;border-radius:10px 40px 10px 40px}.week button{border-radius:8px 18px 8px 18px}.tag{font-weight:600}.page-heading .eyebrow{color:#c46e58}.mast .avatar{background:#e9b3a4;color:#573c38}
 @media(max-width:545px){.hero{border-radius:8px 32px 8px 32px}.hero:before{font-size:23px}.content-card{border-radius:8px 20px 8px 20px}.quick-item{padding:14px}.login-panel{border-radius:8px 30px 8px 30px}}
+
+/* Деканат и история заявок */
+.red{color:#7d1f14;background:#f4c4bb}
+.status-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;font-size:.8rem}
+.history .status-line .tag{margin-top:0}
+.staff-note{margin-top:8px;padding:8px 10px;border-left:3px solid var(--ultra);background:#e2e4f0;color:var(--ink)!important;font-size:.85rem}
+.student-note{margin:8px 0 0;font-style:italic}
+.timeline{margin-top:10px;font-size:.82rem}
+.timeline summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
+.timeline ol{list-style:none;margin:6px 0 0;padding:0 0 0 14px;border-left:2px solid var(--rule);display:grid;gap:10px}
+.timeline li{position:relative}
+.timeline li::before{content:"";position:absolute;left:-20px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--ultra);border:2px solid var(--paper)}
+.timeline .green-line::before{background:#2fa568}.timeline .orange-line::before{background:#f28a1e}.timeline .red-line::before{background:#c0392b}
+.timeline p{margin-top:2px}
+.filter{margin:6px 0 4px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.queue>li{display:grid;gap:4px}
+.queue-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.status-form{grid-template-columns:minmax(0,1fr);max-width:560px;margin-top:10px;padding:12px;border:1px dashed var(--rule)}
+div.quick-item{cursor:default}
+.queue-head .tag{white-space:nowrap;flex:none}
