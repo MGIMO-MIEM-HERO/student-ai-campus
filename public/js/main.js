@@ -32,7 +32,7 @@ function shell(content, key) {
   const navKey = staff ? key : (stu.NAV_OF[key] || key);
   const name = S.data.profile.name;
   const badge = (id) => (staff ? (id === 'queue' ? stf.activeCount() : 0) : id === 'more' ? stu.unreadCount() : id === 'requests' ? stu.readyCount() : 0);
-  return `<header class="topbar"><div class="topbar-in">${brand('#' + nav[0][0])}<span class="tag marigold">${staff ? 'Деканат' : 'Концепт'}</span>
+  return `<header class="topbar"><div class="topbar-in">${brand('#' + nav[0][0])}<span class="tag">${staff ? 'Деканат' : 'Концепт'}</span>
     <nav class="nav" aria-label="Разделы кабинета"><ul>${nav.map(([id, label, ico]) => {
       const b = badge(id);
       return `<li><a href="#${id}" ${id === navKey ? 'aria-current="page"' : ''}>${icon(ico)}<span>${label}</span>${b ? `<span class="badge" aria-label="${b} новых">${b}</span>` : ''}</a></li>`;
@@ -45,15 +45,15 @@ function shell(content, key) {
 function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
   const features = [['schedule', 'periwinkle', 'Расписание с изменениями, окнами и аудиториями'], ['study', 'marigold', 'Баллы, допуск и график сессии'], ['requests', 'mint', 'Справки с QR-проверкой и статусом'], ['building', 'sky', 'Схема корпусов и свободные аудитории']];
-  app.innerHTML = `<div class="login"><section class="login-hero"><span class="paper p1"></span><span class="paper p2"></span><span class="paper p3"></span><span class="dots"></span>
-      ${brand('/')}<h1>Деканат, в который не нужно идти</h1><p class="lede">Учёба, документы и связь с деканатом в одном кабинете. С телефона и компьютера.</p></section>
-    <div class="login-pad"><section class="card login-card"><h2 class="title">Вход в кабинет</h2>
+  app.innerHTML = `<div class="login"><section class="login-hero">
+      <div class="login-top">${brand('/')}<span class="tag">Концепт</span></div><p class="eyebrow">Личный кабинет студента</p><h1>Деканат, в который не нужно идти</h1><p class="lede">Расписание, баллы, справки и связь с деканатом в одном спокойном месте. С телефона и компьютера.</p></section>
+    <div class="login-pad"><div class="login-stage"><section class="card login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
       <p class="form-error" role="alert">${esc(error)}</p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role]) => `<button class="demo" data-demo="${id}"><span class="avatar" aria-hidden="true">${name[0]}</span><span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
-      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></section>
+      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></section></div>
     <ul class="features">${features.map(([ico, tone, text]) => `<li><span class="ico ${tone}">${icon(ico)}</span>${text}</li>`).join('')}</ul>
     <p class="disclaimer">Концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></div></div>`;
   app.setAttribute('aria-busy', 'false');
@@ -63,7 +63,7 @@ function errorScreen() {
   app.setAttribute('aria-busy', 'false');
 }
 async function verifyScreen(code) {
-  const frame = (inner) => { app.innerHTML = `<header class="topbar"><div class="topbar-in">${brand('/')}<span class="tag marigold">Концепт</span></div></header><div class="verify">${inner}<p class="disclaimer">Страница проверки концепт-прототипа. Документы не имеют юридической силы. Персональные данные показаны в сокращённом виде.</p><a class="btn ghost" href="/">Перейти в кабинет</a></div>`; app.setAttribute('aria-busy', 'false'); };
+  const frame = (inner) => { app.innerHTML = `<header class="topbar"><div class="topbar-in">${brand('/')}<span class="tag">Концепт</span></div></header><div class="verify">${inner}<p class="disclaimer">Страница проверки концепт-прототипа. Документы не имеют юридической силы. Персональные данные показаны в сокращённом виде.</p><a class="btn ghost" href="/">Перейти в кабинет</a></div>`; app.setAttribute('aria-busy', 'false'); };
   frame('<div class="sk"></div>');
   const row = (k, v) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`;
   try {

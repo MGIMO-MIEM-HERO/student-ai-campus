@@ -1,9 +1,15 @@
 import {S} from './state.js';
 import {esc, mskNow, toMin} from './util.js';
 
+export const roomsIsToday = () => S.data.campus.rooms_date === mskNow().date;
 export function defaultPair() {
   const t = mskNow(), bells = S.data.campus.bells;
-  return (bells.find((b) => t.minutes < toMin(b.end)) || bells[0]).pair;
+  if (!roomsIsToday()) return bells[0].pair;
+  return (bells.find((b) => t.minutes < toMin(b.end)) || bells[bells.length - 1]).pair;
+}
+export function roomsDayNote() {
+  if (roomsIsToday()) return '';
+  return `<p class="small muted">Сегодня корпуса закрыты, показана занятость на ${new Intl.DateTimeFormat('ru-RU', {weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'}).format(new Date(S.data.campus.rooms_date + 'T12:00:00Z'))}.</p>`;
 }
 export const activePair = () => S.pair || defaultPair();
 export const roomByKey = (key) => S.data.campus.rooms.find((r) => r.key === key);
@@ -33,7 +39,7 @@ export function building3d(buildingId, pair, {mine = new Set(), selected = ''} =
 export const legend3d = (staff = false) => `<div class="legend"><span><i class="sw sw-free"></i>свободна</span><span><i class="sw sw-busy"></i>занята по расписанию</span><span><i class="sw sw-staff"></i>занята: отмечено деканатом</span>${staff ? '' : '<span><i class="sw sw-mine"></i>ваше занятие</span>'}</div>`;
 export function pairChips(pair) {
   const now = defaultPair();
-  return `<div class="chips" role="group" aria-label="Пара">${S.data.campus.bells.map((b) => `<button class="chip" data-pair="${b.pair}" aria-pressed="${b.pair === pair}">${b.pair} пара · ${b.start}${b.pair === now ? ' · сейчас' : ''}</button>`).join('')}</div>`;
+  return `<div class="chips" role="group" aria-label="Пара">${S.data.campus.bells.map((b) => `<button class="chip" data-pair="${b.pair}" aria-pressed="${b.pair === pair}">${b.pair} пара · ${b.start}${b.pair === now && roomsIsToday() ? ' · сейчас' : ''}</button>`).join('')}</div>`;
 }
 export function buildingSeg() {
   return `<div class="seg" role="group" aria-label="Корпус">${S.data.campus.buildings.map((b) => `<button data-bld="${esc(b.id)}" aria-pressed="${S.bld === b.id}">Корпус ${esc(b.id)}<small>${esc(b.name.replace('Учебный корпус ', 'учебный ').replace('Спортивный комплекс', 'спорткомплекс'))}</small></button>`).join('')}</div>`;

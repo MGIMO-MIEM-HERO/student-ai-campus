@@ -28,6 +28,12 @@ STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 
 def msk_today():
     return datetime.now(MSK).date()
+
+
+def rooms_day():
+    """День, для которого показывается занятость аудиторий: в воскресенье — понедельник."""
+    today = msk_today()
+    return today + timedelta(days=1) if today.weekday() == 6 else today
 DB = Path(os.environ.get("CAMPUS_DB", ROOT / "data" / "campus.sqlite3"))
 PASSWORD = os.environ.get("CAMPUS_DEMO_PASSWORD", "Campus-demo-2026")
 KINDS = ("Справка об обучении", "Выписка об успеваемости", "Обращение в деканат")
@@ -210,7 +216,7 @@ def student_data(user, db):
     profile.update(card_code=card["code"] if card else None, card_valid_until="2027-08-31")
     return {"role": "student", "today": today.isoformat(), "profile": profile,
             "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
-            "notices": notices, "requests": requests, "campus": campus_data.directory(today, room_marks(db, today)),
+            "notices": notices, "requests": requests, "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
             "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
@@ -221,10 +227,10 @@ def staff_data(user, db):
     groups = sorted({row["group_name"] for row in db.execute("SELECT group_name FROM users WHERE role='student'")})
     today = msk_today()
     marks = [dict(r) for r in db.execute(
-        "SELECT pair,building,room,state,note,author,at FROM room_marks WHERE day=? ORDER BY at DESC", (today.isoformat(),))]
+        "SELECT pair,building,room,state,note,author,at FROM room_marks WHERE day=? ORDER BY at DESC", (rooms_day().isoformat(),))]
     return {"role": "staff", "today": today.isoformat(), "profile": {k: user[k] for k in ("login", "name", "faculty", "program")},
             "requests": requests, "statuses": STATUSES, "tags": TAGS, "groups": groups, "updated": now(),
-            "campus": campus_data.directory(today, room_marks(db, today)), "marks": marks,
+            "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()}, "marks": marks,
             "semester": campus_data.semester(today),
             "announcements": [dict(r) for r in db.execute(
                 "SELECT id,tag,title,body,audience,author,created FROM announcements ORDER BY id DESC")]}
@@ -460,7 +466,7 @@ class Handler(BaseHTTPRequestHandler):
             if ((building, room) not in campus_data.ALL_ROOMS or pair not in (0, *campus_data.BELLS)
                     or state not in ("busy", "free", "auto") or len(note) > 120):
                 raise ValueError()
-            day = msk_today().isoformat()
+            day = rooms_day().isoformat()
             targets = [pair] if pair else [0, *campus_data.BELLS]
             for target in targets:
                 db.execute("DELETE FROM room_marks WHERE day=? AND pair=? AND building=? AND room=?", (day, target, building, room))

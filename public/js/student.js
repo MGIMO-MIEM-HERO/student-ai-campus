@@ -1,7 +1,7 @@
 import {S, lessonIndex} from './state.js';
 import {icon} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, dayMonth, weekdayShort, stamp, count, plural, duration, daysBetween, relativeDay, untilText, cap, fmt, qrSvg, verifyUrl} from './util.js';
-import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, defaultPair} from './campus.js';
+import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday, defaultPair} from './campus.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['more', 'Ещё', 'more']];
 export const ROUTES = ['today', 'schedule', 'study', 'requests', 'more', 'notices', 'rooms', 'assistant', 'profile', 'doc'];
@@ -110,12 +110,11 @@ export function viewToday() {
     for (const l of dd.lessons) {
       if (!l.change) continue;
       const when = `${cap(relativeDay(dd.date, t))}, ${l.pair} пара`;
-      notes.push(`<button class="note ${l.cancelled ? 'cancel' : ''}" data-lesson="${esc(l.id)}"><span><span class="tag ${l.cancelled ? 'papaya' : 'white'}">${esc(l.change.label)}</span></span><strong>${esc(l.title)}</strong>
-        <span class="diff">${when}<br>${l.cancelled ? esc(l.change.reason) : `<s>${esc(l.change.was)}</s><br>→ <b>${esc(l.change.now)}</b>`}</span></button>`);
+      notes.push(`<button class="change ${l.cancelled ? 'is-cancel' : ''}" data-lesson="${esc(l.id)}"><span class="change-kind">${esc(l.change.label)}</span><span class="change-body"><strong>${esc(l.title)}</strong><span class="change-diff">${when} · ${l.cancelled ? esc(l.change.reason) : `<s>${esc(l.change.was)}</s> <span aria-hidden="true">→</span> <b>${esc(l.change.now)}</b>`}</span></span>${icon('chevron')}</button>`);
     }
   }
   for (const n of d.notices.filter((x) => !x.read && x.tag !== 'Расписание' && x.tag !== 'Дедлайн')) {
-    notes.push(`<a class="note info" href="#notices"><span><span class="tag white">${esc(n.tag)}</span></span><strong>${esc(n.title)}</strong><span class="diff">${esc(n.body)}</span></a>`);
+    notes.push(`<a class="change" href="#notices"><span class="change-kind">${esc(n.tag)}</span><span class="change-body"><strong>${esc(n.title)}</strong><span class="change-diff">${esc(n.body)}</span></span>${icon('chevron')}</a>`);
   }
   const todo = [];
   for (const r of d.requests.filter((x) => x.status === 'Готова')) todo.push(item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `Документ готов: ${esc(r.kind.toLowerCase())}`, sub: 'Откройте электронную версию или получите оригинал: Корпус А, ауд. 112.'}));
@@ -125,27 +124,27 @@ export function viewToday() {
   if (nextControl) todo.push(item({href: 'study', ico: 'study', tone: 'periwinkle', title: `Ближайший контроль: ${esc(nextControl.title)}`, sub: `${esc(nextControl.assessment)}, ${dayMonth(nextControl.date)} в ${nextControl.start}, ${esc(nextControl.place)} · ${untilText(nextControl.date, t)}`}));
   for (const r of d.requests.filter((x) => x.status === 'Принята' || x.status === 'В работе')) todo.push(item({href: 'requests', ico: 'requests', title: `Заявка в обработке: ${esc(r.kind.toLowerCase())}`, sub: esc(hintFor(r))}));
   const toSession = daysBetween(t, s.session_starts);
-  const freeNow = freeRooms(defaultPair()).length;
+  const freeNow = roomsIsToday() ? freeRooms(defaultPair()).length : freeRooms(1).length;
   const pairsToday = todayLessons.filter((l) => !l.cancelled).length;
   return `<div class="page">
-    <section class="hero"><span class="paper p1"></span><span class="paper p2"></span><span class="paper p3"></span><span class="dots"></span>
+    <section class="hero">
       <div class="hero-copy"><p class="eyebrow">${cap(dayLong(t))}</p><h1>${greet},<br>${esc(d.profile.name.split(' ')[0])}</h1><p class="lede">${esc(d.profile.group_name)} · ${esc(d.profile.program)}</p>
         <div class="semester"><div class="row"><span class="small"><b>Неделя ${s.week} из ${s.weeks}</b>, ${s.parity_label}</span>${toSession > 0 ? `<span class="small">до сессии ${count(toSession, ['день', 'дня', 'дней'])}</span>` : ''}</div>${weeksBar(s)}</div></div>
       ${nowCard()}</section>
-    <div class="tiles">
-      <a class="tile mint" href="#schedule"><span class="num">${pairsToday}</span><span class="l">${plural(pairsToday, ['пара', 'пары', 'пар'])} сегодня</span></a>
-      <a class="tile marigold" href="#study"><span class="num">${st.avg}<small> / 100</small></span><span class="l">средний балл</span></a>
-      <a class="tile periwinkle" href="#study"><span class="num">${st.admitted}<small> из ${st.total}</small></span><span class="l">дисциплин с допуском</span></a>
-      <a class="tile" href="#rooms"><span class="num">${freeNow}</span><span class="l">свободных аудиторий сейчас</span></a></div>
+    <section class="stats" aria-label="Коротко">
+      <a class="stat" href="#schedule"><span class="num">${pairsToday}</span><span class="l">${plural(pairsToday, ['пара', 'пары', 'пар'])} сегодня</span></a>
+      <a class="stat" href="#study"><span class="num">${st.avg}</span><span class="l">средний балл из 100</span></a>
+      <a class="stat" href="#study"><span class="num">${st.admitted}<small>/${st.total}</small></span><span class="l">дисциплин с допуском</span></a>
+      <a class="stat" href="#rooms"><span class="num">${freeNow}</span><span class="l">${roomsIsToday() ? 'свободных аудиторий сейчас' : 'свободных аудиторий на 1 паре завтра'}</span></a></section>
     <div class="cols"><div class="stack lg">
-      <section class="sec">${secHead('Что изменилось', go('notices', 'Все уведомления'))}${notes.length ? `<div class="notes">${notes.join('')}</div>` : empty('check', 'Изменений нет', 'Занятия проходят по расписанию.')}</section>
+      <section class="sec">${secHead('Что изменилось', go('notices', 'Все уведомления'))}${notes.length ? `<div class="card flush"><div class="changes">${notes.join('')}</div></div>` : empty('check', 'Изменений нет', 'Занятия проходят по расписанию.')}</section>
       <section class="sec">${secHead('Сегодня', go('schedule', 'Вся неделя'))}${todayLessons.length ? lessonsList(todayLessons, t) : empty('schedule', 'Занятий нет', 'Свободный день.')}</section></div>
       <div class="stack lg">
         <section class="card"><div class="stack"><p class="title">Что нужно сделать</p>${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('check', 'Срочных дел нет')}</div></section>
-        <section class="card sky"><div class="stack"><p class="title">Быстрые действия</p>
+        <section class="card"><div class="stack"><p class="title">Быстрые действия</p>
           <button class="btn block" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button>
-          <button class="btn white block" data-calendar="week">${icon('download')}Расписание в календарь</button>
-          <a class="btn white block" href="#rooms">${icon('building')}Свободные аудитории</a></div></section></div></div></div>`;
+          <button class="btn ghost block" data-calendar="week">${icon('download')}Расписание в календарь</button>
+          <a class="btn ghost block" href="#rooms">${icon('building')}Свободные аудитории</a></div></section></div></div></div>`;
 }
 
 /* ---------- Расписание ---------- */
@@ -170,10 +169,10 @@ export function viewSchedule() {
       <section class="sec"><div class="sec-head"><h2>${cap(dayLong(current.date))}</h2><span class="small muted">неделя ${current.week}, ${current.parity === 'odd' ? 'нечётная' : 'чётная'} · ${summary}</span></div>
         ${lessons.length ? lessonsList(lessons, current.date) : empty('schedule', 'Занятий нет', nextFirst ? `Ближайшее занятие: ${esc(relativeDay(upcoming.date, t))}, ${nextFirst.start} — ${esc(nextFirst.title)}.` : '')}</section></div>
       <div class="stack lg">
-        <section class="card sky"><div class="stack"><p class="title">В календарь</p><p class="small">Файл .ics открывается в Яндекс Календаре, Google Календаре и в календаре телефона.</p>
-          <button class="btn white block" data-calendar="day">${icon('download')}Выбранный день</button><button class="btn block" data-calendar="week">${icon('download')}Неделя целиком</button></div></section>
+        <section class="card"><div class="stack"><p class="title">В календарь</p><p class="small">Файл .ics открывается в Яндекс Календаре, Google Календаре и в календаре телефона.</p>
+          <button class="btn ghost block" data-calendar="day">${icon('download')}Выбранный день</button><button class="btn block" data-calendar="week">${icon('download')}Неделя целиком</button></div></section>
         <section class="card"><div class="stack"><p class="title">Звонки</p><table class="bells"><tbody>${S.data.campus.bells.map((b) => `<tr class="${b.pair === curPair ? 'cur' : ''}"><th scope="row">${b.pair} пара</th><td>${b.start}–${b.end}${b.pair === curPair ? ' · сейчас' : ''}</td></tr>`).join('')}</tbody></table><p class="cap">Между 2 и 3 парой обеденный перерыв 30 минут.</p></div></section>
-        <section class="card soft"><div class="legend"><p class="eyebrow">Цвет полосы — вид занятия</p><span><i class="sw sw-lec"></i>лекция</span><span><i class="sw sw-sem"></i>семинар</span><span><i class="sw sw-prac"></i>практика</span><span><i class="sw sw-lab"></i>лабораторная работа</span></div></section>
+        <section class="card"><div class="legend"><p class="eyebrow">Цвет отметки — вид занятия</p><span><i class="sw sw-lec"></i>лекция</span><span><i class="sw sw-sem"></i>семинар</span><span><i class="sw sw-prac"></i>практика</span><span><i class="sw sw-lab"></i>лабораторная работа</span></div></section>
       </div></div></div>`;
 }
 
@@ -201,7 +200,7 @@ export function viewStudy() {
   const t = nowIso(), d = S.data, s = d.semester, st = gradeStats();
   const next = d.grades.filter((g) => g.date >= t)[0];
   const toSession = daysBetween(t, s.session_starts);
-  const risk = st.risk.map((g) => `<section class="card frame"><div class="stack"><span><span class="tag papaya">Требует внимания</span></span><p class="title">Нет допуска: ${esc(g.title)}</p><p>До порога допуска не хватает ${60 - g.points} ${60 - g.points === 1 ? 'балла' : 'баллов'}. Контроль ${dayMonth(g.date)}. Преподаватель: ${esc(g.teacher.name)}, консультации: ${esc(g.teacher.hours)}.</p></div></section>`).join('');
+  const risk = st.risk.map((g) => `<section class="card alert"><div class="stack"><span><span class="tag papaya">Требует внимания</span></span><p class="title">Нет допуска: ${esc(g.title)}</p><p>До порога допуска не хватает ${60 - g.points} ${60 - g.points === 1 ? 'балла' : 'баллов'}. Контроль ${dayMonth(g.date)}. Преподаватель: ${esc(g.teacher.name)}, консультации: ${esc(g.teacher.hours)}.</p></div></section>`).join('');
   const advice = (g) => {
     if (g.points < 60) return `До допуска не хватает ${60 - g.points}.`;
     if (g.assessment === 'Зачёт') return g.points >= 85 ? 'Зачёт выставляется автоматом.' : `До зачёта автоматом (85) ещё ${85 - g.points}.`;
@@ -210,11 +209,11 @@ export function viewStudy() {
     return `По шкале сейчас «${w}».${nextStep}`;
   };
   return `<div class="page">${head(s.term, 'Учёба', 'Баллы текущего контроля, допуск и график сессии.')}
-    <div class="tiles">
-      <div class="tile marigold"><span class="num">${st.avg}<small> / 100</small></span><span class="l">средний балл, без весов</span></div>
-      <div class="tile periwinkle"><span class="num">${st.admitted}<small> из ${st.total}</small></span><span class="l">дисциплин с допуском</span></div>
-      <div class="tile mint"><span class="num">${next ? daysBetween(t, next.date) : '—'}<small>${next ? ' дн.' : ''}</small></span><span class="l">до ближайшего контроля</span></div>
-      <div class="tile"><span class="num">${toSession > 0 ? toSession : 0}<small> дн.</small></span><span class="l">до начала сессии</span></div></div>
+    <section class="stats" aria-label="Показатели">
+      <div class="stat"><span class="num">${st.avg}</span><span class="l">средний балл из 100</span></div>
+      <div class="stat"><span class="num">${st.admitted}<small>/${st.total}</small></span><span class="l">дисциплин с допуском</span></div>
+      <div class="stat"><span class="num">${next ? daysBetween(t, next.date) : '—'}</span><span class="l">дней до ближайшего контроля</span></div>
+      <div class="stat"><span class="num">${toSession > 0 ? toSession : 0}</span><span class="l">дней до начала сессии</span></div></section>
     ${risk}
     <section class="sec">${secHead('Семестр')}<div class="strip" role="img" aria-label="Идёт ${s.week}-я неделя из ${s.weeks}, сессия с ${dayMonth(s.session_starts)}">${Array.from({length: s.weeks}, (_, i) => `<div class="${i + 1 < s.week ? 'done' : i + 1 === s.week ? 'cur' : ''}"><b>${i + 1}</b>${i + 1 === s.week ? 'сейчас' : 'нед.'}</div>`).join('')}<div class="session"><b>Сессия</b>с ${dayMonth(s.session_starts)}</div></div></section>
     <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span></div><span class="num">${g.points}</span></div>
@@ -229,8 +228,8 @@ export function viewStudy() {
 export function viewRequests() {
   const rows = S.data.requests, dean = roomByKey('А-112');
   return `<div class="page">${head('Деканат онлайн', 'Заявки и справки', 'Закажите документ или направьте обращение. Статус, комментарии деканата и электронная версия документа — в истории заявки.')}
-    <section class="sec" aria-label="Каталог документов"><div class="catalog">${DOCS.map((x) => `<article class="doc ${x.tone}"><span class="ico white-ico">${icon(x.ico)}</span><p class="title">${x.kind}</p><p class="small">${x.what}</p>
-      <div class="chips"><span class="tag white">${icon('clock')}${x.sla}</span></div><p class="cap">${x.how}</p><button class="btn" data-request-kind="${x.kind}">Оформить</button></article>`).join('')}</div></section>
+    <section class="sec" aria-label="Каталог документов"><div class="catalog">${DOCS.map((x) => `<article class="card doc"><span class="ico ${x.tone}">${icon(x.ico)}</span><p class="title">${x.kind}</p><p class="small">${x.what}</p>
+      <div class="chips"><span class="tag">${icon('clock')}${x.sla}</span></div><p class="cap">${x.how}</p><button class="btn sm" data-request-kind="${x.kind}">Оформить</button></article>`).join('')}</div></section>
     <section class="sec">${secHead('История заявок')}${rows.length ? `<div class="history">${rows.map((r) => {
       const last = r.events[r.events.length - 1], idx = STEPS.indexOf(r.status);
       return `<article class="card req"><div class="row"><div><h3>${esc(r.kind)}</h3><span class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · от ${dayShort(r.created)}</span></div>${statusTag(r.status)}</div>
@@ -241,7 +240,7 @@ export function viewRequests() {
         ${r.document ? `<div class="chips"><a class="btn sm" href="#doc/${esc(r.id)}">${icon('requests')}Открыть электронный документ</a></div>` : ''}
         <details class="hist"><summary>История изменений · ${r.events.length}</summary><ol>${r.events.map((e) => `<li><strong>${esc(e.status)}</strong><p>${esc(stamp(e.at))} · ${esc(e.author)}</p>${e.comment ? `<p>${esc(e.comment)}</p>` : ''}</li>`).join('')}</ol></details></article>`;
     }).join('')}</div>` : empty('requests', 'Заявок пока нет', 'После отправки заявка появится здесь вместе со статусом.')}</section>
-    ${dean ? `<section class="card periwinkle"><div class="stack"><p class="eyebrow">Где находится деканат</p><p class="title">Корпус А, ауд. ${esc(dean.room)}, ${dean.floor} этаж</p><p>${esc(dean.hint)}.</p><div class="chips"><button class="btn white sm" data-goto-room="${esc(dean.key)}">${icon('building')}Показать на схеме</button></div></div></section>` : ''}</div>`;
+    ${dean ? `<section class="card"><div class="stack"><p class="eyebrow">Где находится деканат</p><p class="title">Корпус А, ауд. ${esc(dean.room)}, ${dean.floor} этаж</p><p>${esc(dean.hint)}.</p><div class="chips"><button class="btn ghost sm" data-goto-room="${esc(dean.key)}">${icon('building')}Показать на схеме</button></div></div></section>` : ''}</div>`;
 }
 export function requestSheet(kind) {
   const doc = DOCS.find((x) => x.kind === kind) || DOCS[0];
@@ -259,7 +258,7 @@ export function viewDoc(id) {
     ? `<p>Настоящая выписка подтверждает результаты текущего контроля: ${esc(p.name)}, ${p.year} курс, группа ${esc(p.group_name)}, ${esc(S.data.semester.term.toLowerCase())}.</p><table class="bells"><tbody>${S.data.grades.map((g) => `<tr><td>${esc(g.title)}</td><td>${esc(g.assessment)}</td><td>${g.points} / 100</td></tr>`).join('')}</tbody></table>`
     : `<p>Настоящая справка подтверждает, что <b>${esc(p.name)}</b> обучается на ${p.year} курсе, группа ${esc(p.group_name)}. ${esc(p.faculty)}, направление «${esc(p.program)}». Уровень образования: ${esc((p.level || '').toLowerCase())}. Форма обучения: ${esc((p.form || '').toLowerCase())}.</p><p>Справка выдана для предъявления по месту требования.</p>`;
   return `<div class="page"><div class="row no-print"><a class="link" href="#requests">${icon('arrow')} К заявкам</a><div class="chips"><button class="btn sm" data-print>${icon('download')}Печать или PDF</button><button class="btn ghost sm" data-copy="${esc(url)}">Скопировать ссылку проверки</button></div></div>
-    <article class="paper-doc"><span class="stamp" aria-hidden="true">Демо<br>не имеет<br>юр. силы</span>
+    <article class="paper-doc"><p class="doc-note">Демонстрационный документ. Не имеет юридической силы.</p>
       <div class="center"><p class="eyebrow">Цифровой деканат · концепт</p><h2>${esc(r.kind)}</h2><p class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · выдана ${dayMonth(r.document.issued)} ${r.document.issued.slice(0, 4)} г.</p></div>
       <div class="body stack">${body}</div>
       <div class="doc-foot"><div class="stack"><p class="eyebrow">Проверка подлинности</p><p class="small">Наведите камеру на QR-код или откройте ссылку. Страница проверки покажет статус документа без входа в кабинет.</p><p class="small"><a href="${esc(url)}">${esc(url)}</a></p><p class="cap">Код: ${esc(r.document.code)}</p></div>${qrSvg(url)}</div></article></div>`;
@@ -274,7 +273,7 @@ export function viewMore() {
       ${item({href: 'rooms', ico: 'building', tone: 'mint', title: 'Корпуса и аудитории', sub: 'Схема этажей и свободные аудитории'})}
       ${item({href: 'assistant', ico: 'chat', tone: 'periwinkle', title: 'Помощник', sub: 'Ответы по расписанию, срокам и справкам'})}
       ${item({href: 'profile', ico: 'user', tone: 'sky', title: 'Профиль и студенческий билет', sub: 'Сведения об обучении, билет с QR'})}</div></section>
-    <section class="card soft"><div class="stack"><p class="eyebrow">О сервисе</p><p>Концепт цифрового деканата для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета. Все данные вымышлены.</p><p class="cap">Данные обновлены: ${esc(stamp(S.data.updated))} по Москве.</p><button class="btn ghost" data-logout>${icon('logout')}Выйти из кабинета</button></div></section></div></div>`;
+    <section class="card"><div class="stack"><p class="eyebrow">О сервисе</p><p>Концепт цифрового деканата для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета. Все данные вымышлены.</p><p class="cap">Данные обновлены: ${esc(stamp(S.data.updated))} по Москве.</p><button class="btn ghost" data-logout>${icon('logout')}Выйти из кабинета</button></div></section></div></div>`;
 }
 
 export function viewNotices() {
@@ -287,7 +286,7 @@ export function viewNotices() {
 
 /* ---------- Корпуса и аудитории ---------- */
 function myRoomsAt(pair) {
-  const t = nowIso();
+  const t = S.data.campus.rooms_date;
   return new Set((day(t)?.lessons || []).filter((l) => l.pair === pair && !l.cancelled && l.building).map((l) => `${l.building}-${l.room}`));
 }
 function nextLessonIn(key) {
@@ -301,7 +300,7 @@ function nextLessonIn(key) {
 }
 export function roomCard(key, pair) {
   const r = roomByKey(key);
-  if (!r) return `<section class="card soft"><div class="stack"><p class="title">Выберите аудиторию</p><p class="small muted">Нажмите на плитку на схеме или на номер в списке свободных, чтобы увидеть занятость по парам и как пройти.</p></div></section>`;
+  if (!r) return `<section class="card"><div class="stack"><p class="title">Выберите аудиторию</p><p class="small muted">Нажмите на плитку на схеме или на номер в списке свободных, чтобы увидеть занятость по парам и как пройти.</p></div></section>`;
   const st = roomState(key, pair), next = nextLessonIn(key), cur = defaultPair();
   return `<section class="card"><div class="stack"><div class="row"><div><p class="eyebrow">Корпус ${esc(r.building)} · ${r.floor} этаж</p><p class="title">Аудитория ${esc(r.room)}</p></div><span class="tag ${st.cls === 'free' ? 'mint' : st.cls === 'staff' ? 'papaya' : ''}">${st.cls === 'free' ? 'Свободна' : st.cls === 'off' ? 'Служебное' : 'Занята'} · ${pair} пара</span></div>
     <p>${esc(r.kind)}${r.seats ? `, ${r.seats} мест` : ''}. ${esc(r.hint)}.</p>${st.cls === 'staff' ? `<p class="small">${esc(st.text)}</p>` : ''}
@@ -314,8 +313,8 @@ export function viewRooms() {
   const free = freeRooms(pair, S.bld), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.seats).length;
   const b = building(S.bld);
   return `<div class="page">${head('Корпуса и аудитории', 'Где свободно', `Схема этажей на сегодня. Выберите корпус и пару: свободные аудитории подсвечены. ${esc(S.data.campus.note)}`)}
-    <div class="stack">${buildingSeg()}${pairChips(pair)}</div>
-    <div class="cols"><section class="card sky"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div></div>
+    <div class="stack">${roomsDayNote()}${buildingSeg()}${pairChips(pair)}</div>
+    <div class="cols"><section class="card"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div></div>
         <div class="b3d-wrap">${building3d(S.bld, pair, {mine, selected: S.room})}</div>${legend3d()}</section>
       <div class="stack lg"><div id="room-card">${roomCard(S.room, pair)}</div>
         <section class="card"><div class="stack"><p class="title">Свободны на ${pair} паре</p>${free.length ? `<div class="free-list">${free.slice(0, 9).map(freeChip).join('')}</div>${free.length > 9 ? `<details class="more" ${free.slice(9).some((r) => r.key === S.room) ? 'open' : ''}><summary>Показать ещё ${free.length - 9}</summary><div class="free-list">${free.slice(9).map(freeChip).join('')}</div></details>` : ''}` : '<p class="muted">В этом корпусе свободных аудиторий на выбранной паре нет.</p>'}<p class="cap">${esc(b.name)}: открыт ${esc(b.hours)}. ${esc(b.hint)}</p></div></section>
@@ -342,8 +341,8 @@ export function viewProfile() {
   const rows = [['Факультет', p.faculty], ['Направление', p.program], ['Уровень образования', p.level], ['Форма обучения', p.form], ['Курс', p.year], ['Группа', p.group_name], ['Подгруппа', p.subgroup], ['Номер зачётной книжки', p.record_book], ['Куратор группы', p.curator]];
   const url = p.card_code ? verifyUrl(p.card_code) : '';
   return `<div class="page">${head('Профиль', 'Студенческий билет', 'Электронный билет с QR-кодом. По коду можно проверить статус обучения без входа в кабинет.')}
-    <div class="cols even"><div class="stack"><article class="idcard" aria-label="Электронный студенческий билет"><span class="paper"></span>
-      <div class="row"><p class="eyebrow">Студенческий билет · концепт</p><span class="tag ink">Обучается</span></div>
+    <div class="cols even"><div class="stack"><article class="idcard" aria-label="Электронный студенческий билет">
+      <div class="row"><p class="eyebrow">Студенческий билет</p><span class="tag mint">Обучается</span></div>
       <div class="who"><p class="h2">${esc(p.name)}</p><p>${esc(p.program)} · ${p.year} курс</p></div>
       <div class="grid"><dl><div><dt>Группа</dt><dd>${esc(p.group_name)}</dd></div><div><dt>Зачётная книжка</dt><dd>${esc(p.record_book || '')}</dd></div><div><dt>Действителен до</dt><dd>${dayMonth(p.card_valid_until)} ${p.card_valid_until.slice(0, 4)}</dd></div></dl>${url ? qrSvg(url) : ''}</div></article>
       <p class="cap">Демонстрационный билет, не является документом. ${url ? `Ссылка проверки: <a href="${esc(url)}">${esc(url)}</a>` : ''}</p></div>
