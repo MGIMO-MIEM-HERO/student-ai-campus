@@ -404,7 +404,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.command == "POST" and self.path.startswith("/api/"):
                 origin = self.headers.get("Origin")
                 fetch_site = self.headers.get("Sec-Fetch-Site", "").lower()
-                if (origin and urlsplit(origin).netloc.lower() != self.headers.get("Host", "").lower()) or fetch_site == "cross-site":
+                hosts = {self.headers.get("Host", "").lower()}
+                if os.environ.get("CAMPUS_TRUST_PROXY") == "1":
+                    hosts.add(self.headers.get("X-Forwarded-Host", "").split(",")[0].strip().lower())
+                if (origin and urlsplit(origin).netloc.lower() not in hosts) or fetch_site == "cross-site":
                     return self.reply(403, {"error": "Запрос отклонён. Обновите страницу и попробуйте снова."})
             if self.path.startswith("/api/"):
                 return self.api()
