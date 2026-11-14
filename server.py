@@ -7,7 +7,7 @@ import secrets
 import sqlite3
 import time
 from contextlib import closing
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +19,13 @@ ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get("CAMPUS_DB", ROOT / "data" / "campus.sqlite3"))
 PASSWORD = os.environ.get("CAMPUS_DEMO_PASSWORD", "Campus-demo-2026")
 KINDS = ("Справка об обучении", "Выписка об успеваемости", "Обращение в деканат")
+STATUSES = {"Принята": ("В работе",), "В работе": ("Готова", "Нужны уточнения"),
+            "Нужны уточнения": ("В работе",), "Готова": ()}
+
+
+def today_moscow():
+    override = os.environ.get("CAMPUS_TODAY")
+    return date.fromisoformat(override) if override else datetime.now(timezone(timedelta(hours=3))).date()
 STUDENTS = [
     ("alina", "Алина Северова", "Факультет цифровых технологий", "Прикладная информатика", "ПИ-241", 2),
     ("mark", "Марк Луговой", "Факультет международных исследований", "Международные отношения", "МО-251", 1),
@@ -64,48 +71,68 @@ def initialize():
             CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);
             CREATE INDEX IF NOT EXISTS requests_owner ON requests(login, created);
         """)
+        if "role" not in {row["name"] for row in db.execute("PRAGMA table_info(users)")}:
+            db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")
+        if "updated" not in {row["name"] for row in db.execute("PRAGMA table_info(requests)")}:
+            db.execute("ALTER TABLE requests ADD COLUMN updated TEXT NOT NULL DEFAULT ''")
+            db.execute("ALTER TABLE requests ADD COLUMN response TEXT NOT NULL DEFAULT ''")
         for student in STUDENTS:
             if not db.execute("SELECT 1 FROM users WHERE login=?", (student[0],)).fetchone():
                 salt = secrets.token_bytes(16)
-                db.execute("INSERT INTO users VALUES (?,?,?,?,?,?,?,?)", (*student, salt, digest(PASSWORD, salt)))
-                db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
+                db.execute("INSERT INTO users (login,name,faculty,program,group_name,year,salt,password_hash) VALUES (?,?,?,?,?,?,?,?)", (*student, salt, digest(PASSWORD, salt)))
+                db.execute("INSERT INTO requests (id,login,kind,note,status,created) VALUES (?,?,?,?,?,?)", (
                     secrets.token_hex(8), student[0], KINDS[0 if student[0] == "alina" else 1],
-                    "", "В работе", (date.today() - timedelta(days=1)).isoformat()))
+                    "", "В работе", (today_moscow() - timedelta(days=1)).isoformat()))
+        if not db.execute("SELECT 1 FROM users WHERE login='dean'").fetchone():
+            salt = secrets.token_bytes(16)
+            db.execute("INSERT INTO users (login,name,faculty,program,group_name,year,salt,password_hash,role) VALUES (?,?,?,?,?,?,?,?,?)",
+                       ("dean", "Вера Демина", "Учебный офис", "Демонстрационный сотрудник", "", 0,
+                        salt, digest(PASSWORD, salt), "staff"))
 
 
 def student_data(user, db):
-    today = date.today()
+    if user["role"] == "staff":
+        requests = [dict(row) for row in db.execute(
+            "SELECT requests.*,users.name,users.group_name FROM requests JOIN users USING(login) ORDER BY requests.rowid DESC")]
+        return {"profile": {k: user[k] for k in ("login", "name", "role", "faculty")},
+                "requests": requests, "statuses": STATUSES}
+    today = today_moscow()
     courses = COURSES[user["login"]]
     week = []
     for offset in range(7):
-        lessons = courses[:3] if offset == 0 else [courses[offset % 4], courses[(offset + 2) % 4]] if offset in (1, 3, 5) else []
+        weekday = (today + timedelta(days=offset)).weekday()
+        lessons = courses[:3] if weekday in (0, 2, 4) else [courses[1], courses[3]] if weekday in (1, 3, 5) else []
         week.append({"date": (today + timedelta(days=offset)).isoformat(), "lessons": [
             dict(zip(("title", "type", "room", "teacher", "start", "end", "change"), lesson)) for lesson in lessons]})
     grades = [
         {"title": lesson[0], "points": ([92, 84, 100, 76] if user["login"] == "alina" else [86, 79, 93, 81])[i],
          "result": ("Зачтено", "В процессе", "Зачтено", "В процессе")[i],
          "assessment": ("Экзамен", "Зачёт", "Зачёт", "Экзамен")[i],
-         "date": (today + timedelta(days=18 + i * 3)).isoformat()}
+         "date": (date(2026, 12, 1) + timedelta(days=i * 3)).isoformat()}
         for i, lesson in enumerate(courses)]
     read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (user["login"],))}
     notices = [
         {"id": "move", "tag": "Расписание", "title": f"{courses[1][0]} · новая аудитория",
-         "body": f"Сегодня занятие пройдёт в аудитории {courses[1][2].split()[-1]}. Время осталось прежним.", "read": "move" in read},
+         "body": f"С 9 ноября занятие проходит в аудитории {courses[1][2].split()[-1]}. Время осталось прежним.", "read": "move" in read},
         {"id": "exam", "tag": "Деканат", "title": "Опубликованы даты сессии",
          "body": "Даты экзаменов и зачётов появились в разделе «Успеваемость».", "read": "exam" in read},
         {"id": "deadline", "tag": "Дедлайн", "title": "Сдача работы по дисциплине",
-         "body": f"{courses[0][0]} · до {(today + timedelta(days=2)).strftime('%d.%m')}, 23:59.", "read": "deadline" in read},
+         "body": f"{courses[0][0]} · до 20.11, 23:59.", "read": "deadline" in read},
     ]
     requests = [dict(r) for r in db.execute(
-        "SELECT id,kind,note,status,created FROM requests WHERE login=? ORDER BY rowid DESC", (user["login"],))]
-    return {"profile": {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")},
+        "SELECT id,kind,note,status,created,updated,response FROM requests WHERE login=? ORDER BY rowid DESC", (user["login"],))]
+    actions = [{"title": f"Сдать работу: {courses[0][0]}", "detail": "До 20 ноября, 23:59", "date": "2026-11-20", "page": "grades"}]
+    actions += [{"title": r["kind"], "detail": r["response"] or "Документ готов к получению", "date": today.isoformat(), "page": "requests"}
+                for r in requests if r["status"] in ("Готова", "Нужны уточнения")]
+    return {"profile": {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year", "role")},
             "week": week, "grades": grades, "notices": notices, "requests": requests,
+            "actions": [a for a in actions if a["date"] >= today.isoformat()],
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
 
 def assistant_answer(question, data):
     if data["ai_live"]:
-        context = {k: data[k] for k in ("week", "grades", "notices")}
+        context = {k: data[k] for k in ("week", "grades", "notices", "requests", "actions")}
         instructions = (
             "Ты помощник студенческого кабинета. Отвечай по-русски и кратко. "
             "Учебные факты бери только из переданного JSON. Если сведений нет, скажи об этом. "
@@ -126,6 +153,8 @@ def assistant_answer(question, data):
             raise ValueError("Empty model reply")
         return answer.strip()
     q = question.lower()
+    if any(x in q for x in ("статус", "моей справ", "моя справ", "мои заяв", "готова справ")):
+        return "Твои заявки:\n" + "\n".join(f"• {r['kind']}: {r['status']}. {r['response']}" for r in data["requests"]) if data["requests"] else "У тебя пока нет заявок. Подать новую можно в разделе «Заявки и справки»."
     if any(x in q for x in ("справк", "заявк", "деканат")):
         return "Открой «Заявки и справки», выбери тип документа и отправь заявку. Её статус появится в истории."
     if any(x in q for x in ("сесси", "экзамен", "оцен", "балл", "зачёт")):
@@ -141,7 +170,7 @@ def assistant_answer(question, data):
 
 
 class Handler(BaseHTTPRequestHandler):
-    def reply(self, code, body, content_type="application/json; charset=utf-8", cookie=None):
+    def reply(self, code, body, content_type="application/json; charset=utf-8", cookie=None, download=None):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, ensure_ascii=False).encode()
         self.send_response(code)
@@ -155,6 +184,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if cookie:
             self.send_header("Set-Cookie", cookie)
+        if download:
+            self.send_header("Content-Disposition", f'attachment; filename="{download}"')
         self.end_headers()
         self.wfile.write(body)
 
@@ -204,11 +235,37 @@ class Handler(BaseHTTPRequestHandler):
                 WHERE sessions.token=? AND sessions.expires>?""", (self.session(), int(time.time()))).fetchone()
             if not user:
                 return self.reply(401, {"error": "Войдите в кабинет."})
+            if user["role"] == "staff":
+                if self.command == "POST" and path == "/api/requests/update":
+                    body = self.body()
+                    item = db.execute("SELECT * FROM requests WHERE id=?", (str(body.get("id", "")),)).fetchone()
+                    if not item:
+                        return self.reply(404, {"error": "Заявка не найдена."})
+                    status, response = body.get("status"), body.get("response", "")
+                    if status not in STATUSES.get(item["status"], ()) or not isinstance(response, str) or len(response) > 1000:
+                        return self.reply(400, {"error": "Недопустимый переход статуса или слишком длинный ответ."})
+                    if status == "Нужны уточнения" and not response.strip():
+                        return self.reply(400, {"error": "Напишите, что нужно уточнить."})
+                    db.execute("UPDATE requests SET status=?,response=?,updated=? WHERE id=?",
+                               (status, response.strip(), today_moscow().isoformat(), item["id"]))
+                    db.commit()
+                    return self.reply(200, student_data(user, db))
+                if path not in ("/api/dashboard", "/api/logout"):
+                    return self.reply(403, {"error": "Этот раздел доступен только студенту."})
+            elif path == "/api/requests/update":
+                return self.reply(403, {"error": "Изменить статус может только сотрудник."})
             if self.command == "GET" and path == "/api/dashboard":
                 return self.reply(200, student_data(user, db))
             if self.command == "GET" and path.startswith("/api/requests/"):
-                item = db.execute("SELECT id,kind,note,status,created FROM requests WHERE login=? AND id=?",
-                                  (user["login"], path.rsplit("/", 1)[1])).fetchone()
+                parts = path.split("/")
+                item = db.execute("SELECT * FROM requests WHERE login=? AND id=?", (user["login"], parts[3])).fetchone()
+                if len(parts) == 5 and parts[4] == "document":
+                    if not item or item["status"] != "Готова" or item["kind"] == "Обращение в деканат":
+                        return self.reply(404, {"error": "Документ ещё не готов или недоступен."})
+                    document = ("УЧЕБНЫЙ ОБРАЗЕЦ — НЕ ЯВЛЯЕТСЯ ДОКУМЕНТОМ\n\n" + item["kind"] +
+                                f"\nСтудент: {user['name']}\nГруппа: {user['group_name']}\nДата: {item['updated']}\n" +
+                                "Все сведения вымышлены. Создано для MGIMO AI Challenge. Юридической силы не имеет.\n")
+                    return self.reply(200, document.encode("utf-8"), "text/plain; charset=utf-8", download="demo-document.txt")
                 return self.reply(200, dict(item)) if item else self.reply(404, {"error": "Заявка не найдена."})
             if self.command == "POST" and path == "/api/logout":
                 self.body()
@@ -220,8 +277,8 @@ class Handler(BaseHTTPRequestHandler):
                 kind, note = body.get("kind"), body.get("note", "")
                 if kind not in KINDS or not isinstance(note, str) or len(note) > 1000:
                     raise ValueError()
-                db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
-                    secrets.token_hex(8), user["login"], kind, note.strip(), "Принята", date.today().isoformat()))
+                db.execute("INSERT INTO requests (id,login,kind,note,status,created) VALUES (?,?,?,?,?,?)", (
+                    secrets.token_hex(8), user["login"], kind, note.strip(), "Принята", today_moscow().isoformat()))
                 db.commit()
                 return self.reply(201, student_data(user, db))
             if self.command == "POST" and path == "/api/notice":
