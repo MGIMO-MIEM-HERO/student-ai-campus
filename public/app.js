@@ -37,7 +37,7 @@ const brand = `<span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 
 
 function gradeSummary() {
   const average = data.grades.length ? Math.round(data.grades.reduce((sum, grade) => sum + grade.points, 0) / data.grades.length) : 0;
-  const passed = data.grades.filter(grade => grade.result === 'Зачтено').length;
+  const passed = data.grades.filter(grade => grade.result !== 'Нет допуска').length;
   const next = [...data.grades].sort((a,b) => a.date.localeCompare(b.date))[0];
   return {average, passed, next};
 }
@@ -131,7 +131,7 @@ function home() {
   </section>
   <div class="overview-label"><div><p class="eyebrow">ТВОЯ УЧЁБА</p><h2>Всё важное — рядом</h2></div><p>Коротко о твоём учебном дне</p></div>
   <div class="quick">
-    ${[['schedule','Пар сегодня',data.week[0].lessons.length],['grades','Средний балл',stats.average],['grades','Зачтено',`${stats.passed}/${data.grades.length}`],['requests','Заявки',data.requests.length]].map(([key,label,value],i) => `<a href="#${key}" class="quick-item tone-${i%3}"><span class="mono">${label}</span><strong>${value}</strong><span class="quick-arrow" aria-hidden="true">↗</span></a>`).join('')}
+    ${[['schedule','Пар сегодня',data.week[0].lessons.length],['grades','Средний балл',stats.average],['grades','Допуск к сессии',`${stats.passed}/${data.grades.length}`],['requests','Заявки',data.requests.length]].map(([key,label,value],i) => `<a href="#${key}" class="quick-item tone-${i%3}"><span class="mono">${label}</span><strong>${value}</strong><span class="quick-arrow" aria-hidden="true">↗</span></a>`).join('')}
   </div>
   <div class="columns">
     <section class="content-card">${section('Сегодня', link('schedule','Вся неделя'))}${lessonRows(data.week[0].lessons)}</section>
@@ -151,8 +151,8 @@ function grades() {
   if (!data.grades.length) return heading('03','Успеваемость','Текущие баллы и даты экзаменов и зачётов.') + '<p class="empty">Оценок пока нет. Они появятся здесь, когда их опубликуют.</p>';
   const top = [...data.grades].sort((a,b) => b.points-a.points)[0];
   return heading('03','Успеваемость','Текущие баллы и даты экзаменов и зачётов.') + `
-  <div class="grade-overview"><article><span class="mono">СРЕДНИЙ ТЕКУЩИЙ БАЛЛ</span><strong>${average}<small>/100</small></strong><p>Среднее арифметическое, без весов дисциплин</p></article><article><span class="mono">ЗАЧТЕНО</span><strong>${passed}<small>/${data.grades.length}</small></strong><p>Ближайший контроль · ${shortDate(next.date)}</p></article><article><span class="mono">СИЛЬНАЯ ДИСЦИПЛИНА</span><strong class="grade-best">${escape(top.title)}</strong><p>${top.points} из 100 · ${escape(top.assessment.toLowerCase())}</p></article></div>
-  <section>${section('Баллы и даты контроля')}<ul class="rows grades">${data.grades.map(g=>`<li><div class="grade-course"><h3>${escape(g.title)}</h3><p>${escape(g.assessment)} · ${shortDate(g.date)}</p><progress aria-label="${escape(g.title)}: ${g.points} из 100 баллов" max="100" value="${g.points}">${g.points}%</progress></div><span class="tag ${g.result==='Зачтено'?'green':'orange'}">${escape(g.result)}</span><strong class="grade">${g.points}<small>/100</small></strong></li>`).join('')}</ul></section>`;
+  <div class="grade-overview"><article><span class="mono">СРЕДНИЙ ТЕКУЩИЙ БАЛЛ</span><strong>${average}<small>/100</small></strong><p>Среднее арифметическое, без весов дисциплин</p></article><article><span class="mono">ДОПУСК К СЕССИИ</span><strong>${passed}<small>/${data.grades.length}</small></strong><p>Ближайший контроль · ${shortDate(next.date)}</p></article><article><span class="mono">СИЛЬНАЯ ДИСЦИПЛИНА</span><strong class="grade-best">${escape(top.title)}</strong><p>${top.points} из 100 · ${escape(top.assessment.toLowerCase())}</p></article></div>
+  <section>${section('Баллы и даты контроля')}<ul class="rows grades">${data.grades.map(g=>`<li><div class="grade-course"><h3>${escape(g.title)}</h3><p>${escape(g.assessment)} · ${shortDate(g.date)}</p><progress aria-label="${escape(g.title)}: ${g.points} из 100 баллов" max="100" value="${g.points}">${g.points}%</progress></div><span class="tag ${g.result==='Нет допуска'?'red':'green'}">${escape(g.result)}</span><strong class="grade">${g.points}<small>/100</small></strong></li>`).join('')}</ul></section>`;
 }
 function requests() {
   return heading('04','Заявки и справки','Закажи справку или напиши в деканат. Статусы сохраняются в истории.') + `

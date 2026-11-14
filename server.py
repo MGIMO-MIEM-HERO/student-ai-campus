@@ -24,7 +24,8 @@ STATUSES = ("Принята", "В работе", "Готова", "Выдана",
 CLOSED = ("Выдана", "Отклонена")
 TAGS = ("Деканат", "Расписание", "Дедлайн", "Мероприятие")
 STAFF = ("dekanat", "Вера Деканова", "Деканат", "Учебный офис", "—", 0)
-LOGIN_LIMIT, LOGIN_WINDOW = 5, 900
+LOGIN_LIMIT, LOGIN_WINDOW = 10, 300
+WEEKDAY_PLAN = {0: (0, 1, 2), 1: (1, 3), 2: (0, 2, 3), 3: (1, 2), 4: (0, 3), 5: (2,), 6: ()}
 FAILED_LOGINS, FAILED_LOCK = {}, threading.Lock()
 STUDENTS = [
     ("alina", "Алина Северова", "Факультет цифровых технологий", "Прикладная информатика", "ПИ-241", 2),
@@ -121,16 +122,25 @@ def announcements_for(db, group):
 def student_data(user, db):
     today = date.today()
     courses = COURSES[user["login"]]
-    week = []
+    week, changed = [], None
     for offset in range(7):
-        lessons = courses[:3] if offset == 0 else [courses[offset % 4], courses[(offset + 2) % 4]] if offset in (1, 3, 5) else []
-        week.append({"date": (today + timedelta(days=offset)).isoformat(), "lessons": [
-            dict(zip(("title", "type", "room", "teacher", "start", "end", "change"), lesson)) for lesson in lessons]})
+        current = today + timedelta(days=offset)
+        lessons = []
+        for index in WEEKDAY_PLAN[current.weekday()]:
+            lesson = dict(zip(("title", "type", "room", "teacher", "start", "end", "change"), courses[index]))
+            if lesson["change"] and changed is None:
+                changed = {"date": current, **lesson}
+            else:
+                lesson["change"] = ""
+            lessons.append(lesson)
+        week.append({"date": current.isoformat(), "lessons": lessons})
+    points = [92, 84, 100, 76] if user["login"] == "alina" else [86, 79, 93, 81]
+    assessments = ("Экзамен", "Зачёт", "Зачёт", "Экзамен")
     grades = [
-        {"title": lesson[0], "points": ([92, 84, 100, 76] if user["login"] == "alina" else [86, 79, 93, 81])[i],
-         "result": ("Зачтено", "В процессе", "Зачтено", "В процессе")[i],
-         "assessment": ("Экзамен", "Зачёт", "Зачёт", "Экзамен")[i],
-         "date": (today + timedelta(days=18 + i * 3)).isoformat()}
+        {"title": lesson[0], "points": points[i], "assessment": assessments[i],
+         "result": ("Зачёт автоматом" if points[i] >= 85 else "Допуск к зачёту") if assessments[i] == "Зачёт"
+         else ("Допуск получен" if points[i] >= 60 else "Нет допуска"),
+         "date": (today + timedelta(days=30 + i * 4)).isoformat()}
         for i, lesson in enumerate(courses)]
     read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (user["login"],))}
     published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
@@ -138,7 +148,8 @@ def student_data(user, db):
                  for a in announcements_for(db, user["group_name"])]
     notices = published + [
         {"id": "move", "tag": "Расписание", "title": f"{courses[1][0]} · новая аудитория",
-         "body": f"Сегодня занятие пройдёт в аудитории {courses[1][2].split()[-1]}. Время осталось прежним.", "read": "move" in read},
+         "body": (f"{'Сегодня' if changed and changed['date'] == today else changed['date'].strftime('%d.%m') if changed else 'На неделе'} "
+                  f"занятие пройдёт в аудитории {courses[1][2].split()[-1]}. Время осталось прежним."), "read": "move" in read},
         {"id": "exam", "tag": "Деканат", "title": "Опубликованы даты сессии",
          "body": "Даты экзаменов и зачётов появились в разделе «Успеваемость».", "read": "exam" in read},
         {"id": "deadline", "tag": "Дедлайн", "title": "Сдача работы по дисциплине",
@@ -261,7 +272,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(login, str) or not isinstance(password, str) or len(password) > 128:
                     raise ValueError()
                 login = login.strip().lower()[:64]
-                limit_key = (self.client_address[0], login)
+                limit_key = (self.client_ip(), login)
                 if not check_login_limit(limit_key):
                     return self.reply(429, {"error": "Слишком много попыток входа. Подождите 15 минут."})
                 user = db.execute("SELECT * FROM users WHERE login=?", (login,)).fetchone()
@@ -325,6 +336,12 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(502, {"error": "Помощник временно недоступен. Попробуй чуть позже."})
                 return self.reply(200, {"answer": answer})
             return self.reply(404, {"error": "Страница не найдена."})
+
+    def client_ip(self):
+        forwarded = self.headers.get("X-Forwarded-For", "")
+        if os.environ.get("CAMPUS_TRUST_PROXY") == "1" and forwarded:
+            return forwarded.split(",")[-1].strip()
+        return self.client_address[0]
 
     def dashboard(self, user, db):
         return staff_data(user, db) if user["role"] == "staff" else student_data(user, db)

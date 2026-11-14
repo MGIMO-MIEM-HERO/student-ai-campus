@@ -137,6 +137,14 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(client.login("mark", "wrong")[0], 401)
         self.assertEqual(client.login("mark")[0], 429)
 
+    def test_demo_week_has_free_sunday(self):
+        week = self.client("alina").call("/api/dashboard")[1]["week"]
+        from datetime import date
+        for day in week:
+            if date.fromisoformat(day["date"]).weekday() == 6:
+                self.assertEqual(day["lessons"], [])
+        self.assertEqual(sum(1 for d in week for l in d["lessons"] if l["change"]), 1)
+
     def test_cross_site_post_is_rejected(self):
         alina = self.client("alina")
         status, _ = alina.call("/api/requests", {"kind": "Справка об обучении"},
