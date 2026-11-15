@@ -32,7 +32,7 @@ const building = (id) => S.data.campus.buildings.find((b) => b.id === id);
 export const statusTag = (s) => `<span class="tag ${STATUS_TONE[s] || ''}">${esc(s)}</span>`;
 export const empty = (ico, title, text = '') => `<div class="empty">${icon(ico)}<strong>${title}</strong>${text ? `<span>${text}</span>` : ''}</div>`;
 export const markLast = (text) => { const i = text.lastIndexOf(' '); return i < 0 ? text : `${text.slice(0, i)} <span class="mark">${text.slice(i + 1)}</span>`; };
-export const head = (eyebrow, title, lede = '', scene = '') => `<header class="page-head ${scene ? 'split' : ''}"><div class="page-head-copy"><p class="kicker">${eyebrow}</p><h1>${markLast(title)}</h1>${lede ? `<p class="lede">${lede}</p>` : ''}</div>${scene}</header>`;
+export const head = (eyebrow, title, lede = '', scene = '') => `<header class="page-head ${scene ? 'split sky' : ''}"><div class="page-head-copy"><p class="kicker">${eyebrow}</p><h1>${markLast(title)}</h1>${lede ? `<p class="lede">${lede}</p>` : ''}</div>${scene}</header>`;
 export const secHead = (title, extra = '') => `<div class="sec-head"><h2>${title}</h2>${extra}</div>`;
 const go = (href, text) => `<a class="link" href="#${href}">${text} ${icon('arrow')}</a>`;
 export function item({href, data, ico, tone = '', title, sub = ''}) {
@@ -128,7 +128,7 @@ export function viewToday() {
   const daysToExam = nextExam ? daysBetween(t, nextExam.date) : 0;
   const pairsToday = todayLessons.filter((l) => !l.cancelled).length;
   return `<div class="page">
-    <section class="today-top">
+    <section class="today-top sky">
       <div class="greet"><p class="kicker">${cap(dayLong(t))} · <span data-clock>${clockText()}</span></p><h1>${greet},<br><span class="mark">${esc(d.profile.name.split(' ')[0])}</span></h1><p class="lede">${esc(d.profile.group_name)} · ${esc(d.profile.program)}</p>
         <div class="hero-day"><div class="row"><span class="small"><b>Ваш день</b> · ${pairsToday ? count(pairsToday, ['пара', 'пары', 'пар']) : 'пар нет'}</span><span class="small muted">неделя ${s.week} из ${s.weeks}, ${s.parity_label}</span></div>${dayTimeline(today, t)}</div></div>
       ${nowCard()}</section>

@@ -1,29 +1,27 @@
-/* Дизайн-токены «Атлас». Светлая тема: холодный белый, глубокий синий, небесный акцент.
-   Ориентиры: студийные сайты с фотореалистичными предметами и мягким небом, официальный тон. */
+/* Дизайн-токены «Атлас». Белый фон, мягкие серые карточки, чёрные кнопки-пилюли,
+   единственный цвет — приглушённое небо в главных блоках. */
 :root{
   color-scheme:light;
-  /* Фон и текст */
-  --paper:#f4f7fb;--paper-2:#e9eef6;--surface:#ffffff;--ink:#0e1a2f;--ink-2:#36435a;--muted:#5d6a80;
-  --line:rgba(14,26,47,.10);--line-strong:rgba(14,26,47,.20);
-  /* Глубокий синий — основной цвет; небесный — акцент. Имена gold* сохранены для совместимости и указывают на акцент. */
-  --navy:#13284d;--navy-2:#1b3766;--navy-3:#2a62b4;
-  --gold:#2a62b4;--gold-ink:#2a5596;--gold-soft:#dde8f8;
-  --sky-1:#cfe2fb;--sky-2:#e9f2fd;--sky-3:#fbfdff;
-  /* Состояния */
-  --ok:#1d5a3f;--ok-bg:#e3f2ea;--ok-line:#a6d1b9;
-  --warn:#6b4c0c;--warn-bg:#fbf0d6;--warn-line:#e7cf8f;
-  --bad:#8a2a1e;--bad-bg:#fbe5e1;--bad-line:#eab0a6;
-  --info:#1d3d72;--info-bg:#e5eefb;--info-line:#b2c8ec;
-  --neutral:#36435a;--neutral-bg:#edf1f7;
-  /* Виды занятий */
-  --t-lec:#4f74b8;--t-sem:#3f8a6c;--t-prac:#c08a2c;--t-lab:#3f8a9a;
-  --link:#2a5596;
-  /* Один шрифт: Golos Text. Заголовки — 600 с плотным трекингом. */
+  --paper:#ffffff;--paper-2:#f5f5f6;--surface:#ffffff;--card:#f5f5f6;
+  --ink:#101113;--ink-2:#3c3f45;--muted:#6f737b;
+  --line:rgba(16,17,19,.08);--line-strong:rgba(16,17,19,.16);
+  /* Небо: от пыльного синего к светлому */
+  --sky-top:#7f9fc3;--sky-mid:#94b8d5;--sky-low:#c6dbea;--sky-ink:#3e6189;
+  /* Совместимость имён: navy — чёрный цвет действий, gold — небесный акцент */
+  --navy:#101113;--navy-2:#2a2c30;--navy-3:#3e6189;
+  --gold:#7f9fc3;--gold-ink:#55779e;--gold-soft:#e6eef6;
+  --ok:#2f6a4f;--ok-bg:#e8f1ec;--ok-line:#b9d6c6;
+  --warn:#7a5a16;--warn-bg:#f6efdf;--warn-line:#e4d2a6;
+  --bad:#9a3a2c;--bad-bg:#f8e9e6;--bad-line:#e9bcb3;
+  --info:#3e6189;--info-bg:#e9f0f7;--info-line:#c2d4e6;
+  --neutral:#3c3f45;--neutral-bg:#eeeef0;
+  --t-lec:#7f9fc3;--t-sem:#86ad98;--t-prac:#cfae6f;--t-lab:#8ab3bd;
+  --link:#101113;
   --font-serif:"Golos Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   --font-sans:"Golos Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-  --r-sm:10px;--r-md:14px;--r-lg:22px;--r-pill:9999px;
-  --shadow-pop:0 30px 70px -20px rgba(19,40,77,.35),0 6px 16px rgba(19,40,77,.08);
-  --shadow-lift:0 18px 40px -22px rgba(19,40,77,.35);
-  --shadow-card:0 1px 2px rgba(19,40,77,.04),0 10px 30px -18px rgba(19,40,77,.22);
+  --r-sm:12px;--r-md:16px;--r-lg:26px;--r-xl:32px;--r-pill:9999px;
+  --shadow-pop:0 30px 70px -24px rgba(16,17,19,.28),0 4px 14px rgba(16,17,19,.06);
+  --shadow-lift:0 20px 40px -24px rgba(16,17,19,.28);
+  --shadow-soft:0 1px 2px rgba(16,17,19,.04),0 8px 24px -14px rgba(16,17,19,.14);
   --page-max:1200px;
 }
