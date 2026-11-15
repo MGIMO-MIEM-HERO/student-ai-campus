@@ -78,6 +78,7 @@ def initialize():
               audience TEXT, author TEXT, created TEXT);
             CREATE TABLE IF NOT EXISTS documents (request_id TEXT PRIMARY KEY, code TEXT UNIQUE, issued TEXT);
             CREATE TABLE IF NOT EXISTS cards (login TEXT PRIMARY KEY, code TEXT UNIQUE);
+            CREATE TABLE IF NOT EXISTS homework_done (login TEXT, task_id TEXT, at TEXT, PRIMARY KEY (login, task_id));
             CREATE TABLE IF NOT EXISTS room_marks (
               day TEXT, pair INTEGER, building TEXT, room TEXT, state TEXT, note TEXT, author TEXT, at TEXT,
               PRIMARY KEY (day, pair, building, room));
@@ -198,16 +199,20 @@ def student_data(user, db):
     published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
                   "date": a["created"][:10], "read": f"a{a['id']}" in read}
                  for a in announcements_for(db, user["group_name"])]
-    first_course = grades[0]["title"] if grades else "дисциплине"
-    deadline_course = next((g["title"] for g in grades if g["assessment"] != "Экзамен"), first_course)
+    done = {row["task_id"]: row["at"] for row in db.execute("SELECT task_id, at FROM homework_done WHERE login=?", (login,))}
+    clock = datetime.now(MSK)
+    homework = campus_data.build_homework(login, today, schedule, done, clock.hour * 60 + clock.minute)
     notices = published + schedule_notices(schedule, read) + [
         {"id": "exam", "tag": "Деканат", "title": "Опубликовано расписание сессии",
          "body": "Экзаменационная сессия начинается 21 декабря. Даты, время и аудитории — в разделе «Учёба».",
          "date": (today - timedelta(days=3)).isoformat(), "read": "exam" in read},
-        {"id": "deadline", "tag": "Дедлайн", "title": "Срок сдачи работы по дисциплине",
-         "body": f"{deadline_course}: загрузить работу до {(today + timedelta(days=2)).strftime('%d.%m')}, 23:59.",
-         "date": (today - timedelta(days=1)).isoformat(), "read": "deadline" in read},
     ]
+    upload = next((h for h in homework if h["status"] == "todo" and h["kind"] == "Загрузка в LMS"), None)
+    if upload:
+        due = date.fromisoformat(upload["due_date"])
+        notices.append({"id": f"deadline-{upload['id']}", "tag": "Дедлайн", "title": f"Срок сдачи: {upload['title']}",
+                        "body": f"{upload['course_title']}: загрузить в LMS до {due.strftime('%d.%m')}, {upload['due_time']}.",
+                        "date": (today - timedelta(days=1)).isoformat(), "read": f"deadline-{upload['id']}" in read})
     requests = [{k: r[k] for k in ("id", "kind", "note", "status", "created", "events", "document")}
                 for r in request_rows(db, "requests.login=?", (login,))]
     profile = {k: user[k] for k in ("login", "name", "faculty", "program", "group_name", "year")}
@@ -216,7 +221,8 @@ def student_data(user, db):
     profile.update(card_code=card["code"] if card else None, card_valid_until="2027-08-31")
     return {"role": "student", "today": today.isoformat(), "profile": profile,
             "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
-            "notices": notices, "requests": requests, "news": campus_data.news(today), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "notices": notices, "requests": requests, "news": campus_data.news(today),
+            "homework": homework, "teachers": campus_data.teachers_for(login), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
             "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
@@ -414,6 +420,18 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError()
                 for target in targets:
                     db.execute("INSERT OR IGNORE INTO notice_reads VALUES (?,?)", (user["login"], target))
+                db.commit()
+                return self.reply(200, student_data(user, db))
+            if self.command == "POST" and path == "/api/homework":
+                body = self.body()
+                task, done = body.get("id"), body.get("done")
+                known = {h["id"]: h["status"] for h in student_data(user, db)["homework"]}
+                if not isinstance(task, str) or task not in known or not isinstance(done, bool) or known[task] == "graded":
+                    raise ValueError()
+                if done:
+                    db.execute("INSERT OR REPLACE INTO homework_done VALUES (?,?,?)", (user["login"], task, now()))
+                else:
+                    db.execute("DELETE FROM homework_done WHERE login=? AND task_id=?", (user["login"], task))
                 db.commit()
                 return self.reply(200, student_data(user, db))
             if self.command == "POST" and path == "/api/assistant":

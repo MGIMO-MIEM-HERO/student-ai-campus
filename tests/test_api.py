@@ -210,10 +210,26 @@ class ApiTest(unittest.TestCase):
         data = self.client("alina").call("/api/dashboard")[1]
         self.assertGreaterEqual(len(data["news"]), 6)
         self.assertEqual({n["cat"] for n in data["news"]}, {"uni", "edu", "abit", "proj"})
-        for n in data["news"]:
-            request = urllib.request.Request(self.base + f"/assets/3d/img/{n['image']}.webp")
-            with urllib.request.urlopen(request) as response:
-                self.assertEqual(response.headers["Content-Type"], "image/webp")
+        self.assertTrue(all(n["body"] for n in data["news"]))
+
+    def test_homework_and_teachers(self):
+        alina, mark = self.client("alina"), self.client("mark")
+        data = alina.call("/api/dashboard")[1]
+        homework = {h["id"]: h for h in data["homework"]}
+        self.assertEqual(homework["hw-alg-4"]["status"], "todo")
+        self.assertEqual(homework["hw-mat-k2"]["status"], "graded")
+        self.assertTrue(all(h["teacher"]["email"].endswith("@univer.example") for h in data["homework"]))
+        self.assertEqual(len(data["teachers"]), 6)
+        status, after = alina.call("/api/homework", {"id": "hw-alg-4", "done": True})
+        self.assertEqual(status, 200)
+        self.assertEqual(next(h for h in after["homework"] if h["id"] == "hw-alg-4")["status"], "done")
+        self.assertEqual(alina.call("/api/homework", {"id": "hw-mat-k2", "done": True})[0], 400)
+        self.assertEqual(mark.call("/api/homework", {"id": "hw-alg-4", "done": True})[0], 400)
+        self.assertEqual(alina.call("/api/homework", {"id": "hw-alg-4", "done": "yes"})[0], 400)
+        status, after = alina.call("/api/homework", {"id": "hw-alg-4", "done": False})
+        self.assertEqual(next(h for h in after["homework"] if h["id"] == "hw-alg-4")["status"], "todo")
+        mark_hw = {h["id"]: h for h in mark.call("/api/dashboard")[1]["homework"]}
+        self.assertEqual(mark_hw["hw-phil-e"]["status"], "overdue")
 
     def test_mark_has_a_risk_course(self):
         grades = self.client("mark").call("/api/dashboard")[1]["grades"]

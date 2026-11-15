@@ -1,7 +1,6 @@
 import {S, indexLessons, lessonIndex} from './state.js';
 import {api} from './api.js';
 import {icon} from './icons.js';
-import {collage} from './objects.js';
 import {esc, buildIcs, downloadIcs, dayMonth} from './util.js';
 import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
@@ -24,8 +23,8 @@ function flash(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.textContent = ''; }, 5000);
 }
-const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>Атлас</b><small>${isStaff() ? 'Кабинет сотрудника' : 'Кабинет студента · концепт'}</small></span></a>`;
-const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>Атлас — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные и новости вымышлены. Объёмные предметы — студийные рендеры. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
+const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>Кампус</b><small>${isStaff() ? 'кабинет сотрудника · концепт' : 'кабинет студента · концепт'}</small></span></a>`;
+const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>Кампус — концепт-прототип личного кабинета студента для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -47,10 +46,13 @@ function shell(content, key) {
 function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
   lastKey = '';
-  app.innerHTML = `<div class="login enter"><section class="login-side"><img class="watermark" src="/mark-line.svg" alt="">${brand('/')}
-      <div class="login-copy"><p class="kicker">Концепт для MGIMO×AI Challenge</p><h1>Вся учёба —<br><span class="mark">в одном кабинете</span></h1><p class="lede">Расписание с аудиториями и изменениями, баллы и допуск, справки со статусом и новости университета. С телефона и с компьютера.</p>
-      <ul class="login-pts"><li><b>14 дней</b><span>расписания с заменами</span></li><li><b>QR</b><span>проверка справок</span></li><li><b>3 корпуса</b><span>свободные аудитории</span></li></ul></div>
-      ${collage()}</section>
+  app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
+      <div class="login-copy"><h1>Личный кабинет студента</h1><p class="lede">Расписание с заменами и аудиториями, домашние задания со сроками, баллы и допуск, справки со статусом. С телефона и с компьютера.</p></div>
+      <div class="hero-ui" aria-hidden="true">
+        <div class="ui-card ui-a"><span class="pill dark">Следующая пара · через 25 мин</span><b>Базы данных</b><span>10:40–12:10 · Корпус Б, ауд. 512</span><span class="ui-who"><i>МГ</i>Гранов М. А. · практика</span></div>
+        <div class="ui-card ui-b"><span class="ui-row"><i class="ui-check"></i><span><b>Лабораторная работа 4</b><span>Алгоритмы · до четверга, 23:59</span></span></span><span class="ui-row"><i class="ui-check on">${icon('check')}</i><span><b>Типовой расчёт № 3</b><span>Математический анализ · сделано</span></span></span></div>
+        <div class="ui-card ui-c"><span class="ui-label">Замена аудитории</span><span><s>А-305</s> → <b>Б-512</b></span></div>
+      </div></section>
     <main class="login-main" id="main" tabindex="-1"><div class="login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
@@ -58,7 +60,7 @@ function loginScreen(error = '', login = '') {
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role]) => `<button class="demo" data-demo="${id}"><span class="avatar" aria-hidden="true">${name[0]}</span><span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
       <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></div>
-      <p class="disclaimer">Атлас — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
+      <p class="disclaimer">Кампус — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');
 }
@@ -109,7 +111,7 @@ function render() {
   if (!S.data) return loginScreen();
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
-    : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
+    : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, tasks: stu.viewTasks, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
   const entering = key !== lastKey;
   lastKey = key;
   app.innerHTML = shell(views[key](), key);
@@ -159,13 +161,13 @@ async function mutate(path, body, after) {
 function showRoom(key) {
   const r = roomByKey(key);
   if (!r) return;
-  S.bld = r.building; S.room = key;
+  S.bld = r.building; S.room = key; S.floor = r.floor;
   closeSheet();
   if (route() !== 'rooms') location.hash = 'rooms'; else render();
 }
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat]';
+const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -181,12 +183,22 @@ document.addEventListener('click', async (event) => {
     if (d.copy) { try { await navigator.clipboard.writeText(d.copy); flash('Ссылка проверки скопирована.'); } catch { flash('Не удалось скопировать. Выделите ссылку вручную.'); } return; }
     if (d.lesson) return openSheet(stu.lessonSheet(d.lesson));
     if (d.news) return openSheet(stu.newsSheet(d.news));
+    if (d.task) return openSheet(stu.taskSheet(d.task));
+    if (d.hwf) { S.hwFilter = d.hwf; render(); return document.querySelector(`[data-hwf="${d.hwf}"]`)?.focus(); }
+    if (d.scroll) { const box = el.closest('.sec')?.querySelector('[data-carousel]'); const card = box?.querySelector('.tcard'); if (box && card) box.scrollBy({left: Number(d.scroll) * (card.offsetWidth + 16), behavior: reduceMotion() ? 'auto' : 'smooth'}); return; }
+    if (d.hw) {
+      const h = S.data.homework.find((x) => x.id === d.hw); if (!h) return;
+      const done = h.status !== 'done'; el.disabled = true;
+      const inSheet = sheet.open;
+      return await mutate('homework', {id: d.hw, done}, () => { if (inSheet) openSheet(stu.taskSheet(d.hw)); flash(done ? 'Задание отмечено сделанным.' : 'Отметка снята.'); });
+    }
     if (d.ncat) { S.newsCat = d.ncat; render(); return document.querySelector(`[data-ncat="${d.ncat}"]`)?.focus(); }
     if (d.requestKind) return openSheet(stu.requestSheet(d.requestKind));
     if (d.gotoRoom) return showRoom(d.gotoRoom);
-    if (d.room3) { const r = roomByKey(d.room3); S.room = d.room3; if (r) S.bld = r.building; render(); return document.querySelector(`.b3d [data-room3="${CSS.escape(d.room3)}"]`)?.focus({preventScroll: true}); }
+    if (d.room3) { const r = roomByKey(d.room3); S.room = d.room3; if (r) { S.bld = r.building; S.floor = r.floor; } render(); return document.querySelector(`.plan [data-room3="${CSS.escape(d.room3)}"]`)?.focus({preventScroll: true}); }
+    if (d.floor) { S.floor = Number(d.floor); render(); return document.querySelector(`.floor-chips [data-floor="${d.floor}"]`)?.focus({preventScroll: true}); }
     if (d.pair) { S.pair = Number(d.pair); render(); return document.querySelector(`[data-pair="${d.pair}"]`)?.focus({preventScroll: true}); }
-    if (d.bld) { S.bld = d.bld; S.room = ''; render(); return document.querySelector(`[data-bld="${CSS.escape(d.bld)}"]`)?.focus({preventScroll: true}); }
+    if (d.bld) { S.bld = d.bld; S.room = ''; S.floor = null; render(); return document.querySelector(`[data-bld="${CSS.escape(d.bld)}"]`)?.focus({preventScroll: true}); }
     if (d.day) { S.day = d.day; render(); return document.querySelector(`[data-day="${d.day}"]`)?.focus({preventScroll: true}); }
     if (d.week !== undefined) { S.week = Number(d.week); S.day = S.week === 0 ? (S.data.schedule.slice(0, 7).find((x) => x.date === stu.nowIso()) || S.data.schedule[0]).date : S.data.schedule[7].date; render(); return document.querySelector(`[data-week="${S.week}"]`)?.focus({preventScroll: true}); }
     if (d.nfilter) { S.noticeFilter = d.nfilter; render(); return document.querySelector(`[data-nfilter="${d.nfilter}"]`)?.focus(); }
@@ -293,3 +305,12 @@ try {
   if (hashParts()[0] === 'verify') { api('session').then((d) => { if (!d.anonymous) setData(d); }).catch(() => {}); render(); }
   else { const first = await api('session'); if (!first.anonymous) setData(first); render(); }
 } catch (e) { errorScreen(); }
+
+/* Комнаты на плане — элементы SVG с role="button": Enter и пробел работают как щелчок. */
+document.addEventListener('keydown', (event) => {
+  const el = event.target;
+  if ((event.key === 'Enter' || event.key === ' ') && el instanceof SVGElement && el.matches('[role="button"]')) {
+    event.preventDefault();
+    el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+  }
+});

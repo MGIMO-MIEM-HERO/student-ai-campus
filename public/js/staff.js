@@ -2,7 +2,6 @@ import {S} from './state.js';
 import {icon} from './icons.js';
 import {esc, dayShort, stamp} from './util.js';
 import {head, secHead, empty, statusTag} from './student.js';
-import {headObj} from './objects.js';
 import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday} from './campus.js';
 
 export const NAV = [['queue', 'Заявки', 'requests'], ['rooms', 'Аудитории', 'building'], ['announce', 'Объявления', 'megaphone'], ['profile', 'Профиль', 'user']];
@@ -14,7 +13,7 @@ const history = (events) => (events?.length ? `<details class="hist"><summary>И
 export function viewQueue() {
   const all = S.data.requests, active = all.filter(isActive), list = S.queueFilter === 'active' ? active : all;
   const n = (s) => all.filter((r) => r.status === s).length;
-  return `<div class="page">${head('Кабинет деканата', 'Заявки студентов', 'Смена статуса и комментарий сразу видны студенту. При статусе «Готова» формируется электронный документ с QR-проверкой.', headObj('folder'))}
+  return `<div class="page">${head('Кабинет деканата', 'Заявки студентов', 'Смена статуса и комментарий сразу видны студенту. При статусе «Готова» формируется электронный документ с QR-проверкой.')}
     <section class="stats" aria-label="Заявки"><div class="stat"><span class="num">${n('Принята')}</span><span class="l">новых</span></div><div class="stat"><span class="num">${n('В работе')}</span><span class="l">в работе</span></div><div class="stat"><span class="num">${n('Готова')}</span><span class="l">ждут выдачи</span></div><div class="stat"><span class="num">${all.length}</span><span class="l">всего заявок</span></div></section>
     <div class="chips"><button class="chip" data-qfilter="active" aria-pressed="${S.queueFilter === 'active'}">Активные · ${active.length}</button><button class="chip" data-qfilter="all" aria-pressed="${S.queueFilter === 'all'}">Все · ${all.length}</button></div>
     ${list.length ? `<div class="queue">${list.map((r) => `<article class="card"><div class="stack">
@@ -37,12 +36,13 @@ export function viewStaffRooms() {
         <label for="rm-scope">Период</label><select id="rm-scope" name="scope"><option value="pair">Только ${pair} пара</option><option value="day">Весь день</option></select>
         <label for="rm-note">Причина <span class="muted">(видна студентам)</span></label><input id="rm-note" name="note" maxlength="120" placeholder="Например: ремонт, конференция, олимпиада">
         <p class="form-error" role="alert"></p><div><button class="btn sm">Сохранить отметку</button></div></form></div></section>`
-    : `<section class="card"><div class="stack"><p class="title">Выберите аудиторию</p><p class="small muted">Нажмите на плитку на схеме, чтобы отметить аудиторию занятой или свободной. Студенты увидят изменение сразу.</p></div></section>`;
-  return `<div class="page">${head('Кабинет деканата', 'Занятость аудиторий', 'Отметьте аудиторию занятой на пару или на весь день: ремонт, мероприятие, перенос. Отметка действует на показанный день.', headObj('lock'))}
+    : `<section class="card"><div class="stack"><p class="title">Выберите аудиторию</p><p class="small muted">Нажмите на аудиторию на плане этажа, чтобы отметить аудиторию занятой или свободной. Студенты увидят изменение сразу.</p></div></section>`;
+  return `<div class="page">${head('Кабинет деканата', 'Занятость аудиторий', 'Отметьте аудиторию занятой на пару или на весь день: ремонт, мероприятие, перенос. Отметка действует на показанный день.')}
     <div class="stack">${roomsDayNote()}${buildingSeg()}${pairChips(pair)}</div>
-    <div class="cols"><section class="card"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div></div>
-      <div class="b3d-wrap">${building3d(S.bld, pair, {selected: S.room})}</div><div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть влево">${icon('arrow')}</button><span class="cap">Потяните схему, чтобы повернуть</span><button class="icon-btn" data-rot="15" aria-label="Повернуть вправо">${icon('arrow')}</button></div>${legend3d(true)}</section>
-      <div class="stack lg">${form}
+    <section class="card campus-card"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div>
+      <div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть корпус влево">${icon('arrow')}</button><button class="icon-btn" data-rot="15" aria-label="Повернуть корпус вправо">${icon('arrow')}</button></div></div>
+      ${building3d(S.bld, pair, {selected: S.room})}${legend3d(true)}</section>
+    <div class="cols even">${form}<div class="stack">
         <section class="card"><div class="stack"><p class="title">Отметки на сегодня</p>${S.data.marks.length ? `<ul class="marks">${S.data.marks.map((m) => `<li><span><b>${esc(m.building)}-${esc(m.room)}</b> · ${m.pair ? `${m.pair} пара` : 'весь день'} · ${m.state === 'busy' ? 'занята' : 'свободна'}${m.note ? ` · ${esc(m.note)}` : ''}<br><span class="cap">${esc(m.author)}, ${esc(stamp(m.at))}</span></span><button class="link" data-unmark="${esc(m.building)}|${esc(m.room)}|${m.pair}">Снять</button></li>`).join('')}</ul>` : '<p class="muted">Отметок нет. Занятость считается по расписанию.</p>'}</div></section></div></div></div>`;
 }
 export function viewAnnounce() {
