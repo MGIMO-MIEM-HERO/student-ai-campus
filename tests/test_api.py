@@ -206,6 +206,15 @@ class ApiTest(unittest.TestCase):
             self.assertGreaterEqual(sum(1 for d in data["schedule"] for l in d["lessons"] if l["change"]), 2)
             self.assertLess(min(g["points"] for g in data["grades"]), 101)
 
+    def test_news_feed(self):
+        data = self.client("alina").call("/api/dashboard")[1]
+        self.assertGreaterEqual(len(data["news"]), 6)
+        self.assertEqual({n["cat"] for n in data["news"]}, {"uni", "edu", "abit", "proj"})
+        for n in data["news"]:
+            request = urllib.request.Request(self.base + f"/assets/3d/img/{n['image']}.webp")
+            with urllib.request.urlopen(request) as response:
+                self.assertEqual(response.headers["Content-Type"], "image/webp")
+
     def test_mark_has_a_risk_course(self):
         grades = self.client("mark").call("/api/dashboard")[1]["grades"]
         self.assertTrue(any(g["result"] == "Нет допуска" for g in grades))

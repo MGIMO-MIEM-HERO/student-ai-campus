@@ -1,0 +1,245 @@
+{
+ "id": "folder",
+ "name": "folder",
+ "label": "Синяя папка с документами, приоткрытая",
+ "units": "m",
+ "angle": -30,
+ "turn": {
+  "mode": "sway",
+  "amp": 14,
+  "period": 20
+ },
+ "supports": [
+  "three-quarter"
+ ],
+ "make": {
+  "variants": [
+   "three-quarter"
+  ],
+  "grounds": [
+   "light"
+  ],
+  "px": 900
+ },
+ "camera": {
+  "elev": 24
+ },
+ "materials": {
+  "folder": {
+   "kind": "paint",
+   "color": "#2a62b4",
+   "finish": "satin"
+  },
+  "folder2": {
+   "kind": "paint",
+   "color": "#2f6cc0",
+   "finish": "satin"
+  },
+  "paper": {
+   "kind": "paint",
+   "color": "#f7f4ec",
+   "finish": "matte"
+  },
+  "line": {
+   "kind": "paint",
+   "color": "#9aa3b2",
+   "finish": "matte"
+  },
+  "seal": {
+   "kind": "paint",
+   "color": "#b8893f",
+   "finish": "satin"
+  }
+ },
+ "parts": [
+  {
+   "name": "back",
+   "type": "box",
+   "at": [
+    0,
+    0.003,
+    0
+   ],
+   "size": [
+    0.3,
+    0.006,
+    0.22
+   ],
+   "round": 0.006,
+   "mat": "folder"
+  },
+  {
+   "name": "tab",
+   "type": "box",
+   "at": [
+    -0.085,
+    0.003,
+    -0.122
+   ],
+   "size": [
+    0.1,
+    0.006,
+    0.03
+   ],
+   "round": 0.006,
+   "mat": "folder"
+  },
+  {
+   "name": "paper 1",
+   "type": "box",
+   "at": [
+    0.005,
+    0.0075,
+    0.002
+   ],
+   "size": [
+    0.27,
+    0.002,
+    0.196
+   ],
+   "rot": [
+    0,
+    2,
+    0
+   ],
+   "round": 0.001,
+   "mat": "paper"
+  },
+  {
+   "name": "paper 2",
+   "type": "box",
+   "at": [
+    0.012,
+    0.0095,
+    -0.004
+   ],
+   "size": [
+    0.27,
+    0.002,
+    0.196
+   ],
+   "rot": [
+    0,
+    -3,
+    0
+   ],
+   "round": 0.001,
+   "mat": "paper"
+  },
+  {
+   "name": "paper 3",
+   "type": "box",
+   "at": [
+    0.045,
+    0.0115,
+    0.006
+   ],
+   "size": [
+    0.27,
+    0.002,
+    0.196
+   ],
+   "rot": [
+    0,
+    6,
+    0
+   ],
+   "round": 0.001,
+   "mat": "paper"
+  },
+  {
+   "name": "line 1",
+   "type": "box",
+   "at": [
+    0.03,
+    0.0127,
+    -0.05
+   ],
+   "size": [
+    0.12,
+    0.0006,
+    0.008
+   ],
+   "rot": [
+    0,
+    6,
+    0
+   ],
+   "mat": "line"
+  },
+  {
+   "name": "line 2",
+   "type": "box",
+   "at": [
+    0.04,
+    0.0127,
+    -0.025
+   ],
+   "size": [
+    0.17,
+    0.0006,
+    0.005
+   ],
+   "rot": [
+    0,
+    6,
+    0
+   ],
+   "mat": "line"
+  },
+  {
+   "name": "line 3",
+   "type": "box",
+   "at": [
+    0.035,
+    0.0127,
+    -0.005
+   ],
+   "size": [
+    0.15,
+    0.0006,
+    0.005
+   ],
+   "rot": [
+    0,
+    6,
+    0
+   ],
+   "mat": "line"
+  },
+  {
+   "name": "seal",
+   "type": "cylinder",
+   "at": [
+    0.12,
+    0.0128,
+    0.06
+   ],
+   "r": 0.022,
+   "h": 0.0012,
+   "axis": "y",
+   "mat": "seal"
+  },
+  {
+   "name": "cover",
+   "type": "box",
+   "at": [
+    -0.012968181353609859,
+    0.07701049646137004,
+    0.004
+   ],
+   "size": [
+    0.3,
+    0.005,
+    0.214
+   ],
+   "rot": [
+    0,
+    0,
+    24
+   ],
+   "round": 0.006,
+   "mat": "folder2"
+  }
+ ]
+}

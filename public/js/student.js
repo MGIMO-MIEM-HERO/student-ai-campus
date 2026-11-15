@@ -1,12 +1,12 @@
 import {S, lessonIndex} from './state.js';
 import {icon} from './icons.js';
-import {sceneBooks, sceneFolder, sceneCalendar, sceneCampus} from './scene3d.js';
+import {obj, headObj} from './objects.js';
 import {esc, mskNow, toMin, dayLong, dayShort, dayMonth, weekdayShort, stamp, count, plural, duration, daysBetween, relativeDay, untilText, cap, fmt, qrSvg, verifyUrl} from './util.js';
 import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday, defaultPair} from './campus.js';
 import {ring, sparkline, dayTimeline, weekGrid} from './viz.js';
 
-export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Кампус', 'building']];
-export const ROUTES = ['today', 'schedule', 'study', 'requests', 'rooms', 'notices', 'assistant', 'profile', 'doc'];
+export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Кампус', 'building'], ['news', 'Главное', 'news']];
+export const ROUTES = ['today', 'schedule', 'study', 'requests', 'rooms', 'news', 'notices', 'assistant', 'profile', 'doc'];
 export const NAV_OF = {doc: 'requests'};
 export const DOCS = [
   {kind: 'Справка об обучении', ico: 'cap', tone: 'mint', what: 'Подтверждает, что вы обучаетесь в университете. Для военкомата, визы, банка, места работы.', sla: '1–2 рабочих дня', how: 'Электронная версия с QR-проверкой и оригинал в деканате'},
@@ -142,7 +142,35 @@ export function viewToday() {
       <section class="sec">${secHead('Сегодня', go('schedule', 'Вся неделя'))}${todayLessons.length ? lessonsList(todayLessons, t) : empty('schedule', 'Занятий нет', 'Свободный день.')}</section></div>
       <div class="stack lg"><section class="card"><div class="stack"><p class="title">Что нужно сделать</p>${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('check', 'Срочных дел нет')}
         <div class="stack"><button class="btn block" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button><button class="btn ghost block" data-calendar="week">${icon('download')}Неделя в календарь</button></div></div></section></div></div>
-    <section class="band teal"><div class="band-copy"><h2>Справка без очереди.<br>Статус без звонков.</h2><p>Закажите документ онлайн. Когда он будет готов, в кабинете появится электронная версия с QR-проверкой.</p><div><button class="btn" data-request-kind="Справка об обучении">Заказать справку ${icon('arrow')}</button></div></div>${sceneFolder({cls: 'sm'})}</section></div>`;
+    ${newsStrip()}
+    <section class="band teal"><div class="band-copy"><h2>Справка без очереди.<br>Статус без звонков.</h2><p>Закажите документ онлайн. Когда он будет готов, в кабинете появится электронная версия с QR-проверкой.</p><div><button class="btn" data-request-kind="Справка об обучении">Заказать справку ${icon('arrow')}</button></div></div>${obj('folder', 'band-obj float')}</section></div>`;
+}
+
+/* ---------- Главное: новости университета ---------- */
+export const NEWS_CATS = [['all', 'Все'], ['uni', 'Университет'], ['edu', 'Образование'], ['abit', 'Абитуриентам'], ['proj', 'Проекты']];
+const newsDate = (iso) => relativeDay(iso, nowIso()).replace(/^в /, '');
+const newsMeta = (n) => `<span class="news-meta"><span class="news-cat c-${n.cat}">${esc(n.cat_label)}</span><span>${esc(cap(newsDate(n.date)))} · ${n.minutes} мин</span></span>`;
+function newsCard(n, lead = false) {
+  return `<button class="news ${lead ? 'lead' : ''}" data-news="${esc(n.id)}"><span class="news-pic c-${n.cat}">${obj(n.image)}</span><span class="news-txt">${newsMeta(n)}<strong>${esc(n.title)}</strong>${lead ? `<span class="sub">${esc(n.lead)}</span>` : ''}</span></button>`;
+}
+function newsStrip() {
+  const list = S.data.news || [];
+  if (!list.length) return '';
+  return `<section class="sec">${secHead('Главное в университете', go('news', 'Все новости'))}<div class="news-grid">${newsCard(list[0], true)}${list.slice(1, 4).map((n) => newsCard(n)).join('')}</div></section>`;
+}
+export function viewNews() {
+  const list = (S.data.news || []).filter((n) => S.newsCat === 'all' || n.cat === S.newsCat);
+  const counts = Object.fromEntries(NEWS_CATS.map(([id]) => [id, (S.data.news || []).filter((n) => id === 'all' || n.cat === id).length]));
+  return `<div class="page">${head('Лента университета', 'Главное', 'Новости университета, образовательных программ, абитуриентам и студенческих проектов. Все новости концепта вымышлены.', headObj('cap'))}
+    <div class="chips" role="group" aria-label="Рубрики">${NEWS_CATS.map(([id, label]) => `<button class="chip" data-ncat="${id}" aria-pressed="${S.newsCat === id}">${label} · ${counts[id]}</button>`).join('')}</div>
+    ${list.length ? `<div class="news-grid feed">${newsCard(list[0], true)}${list.slice(1).map((n) => newsCard(n)).join('')}</div>` : empty('news', 'Новостей нет', 'В этой рубрике пока пусто.')}</div>`;
+}
+export function newsSheet(id) {
+  const n = (S.data.news || []).find((x) => x.id === id);
+  if (!n) return '';
+  return `<div class="stack"><div class="row">${newsMeta(n)}<button class="icon-btn" data-close aria-label="Закрыть">${icon('x')}</button></div>
+    <figure class="news-hero c-${n.cat}">${obj(n.image)}</figure><h2>${esc(n.title)}</h2><p class="lede">${esc(n.lead)}</p>${n.body.map((p) => `<p>${esc(p)}</p>`).join('')}
+    <p class="cap">Новость концепт-прототипа, событие вымышлено.</p></div>`;
 }
 
 /* ---------- Расписание ---------- */
@@ -157,7 +185,7 @@ export function viewSchedule() {
   const summary = active.length ? `${count(active.length, ['занятие', 'занятия', 'занятий'])}, ${active[0].start}–${active[active.length - 1].end}` : 'занятий нет';
   const upcoming = !active.length ? nextLessonDay(current.date) : null, nextFirst = upcoming?.lessons.find((l) => !l.cancelled);
   const curPair = current.date === t ? defaultPair() : 0;
-  return `<div class="page">${head(S.data.semester.term, 'Расписание', 'Нажмите на занятие, чтобы увидеть преподавателя, этаж и как пройти. Время московское.', sceneCalendar())}
+  return `<div class="page">${head(S.data.semester.term, 'Расписание', 'Нажмите на занятие, чтобы увидеть преподавателя, этаж и как пройти. Время московское.', headObj('notebook'))}
     <div class="seg wk-seg only-desk" role="group" aria-label="Неделя"><button data-week="0" aria-pressed="${S.week === 0}">Эта неделя<small>${range(w0)}</small></button><button data-week="1" aria-pressed="${S.week === 1}">Следующая<small>${range(w1)}</small></button></div>
     <section class="card wk-card only-desk">${weekGrid(week, t, S.day)}</section>
     <div class="cols"><div class="stack lg only-mob">
@@ -208,7 +236,7 @@ export function viewStudy() {
     const nextStep = g.points >= 90 ? '' : g.points >= 75 ? ` До «отлично» ещё ${90 - g.points}.` : ` До «хорошо» ещё ${75 - g.points}.`;
     return `По шкале сейчас «${w}».${nextStep}`;
   };
-  return `<div class="page">${head(s.term, 'Учёба', 'Баллы текущего контроля, допуск и график сессии.', sceneBooks())}
+  return `<div class="page">${head(s.term, 'Учёба', 'Баллы текущего контроля, допуск и график сессии.', headObj('books'))}
     <section class="stats" aria-label="Показатели">
       <div class="stat"><span class="num">${st.avg}</span><span class="l">средний балл из 100</span></div>
       <div class="stat"><span class="num">${st.admitted}<small>/${st.total}</small></span><span class="l">дисциплин с допуском</span></div>
@@ -228,7 +256,7 @@ export function viewStudy() {
 /* ---------- Заявки ---------- */
 export function viewRequests() {
   const rows = S.data.requests, dean = roomByKey('А-112');
-  return `<div class="page">${head('Деканат онлайн', 'Заявки и справки', 'Закажите документ или направьте обращение. Статус, комментарии деканата и электронная версия документа — в истории заявки.', sceneFolder())}
+  return `<div class="page">${head('Деканат онлайн', 'Заявки и справки', 'Закажите документ или направьте обращение. Статус, комментарии деканата и электронная версия документа — в истории заявки.', headObj('folder'))}
     <section class="sec" aria-label="Каталог документов"><div class="catalog">${DOCS.map((x) => `<article class="card doc"><span class="ico ${x.tone}">${icon(x.ico)}</span><p class="title">${x.kind}</p><p class="small">${x.what}</p>
       <div class="chips"><span class="tag">${icon('clock')}${x.sla}</span></div><p class="cap">${x.how}</p><button class="btn sm" data-request-kind="${x.kind}">Оформить</button></article>`).join('')}</div></section>
     <section class="sec">${secHead('История заявок')}${rows.length ? `<div class="history">${rows.map((r) => {
@@ -261,7 +289,7 @@ export function viewDoc(id) {
     : `<p>Настоящая справка подтверждает, что <b>${esc(p.name)}</b> обучается на ${p.year} курсе, группа ${esc(p.group_name)}. ${esc(p.faculty)}, направление «${esc(p.program)}». Уровень образования: ${esc((p.level || '').toLowerCase())}. Форма обучения: ${esc((p.form || '').toLowerCase())}.</p><p>Справка выдана для предъявления по месту требования.</p>`;
   return `<div class="page"><div class="row no-print"><a class="link" href="#requests">${icon('arrow')} К заявкам</a><div class="chips"><button class="btn sm" data-print>${icon('download')}Печать или PDF</button><button class="btn ghost sm" data-copy="${esc(url)}">Скопировать ссылку проверки</button></div></div>
     <article class="paper-doc"><p class="doc-note">Демонстрационный документ. Не имеет юридической силы.</p>
-      <div class="center"><p class="eyebrow">Меридиан · концепт</p><h2>${esc(r.kind)}</h2><p class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · выдана ${dayMonth(r.document.issued)} ${r.document.issued.slice(0, 4)} г.</p></div>
+      <div class="center"><p class="eyebrow">Атлас · концепт</p><h2>${esc(r.kind)}</h2><p class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · выдана ${dayMonth(r.document.issued)} ${r.document.issued.slice(0, 4)} г.</p></div>
       <div class="body stack">${body}</div>
       <div class="doc-foot"><div class="stack"><p class="eyebrow">Проверка подлинности</p><p class="small">Наведите камеру на QR-код или откройте ссылку. Страница проверки покажет статус документа без входа в кабинет.</p><p class="small"><a href="${esc(url)}">${esc(url)}</a></p><p class="cap">Код: ${esc(r.document.code)}</p></div>${qrSvg(url)}</div></article></div>`;
 }
@@ -302,7 +330,7 @@ export function viewRooms() {
   const pair = activePair(), mine = myRoomsAt(pair);
   const free = freeRooms(pair, S.bld), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.seats).length;
   const b = building(S.bld);
-  return `<div class="page">${head('Кампус', 'Корпуса и аудитории', `Схема этажей на выбранную пару: свободные аудитории выделены цветом. Нажмите на аудиторию, чтобы увидеть занятость и как пройти. ${esc(S.data.campus.note)}`, sceneCampus())}
+  return `<div class="page">${head('Кампус', 'Корпуса и аудитории', `Схема этажей на выбранную пару: свободные аудитории выделены цветом. Нажмите на аудиторию, чтобы увидеть занятость и как пройти. ${esc(S.data.campus.note)}`, headObj('cap'))}
     <div class="stack">${roomsDayNote()}${buildingSeg()}${pairChips(pair)}</div>
     <div class="cols"><section class="card"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div></div>
         <div class="b3d-wrap">${building3d(S.bld, pair, {mine, selected: S.room})}</div><div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть влево">${icon('arrow')}</button><span class="cap">Потяните схему, чтобы повернуть</span><button class="icon-btn" data-rot="15" aria-label="Повернуть вправо">${icon('arrow')}</button></div>${legend3d()}</section>

@@ -23,7 +23,7 @@ PUBLIC = (ROOT / "public").resolve()
 MSK = timezone(timedelta(hours=3))
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".woff2": "font/woff2",
-                ".webmanifest": "application/manifest+json", ".png": "image/png", ".jpg": "image/jpeg", ".txt": "text/plain; charset=utf-8"}
+                ".webmanifest": "application/manifest+json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".txt": "text/plain; charset=utf-8"}
 
 
 def msk_today():
@@ -216,7 +216,7 @@ def student_data(user, db):
     profile.update(card_code=card["code"] if card else None, card_valid_until="2027-08-31")
     return {"role": "student", "today": today.isoformat(), "profile": profile,
             "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
-            "notices": notices, "requests": requests, "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "notices": notices, "requests": requests, "news": campus_data.news(today), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
             "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 

@@ -1,27 +1,29 @@
-/* Дизайн-токены «Меридиан». Основа: Craft Docs style reference (тёплая бумага, засечки в заголовках), сдержанная университетская палитра. Только светлая тема. */
+/* Дизайн-токены «Атлас». Светлая тема: холодный белый, глубокий синий, небесный акцент.
+   Ориентиры: студийные сайты с фотореалистичными предметами и мягким небом, официальный тон. */
 :root{
   color-scheme:light;
-  /* Бумага и чернила */
-  --paper:#f5f0e8;--paper-2:#ede6da;--surface:#fffdf9;--ink:#0f1218;--ink-2:#3a3f48;--muted:#62666f;
-  --line:rgba(15,18,24,.12);--line-strong:rgba(15,18,24,.24);
-  /* Глубокий синий — единственный сильный цвет; золото только линиями и подписями */
-  --navy:#15223b;--navy-2:#1f3050;--navy-3:#2c4168;
-  --gold:#a8844d;--gold-ink:#7a5c2c;--gold-soft:#e9dcc3;
-  /* Состояния: приглушённые тона на светлых подложках */
-  --ok:#1d4636;--ok-bg:#e5eee8;--ok-line:#a9c4b4;
-  --warn:#5f4710;--warn-bg:#f1e9d4;--warn-line:#d9c691;
-  --bad:#7a2a1b;--bad-bg:#f2dfd9;--bad-line:#d8a79a;
-  --info:#1c2d4f;--info-bg:#e3e8f1;--info-line:#aeb9cf;
-  --neutral:#3a3f48;--neutral-bg:#ece7de;
+  /* Фон и текст */
+  --paper:#f4f7fb;--paper-2:#e9eef6;--surface:#ffffff;--ink:#0e1a2f;--ink-2:#36435a;--muted:#5d6a80;
+  --line:rgba(14,26,47,.10);--line-strong:rgba(14,26,47,.20);
+  /* Глубокий синий — основной цвет; небесный — акцент. Имена gold* сохранены для совместимости и указывают на акцент. */
+  --navy:#13284d;--navy-2:#1b3766;--navy-3:#2a62b4;
+  --gold:#2a62b4;--gold-ink:#2a5596;--gold-soft:#dde8f8;
+  --sky-1:#cfe2fb;--sky-2:#e9f2fd;--sky-3:#fbfdff;
+  /* Состояния */
+  --ok:#1d5a3f;--ok-bg:#e3f2ea;--ok-line:#a6d1b9;
+  --warn:#6b4c0c;--warn-bg:#fbf0d6;--warn-line:#e7cf8f;
+  --bad:#8a2a1e;--bad-bg:#fbe5e1;--bad-line:#eab0a6;
+  --info:#1d3d72;--info-bg:#e5eefb;--info-line:#b2c8ec;
+  --neutral:#36435a;--neutral-bg:#edf1f7;
   /* Виды занятий */
-  --t-lec:#5b6f9a;--t-sem:#5f8a73;--t-prac:#b8944f;--t-lab:#5f8a96;
-  --link:#17407a;
-  /* Шрифты: Cormorant Garamond только в крупных заголовках и цифрах */
-  --font-serif:"Cormorant Garamond",ui-serif,Georgia,Cambria,"Times New Roman",serif;
+  --t-lec:#4f74b8;--t-sem:#3f8a6c;--t-prac:#c08a2c;--t-lab:#3f8a9a;
+  --link:#2a5596;
+  /* Один шрифт: Golos Text. Заголовки — 600 с плотным трекингом. */
+  --font-serif:"Golos Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   --font-sans:"Golos Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-  /* Радиусы и тени: маленькие и тихие */
-  --r-sm:3px;--r-md:6px;--r-lg:10px;--r-pill:9999px;
-  --shadow-pop:0 24px 60px -12px rgba(15,18,24,.35),0 4px 12px rgba(15,18,24,.12);
-  --shadow-lift:0 10px 24px -12px rgba(15,18,24,.28);
+  --r-sm:10px;--r-md:14px;--r-lg:22px;--r-pill:9999px;
+  --shadow-pop:0 30px 70px -20px rgba(19,40,77,.35),0 6px 16px rgba(19,40,77,.08);
+  --shadow-lift:0 18px 40px -22px rgba(19,40,77,.35);
+  --shadow-card:0 1px 2px rgba(19,40,77,.04),0 10px 30px -18px rgba(19,40,77,.22);
   --page-max:1200px;
 }
