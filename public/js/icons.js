@@ -28,5 +28,3 @@ const P = {
 };
 export const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${P[name] || P.check}"/></svg>`;
 
-/* Рисунок линией: лист с записями. Декоративный, для крупных блоков. */
-export const sheet = (cls = '') => `<svg class="doodle ${cls}" viewBox="0 0 200 240" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M32 22l118-12c5-.5 9 3 9.500 8l18 176c.5 5-3 9-8 9.500L52 216c-5 .5-9-3-9.500-8L24 32c-.5-5 3-9.500 8-10z" fill="#fff"/><path d="M52 58c8-6 12 6 20 0s12 6 20 0 12 6 20 0 12 6 20 0"/><path d="M56 92c8-6 12 6 20 0s12 6 20 0 12 6 20 0"/><path d="M60 126c8-6 12 6 20 0s12 6 20 0 12 6 20 0 12 6 18 0"/><path d="M64 160h74"/><path d="M96 186l10 10 22-26"/></svg>`;
