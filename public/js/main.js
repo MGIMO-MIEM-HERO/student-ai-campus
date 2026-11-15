@@ -5,7 +5,6 @@ import {esc, buildIcs, downloadIcs, dayMonth} from './util.js';
 import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
 import * as stf from './staff.js';
-import {ring} from './viz.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -24,8 +23,8 @@ function flash(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.textContent = ''; }, 5000);
 }
-const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><b>Цифровой деканат</b></a>`;
-const footer = () => `<footer class="foot"><p>Концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></footer>`;
+const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>Меридиан</b><small>${isStaff() ? 'Кабинет сотрудника' : 'Личный кабинет · концепт'}</small></span></a>`;
+const footer = () => `<footer class="foot"><p>Меридиан — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены. Фотографии не используются. Шрифты Cormorant Garamond и Golos Text, лицензия SIL OFL.</p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -33,39 +32,32 @@ function shell(content, key) {
   const nav = staff ? stf.NAV : stu.NAV;
   const navKey = staff ? key : (stu.NAV_OF[key] || key);
   const name = S.data.profile.name;
-  const badge = (id) => (staff ? (id === 'queue' ? stf.activeCount() : 0) : id === 'more' ? stu.unreadCount() : id === 'requests' ? stu.readyCount() : 0);
-  return `<header class="topbar"><div class="topbar-in">${brand('#' + nav[0][0])}<span class="tag">${staff ? 'Деканат' : 'Концепт'}</span>
+  const badge = (id) => (staff ? (id === 'queue' ? stf.activeCount() : 0) : id === 'requests' ? stu.readyCount() : 0);
+  return `<header class="topbar"><div class="topbar-in">${brand('#' + nav[0][0])}
     <nav class="nav" aria-label="Разделы кабинета"><ul>${nav.map(([id, label, ico]) => {
       const b = badge(id);
       return `<li><a href="#${id}" ${id === navKey ? 'aria-current="page"' : ''}>${icon(ico)}<span>${label}</span>${b ? `<span class="badge" aria-label="${b} новых">${b}</span>` : ''}</a></li>`;
     }).join('')}</ul></nav><span class="grow"></span>
-    ${staff ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button>`}
+    ${staff ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button><a class="icon-btn" href="#notices" aria-label="Уведомления${stu.unreadCount() ? `, непрочитанных: ${stu.unreadCount()}` : ''}">${icon('bell')}${stu.unreadCount() ? `<span class="badge">${stu.unreadCount()}</span>` : ''}</a>`}
     <a class="avatar" href="#profile" aria-label="Профиль: ${esc(name)}">${esc(name[0])}</a></div></header>
   <div class="wrap"><main id="main" tabindex="-1">${content}</main></div>${footer()}`;
 }
 
 function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
-  const features = [['schedule', 'periwinkle', 'Расписание с изменениями, окнами и аудиториями'], ['study', 'marigold', 'Баллы, допуск и график сессии'], ['requests', 'mint', 'Справки с QR-проверкой и статусом'], ['building', 'sky', 'Схема корпусов и свободные аудитории']];
   lastKey = '';
-  app.innerHTML = `<div class="login enter"><section class="login-hero">
-      <div class="login-top">${brand('/')}<span class="tag">Концепт</span></div><p class="eyebrow">Личный кабинет студента</p><h1>Деканат, в который не нужно идти</h1><p class="lede">Расписание, баллы, справки и связь с деканатом в одном спокойном месте. С телефона и компьютера.</p></section>
-    <div class="login-pad"><div class="login-stage">
-      <div class="floats fl-left" aria-hidden="true">
-        <div class="card mini m1"><div class="row"><span class="tag ink"><span class="dot pulse"></span>Идёт сейчас</span><span class="cap">ещё 32 мин</span></div><p class="mini-t">Математический анализ</p><p class="cap">09:00–10:30 · Корпус А, ауд. 304</p><div class="bar" data-pct="64"></div></div>
-        <div class="card mini m2"><span class="ico mint">${icon('check')}</span><div><b>Справка готова</b><p class="cap">Электронная версия с QR</p></div></div></div>
-      <section class="card login-card"><h2 class="title">Вход в кабинет</h2>
+  app.innerHTML = `<div class="login enter"><section class="login-side">${brand('/')}
+      <div class="login-copy"><p class="eyebrow">Личный кабинет</p><h1>Личный кабинет <em>студента</em></h1><p class="lede">Расписание с аудиториями и изменениями, баллы и допуск, заявки на справки со статусом. С телефона и с компьютера.</p></div>
+      <div class="preview" aria-hidden="true"><div class="pv"><p class="eyebrow">Идёт сейчас</p><b>Математический анализ</b><p class="cap">09:00–10:30 · Корпус А, ауд. 304, 3 этаж</p><div class="bar" data-pct="62"></div></div>
+        <div class="pv"><p class="eyebrow">Заявка</p><b>Справка об обучении готова</b><p class="cap">Электронная версия с QR-проверкой подлинности</p></div></div></section>
+    <main class="login-main" id="main" tabindex="-1"><div class="login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
-      <p class="form-error" role="alert">${esc(error)}</p><button class="btn block">Войти</button></form>
+      <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role]) => `<button class="demo" data-demo="${id}"><span class="avatar" aria-hidden="true">${name[0]}</span><span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
-      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></section>
-      <div class="floats fl-right" aria-hidden="true">
-        <div class="card mini m3"><div class="ring-wrap">${ring(88, {size: 86, stroke: 8})}<span class="ring-num">88</span></div><div><b>Средний балл</b><p class="cap">6 из 6 с допуском</p></div></div>
-        <div class="card mini m4"><span class="change-kind">Новая аудитория</span><b>Базы данных</b><p class="cap"><s>А-305</s> → Б-512 · вт, 2 пара</p></div></div></div>
-    <ul class="features">${features.map(([ico, tone, text]) => `<li><span class="ico ${tone}">${icon(ico)}</span>${text}</li>`).join('')}</ul>
-    <p class="disclaimer">Концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></div></div>`;
+      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></div>
+      <p class="disclaimer">Меридиан — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');
 }
@@ -116,7 +108,7 @@ function render() {
   if (!S.data) return loginScreen();
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
-    : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, more: stu.viewMore, notices: stu.viewNotices, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
+    : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
   const entering = key !== lastKey;
   lastKey = key;
   app.innerHTML = shell(views[key](), key);
@@ -225,7 +217,7 @@ document.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target, fields = Object.fromEntries(new FormData(form));
   const button = form.querySelector('button:not([type=button])');
-  if (form.id === 'login-form') { if (button) button.disabled = true; return doLogin(String(fields.login || '').trim(), String(fields.password || '')); }
+  if (form.id === 'login-form') { if (button) button.disabled = true; const st = form.querySelector('.form-status'); if (st) st.textContent = 'Выполняется вход…'; return doLogin(String(fields.login || '').trim(), String(fields.password || '')); }
   if (form.id === 'assistant-form') return ask(String(fields.question || ''));
   if (button) button.disabled = true;
   try {

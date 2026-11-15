@@ -23,7 +23,7 @@ PUBLIC = (ROOT / "public").resolve()
 MSK = timezone(timedelta(hours=3))
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".woff2": "font/woff2",
-                ".webmanifest": "application/manifest+json", ".png": "image/png", ".txt": "text/plain; charset=utf-8"}
+                ".webmanifest": "application/manifest+json", ".png": "image/png", ".jpg": "image/jpeg", ".txt": "text/plain; charset=utf-8"}
 
 
 def msk_today():

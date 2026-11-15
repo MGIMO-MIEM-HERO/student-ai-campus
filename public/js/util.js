@@ -64,13 +64,13 @@ export function buildIcs(days) {
     for (const l of day.lessons) {
       if (l.cancelled) continue;
       const description = [`${l.type}, ${l.pair} пара`, l.teacher.name, l.subgroup, l.format === 'Онлайн' ? 'Онлайн (ссылка в LMS)' : '', l.change ? `${l.change.label}: ${l.change.was} → ${l.change.now}` : ''].filter(Boolean).join('\n');
-      events.push(['BEGIN:VEVENT', `UID:${l.id}@campus-demo`, `DTSTAMP:${stampNow}`,
+      events.push(['BEGIN:VEVENT', `UID:${l.id}@meridian-demo`, `DTSTAMP:${stampNow}`,
         `DTSTART;TZID=Europe/Moscow:${date}T${l.start.replace(':', '')}00`, `DTEND;TZID=Europe/Moscow:${date}T${l.end.replace(':', '')}00`,
         `SUMMARY:${icsEscape(l.title + ' (' + l.type.toLowerCase() + ')')}`, `LOCATION:${icsEscape(l.place)}`, `DESCRIPTION:${icsEscape(description)}`, 'END:VEVENT'].join('\r\n'));
     }
   }
   if (!events.length) return null;
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Campus concept//Schedule//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Meridian concept//Schedule//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     'BEGIN:VTIMEZONE', 'TZID:Europe/Moscow', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0300', 'TZOFFSETTO:+0300', 'TZNAME:MSK', 'END:STANDARD', 'END:VTIMEZONE',
     ...events.flatMap((e) => e.split('\r\n')), 'END:VCALENDAR'];
   return {text: lines.map(icsFold).join('\r\n'), count: events.length};

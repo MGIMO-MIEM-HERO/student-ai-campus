@@ -2,3 +2,6 @@ data/
 .env
 __pycache__/
 .DS_Store
+
+# служебные файлы проверок скилла
+.taste-skill/
