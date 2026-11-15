@@ -1,5 +1,5 @@
 import {S, lessonIndex} from './state.js';
-import {icon} from './icons.js';
+import {icon, sheet} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, dayMonth, weekdayShort, stamp, count, plural, duration, daysBetween, relativeDay, untilText, cap, fmt, qrSvg, verifyUrl} from './util.js';
 import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday, defaultPair} from './campus.js';
 import {ring, sparkline, dayTimeline, weekGrid} from './viz.js';
@@ -30,7 +30,8 @@ export const readyCount = () => S.data.requests.filter((r) => r.status === 'Го
 const building = (id) => S.data.campus.buildings.find((b) => b.id === id);
 export const statusTag = (s) => `<span class="tag ${STATUS_TONE[s] || ''}">${esc(s)}</span>`;
 export const empty = (ico, title, text = '') => `<div class="empty">${icon(ico)}<strong>${title}</strong>${text ? `<span>${text}</span>` : ''}</div>`;
-export const head = (eyebrow, title, lede = '') => `<header class="page-head"><p class="eyebrow">${eyebrow}</p><h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ''}</header>`;
+export const markLast = (text) => { const i = text.lastIndexOf(' '); return i < 0 ? `<span class="mark">${text}</span>` : `${text.slice(0, i)} <span class="mark">${text.slice(i + 1)}</span>`; };
+export const head = (eyebrow, title, lede = '') => `<header class="page-head"><p class="kicker"><i></i>${eyebrow}</p><h1>${markLast(title)}</h1>${lede ? `<p class="lede">${lede}</p>` : ''}</header>`;
 export const secHead = (title, extra = '') => `<div class="sec-head"><h2>${title}</h2>${extra}</div>`;
 const go = (href, text) => `<a class="link" href="#${href}">${text} ${icon('arrow')}</a>`;
 export function item({href, data, ico, tone = '', title, sub = ''}) {
@@ -127,7 +128,7 @@ export function viewToday() {
   const pairsToday = todayLessons.filter((l) => !l.cancelled).length;
   return `<div class="page">
     <section class="today-top">
-      <div class="greet"><p class="eyebrow">${cap(dayLong(t))} · <span data-clock>${clockText()}</span></p><h1>${greet},<br>${esc(d.profile.name.split(' ')[0])}</h1><p class="lede">${esc(d.profile.group_name)} · ${esc(d.profile.program)}</p>
+      <div class="greet"><p class="kicker"><i></i>${cap(dayLong(t))} · <span data-clock>${clockText()}</span></p><h1>${greet},<br><span class="mark">${esc(d.profile.name.split(' ')[0])}</span></h1><p class="lede">${esc(d.profile.group_name)} · ${esc(d.profile.program)}</p>
         <div class="hero-day"><div class="row"><span class="small"><b>Ваш день</b> · ${pairsToday ? count(pairsToday, ['пара', 'пары', 'пар']) : 'пар нет'}</span><span class="small muted">неделя ${s.week} из ${s.weeks}, ${s.parity_label}</span></div>${dayTimeline(today, t)}</div></div>
       ${nowCard()}</section>
     <section class="stats" aria-label="Коротко">
@@ -139,7 +140,8 @@ export function viewToday() {
       <section class="sec">${secHead('Что изменилось', go('notices', 'Все уведомления'))}${notes.length ? `<div class="card flush"><div class="changes">${notes.join('')}</div></div>` : empty('check', 'Изменений нет', 'Занятия проходят по расписанию.')}</section>
       <section class="sec">${secHead('Сегодня', go('schedule', 'Вся неделя'))}${todayLessons.length ? lessonsList(todayLessons, t) : empty('schedule', 'Занятий нет', 'Свободный день.')}</section></div>
       <div class="stack lg"><section class="card"><div class="stack"><p class="title">Что нужно сделать</p>${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('check', 'Срочных дел нет')}
-        <div class="stack"><button class="btn block" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button><button class="btn ghost block" data-calendar="week">${icon('download')}Неделя в календарь</button></div></div></section></div></div></div>`;
+        <div class="stack"><button class="btn block" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button><button class="btn ghost block" data-calendar="week">${icon('download')}Неделя в календарь</button></div></div></section></div></div>
+    <section class="band teal"><div class="band-copy"><h2>Справка без очереди.<br>Статус без звонков.</h2><p>Закажите документ онлайн. Когда он будет готов, в кабинете появится электронная версия с QR-проверкой.</p><div><button class="btn" data-request-kind="Справка об обучении">Заказать справку ${icon('arrow')}</button></div></div>${sheet()}</section></div>`;
 }
 
 /* ---------- Расписание ---------- */
@@ -238,6 +240,7 @@ export function viewRequests() {
         ${r.document ? `<div class="chips"><a class="btn sm" href="#doc/${esc(r.id)}">${icon('requests')}Открыть электронный документ</a></div>` : ''}
         <details class="hist"><summary>История изменений · ${r.events.length}</summary><ol>${r.events.map((e) => `<li><strong>${esc(e.status)}</strong><p>${esc(stamp(e.at))} · ${esc(e.author)}</p>${e.comment ? `<p>${esc(e.comment)}</p>` : ''}</li>`).join('')}</ol></details></article>`;
     }).join('')}</div>` : empty('requests', 'Заявок пока нет', 'После отправки заявка появится здесь вместе со статусом.')}</section>
+    <section class="sec">${secHead('Частые вопросы')}<div class="faqs"><details class="faq"><summary>Сколько готовится справка об обучении?</summary><p>Обычно 1–2 рабочих дня. Статус меняется в истории заявки, а когда документ готов, появляется его электронная версия.</p></details><details class="faq"><summary>Как проверить подлинность электронной справки?</summary><p>На документе есть QR-код и ссылка. Страница проверки открывается без входа в кабинет и показывает, действителен ли документ.</p></details><details class="faq"><summary>Где получить оригинал с печатью?</summary><p>В деканате: Корпус А, ауд. 112, 1 этаж. Приём по будням с 10:00 до 17:00, перерыв с 13:00 до 14:00. Возьмите студенческий билет.</p></details><details class="faq"><summary>Что делать, если заявку отклонили?</summary><p>Причина указана в комментарии деканата в истории заявки. Исправьте замечание и подайте заявку заново или направьте обращение.</p></details><details class="faq"><summary>Можно ли задать вопрос без справки?</summary><p>Да. Выберите «Обращение в деканат» и опишите вопрос. Ответ придёт в историю заявки, срок до 5 рабочих дней.</p></details></div></section>
     ${dean ? `<section class="card"><div class="stack"><p class="eyebrow">Где находится деканат</p><p class="title">Корпус А, ауд. ${esc(dean.room)}, ${dean.floor} этаж</p><p>${esc(dean.hint)}.</p><div class="chips"><button class="btn ghost sm" data-goto-room="${esc(dean.key)}">${icon('building')}Показать на схеме</button></div></div></section>` : ''}</div>`;
 }
 export function requestSheet(kind) {

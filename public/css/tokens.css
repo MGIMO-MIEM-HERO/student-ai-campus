@@ -1,27 +1,24 @@
-/* Дизайн-токены «Меридиан». Основа: Craft Docs style reference (тёплая бумага, засечки в заголовках), сдержанная университетская палитра. Только светлая тема. */
+/* Дизайн-токены «Меридиан». Язык: кремовая бумага, тёмно-зелёные чернила, жёлтый маркер, обводки вместо теней. Только светлая тема. */
 :root{
   color-scheme:light;
-  /* Бумага и чернила */
-  --paper:#f5f0e8;--paper-2:#ede6da;--surface:#fffdf9;--ink:#0f1218;--ink-2:#3a3f48;--muted:#62666f;
-  --line:rgba(15,18,24,.12);--line-strong:rgba(15,18,24,.24);
-  /* Глубокий синий — единственный сильный цвет; золото только линиями и подписями */
-  --navy:#15223b;--navy-2:#1f3050;--navy-3:#2c4168;
-  --gold:#a8844d;--gold-ink:#7a5c2c;--gold-soft:#e9dcc3;
-  /* Состояния: приглушённые тона на светлых подложках */
-  --ok:#1d4636;--ok-bg:#e5eee8;--ok-line:#a9c4b4;
-  --warn:#5f4710;--warn-bg:#f1e9d4;--warn-line:#d9c691;
-  --bad:#7a2a1b;--bad-bg:#f2dfd9;--bad-line:#d8a79a;
-  --info:#1c2d4f;--info-bg:#e3e8f1;--info-line:#aeb9cf;
-  --neutral:#3a3f48;--neutral-bg:#ece7de;
-  /* Виды занятий */
-  --t-lec:#5b6f9a;--t-sem:#5f8a73;--t-prac:#b8944f;--t-lab:#5f8a96;
-  --link:#17407a;
-  /* Шрифты: Cormorant Garamond только в крупных заголовках и цифрах */
-  --font-serif:"Cormorant Garamond",ui-serif,Georgia,Cambria,"Times New Roman",serif;
+  --paper:#fbfaf3;--paper-2:#f1efe1;--surface:#ffffff;--ink:#1a2e12;--ink-2:#34452c;--muted:#5d6955;
+  --line:rgba(26,46,18,.16);--line-strong:rgba(26,46,18,.34);
+  /* тёмно-зелёный — основной; жёлтый — только маркер и мелкие акценты */
+  --navy:#1f3a14;--navy-2:#2b4c1e;--navy-3:#3f6332;
+  --marker:#ffe95e;--gold:#e0b400;--gold-ink:#3d4f2a;--gold-soft:#fff5b0;
+  --teal:#bfe6df;--teal-ink:#123f38;--lav:#e3e5f8;--lav-ink:#2b2f6b;--brick:#c4511f;
+  --ok:#1f3a14;--ok-bg:#e2f0d8;--ok-line:#a9cf96;
+  --warn:#574700;--warn-bg:#fff6bf;--warn-line:#e6cf52;
+  --bad:#8a2f10;--bad-bg:#f8ddd0;--bad-line:#e0a58c;
+  --info:#2b2f6b;--info-bg:#e3e5f8;--info-line:#b3b8ea;
+  --neutral:#34452c;--neutral-bg:#eeecdf;
+  --t-lec:#8088d8;--t-sem:#5f9c4c;--t-prac:#d9b400;--t-lab:#4fae9f;
+  --link:#1f3a14;
+  --font-serif:"Golos Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; /* заголовки: жирный гротеск */
   --font-sans:"Golos Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-  /* Радиусы и тени: маленькие и тихие */
-  --r-sm:3px;--r-md:6px;--r-lg:10px;--r-pill:9999px;
-  --shadow-pop:0 24px 60px -12px rgba(15,18,24,.35),0 4px 12px rgba(15,18,24,.12);
-  --shadow-lift:0 10px 24px -12px rgba(15,18,24,.28);
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-pill:9999px;
+  --shadow-pop:0 24px 60px -12px rgba(26,46,18,.35),0 4px 12px rgba(26,46,18,.12);
+  --shadow-lift:4px 4px 0 var(--ink);
   --page-max:1200px;
 }

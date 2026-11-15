@@ -1,6 +1,6 @@
 import {S, indexLessons, lessonIndex} from './state.js';
 import {api} from './api.js';
-import {icon} from './icons.js';
+import {icon, sheet as doodle} from './icons.js';
 import {esc, buildIcs, downloadIcs, dayMonth} from './util.js';
 import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
@@ -24,7 +24,7 @@ function flash(message) {
   toastTimer = setTimeout(() => { toast.textContent = ''; }, 5000);
 }
 const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>Меридиан</b><small>${isStaff() ? 'Кабинет сотрудника' : 'Личный кабинет · концепт'}</small></span></a>`;
-const footer = () => `<footer class="foot"><p>Меридиан — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены. Фотографии не используются. Шрифты Cormorant Garamond и Golos Text, лицензия SIL OFL.</p></footer>`;
+const footer = () => `<footer class="foot"><p>Меридиан — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены. Фотографии не используются. Шрифты Golos Text и JetBrains Mono, лицензия SIL OFL.</p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -47,7 +47,7 @@ function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
   lastKey = '';
   app.innerHTML = `<div class="login enter"><section class="login-side">${brand('/')}
-      <div class="login-copy"><p class="eyebrow">Личный кабинет</p><h1>Личный кабинет <em>студента</em></h1><p class="lede">Расписание с аудиториями и изменениями, баллы и допуск, заявки на справки со статусом. С телефона и с компьютера.</p></div>
+      ${doodle('d1')}${doodle('d2')}<div class="login-copy"><p class="kicker"><i></i>концепт для MGIMO×AI Challenge</p><h1>Личный кабинет <span class="mark">студента</span></h1><p class="lede">Расписание с аудиториями и изменениями, баллы и допуск, заявки на справки со статусом. С телефона и с компьютера.</p></div>
       <div class="preview" aria-hidden="true"><div class="pv"><p class="eyebrow">Идёт сейчас</p><b>Математический анализ</b><p class="cap">09:00–10:30 · Корпус А, ауд. 304, 3 этаж</p><div class="bar" data-pct="62"></div></div>
         <div class="pv"><p class="eyebrow">Заявка</p><b>Справка об обучении готова</b><p class="cap">Электронная версия с QR-проверкой подлинности</p></div></div></section>
     <main class="login-main" id="main" tabindex="-1"><div class="login-card"><h2 class="title">Вход в кабинет</h2>
