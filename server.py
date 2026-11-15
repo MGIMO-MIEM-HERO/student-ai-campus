@@ -193,7 +193,7 @@ def student_data(user, db):
     today = msk_today()
     login = user["login"]
     schedule = campus_data.build_schedule(login, today)
-    grades = campus_data.build_session(login)
+    grades = campus_data.build_session(login, today)
     read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (login,))}
     published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
                   "date": a["created"][:10], "read": f"a{a['id']}" in read}

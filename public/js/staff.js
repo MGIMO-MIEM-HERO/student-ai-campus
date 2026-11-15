@@ -40,7 +40,7 @@ export function viewStaffRooms() {
   return `<div class="page">${head('Кабинет деканата', 'Занятость аудиторий', 'Отметьте аудиторию занятой на пару или на весь день: ремонт, мероприятие, перенос. Отметка действует на показанный день.')}
     <div class="stack">${roomsDayNote()}${buildingSeg()}${pairChips(pair)}</div>
     <div class="cols"><section class="card"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div></div>
-      <div class="b3d-wrap">${building3d(S.bld, pair, {selected: S.room})}</div>${legend3d(true)}</section>
+      <div class="b3d-wrap">${building3d(S.bld, pair, {selected: S.room})}</div><div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть влево">${icon('arrow')}</button><span class="cap">Потяните схему, чтобы повернуть</span><button class="icon-btn" data-rot="15" aria-label="Повернуть вправо">${icon('arrow')}</button></div>${legend3d(true)}</section>
       <div class="stack lg">${form}
         <section class="card"><div class="stack"><p class="title">Отметки на сегодня</p>${S.data.marks.length ? `<ul class="marks">${S.data.marks.map((m) => `<li><span><b>${esc(m.building)}-${esc(m.room)}</b> · ${m.pair ? `${m.pair} пара` : 'весь день'} · ${m.state === 'busy' ? 'занята' : 'свободна'}${m.note ? ` · ${esc(m.note)}` : ''}<br><span class="cap">${esc(m.author)}, ${esc(stamp(m.at))}</span></span><button class="link" data-unmark="${esc(m.building)}|${esc(m.room)}|${m.pair}">Снять</button></li>`).join('')}</ul>` : '<p class="muted">Отметок нет. Занятость считается по расписанию.</p>'}</div></section></div></div></div>`;
 }

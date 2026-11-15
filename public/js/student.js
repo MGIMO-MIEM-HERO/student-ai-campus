@@ -2,6 +2,7 @@ import {S, lessonIndex} from './state.js';
 import {icon} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, dayMonth, weekdayShort, stamp, count, plural, duration, daysBetween, relativeDay, untilText, cap, fmt, qrSvg, verifyUrl} from './util.js';
 import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday, defaultPair} from './campus.js';
+import {ring, sparkline, dayTimeline, weekGrid, heatmap, miniTrack} from './viz.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['more', 'Ещё', 'more']];
 export const ROUTES = ['today', 'schedule', 'study', 'requests', 'more', 'notices', 'rooms', 'assistant', 'profile', 'doc'];
@@ -100,9 +101,11 @@ function gradeStats() {
   return {avg: g.length ? Math.round(g.reduce((s, x) => s + x.points, 0) / g.length) : 0, admitted: g.filter((x) => x.result !== 'Нет допуска').length, total: g.length, risk: g.filter((x) => x.result === 'Нет допуска')};
 }
 const weeksBar = (s) => `<div class="weeks" role="img" aria-label="Идёт ${s.week}-я неделя из ${s.weeks}">${Array.from({length: s.weeks}, (_, i) => `<i class="${i + 1 < s.week ? 'done' : i + 1 === s.week ? 'cur' : ''}"></i>`).join('')}</div>`;
+const period = (m) => (m < 360 ? 'night' : m < 660 ? 'morning' : m < 1020 ? 'day' : m < 1260 ? 'evening' : 'night');
+export const clockText = () => { const m = mskNow().minutes; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 export function viewToday() {
   const t = nowIso(), m = mskNow().minutes, d = S.data, s = d.semester, st = gradeStats();
-  const todayLessons = day(t)?.lessons || [];
+  const today = day(t), todayLessons = today?.lessons || [];
   const greet = m < 300 ? 'Доброй ночи' : m < 720 ? 'Доброе утро' : m < 1080 ? 'Добрый день' : 'Добрый вечер';
   const notes = [];
   for (const dd of d.schedule) {
@@ -117,34 +120,36 @@ export function viewToday() {
     notes.push(`<a class="change" href="#notices"><span class="change-kind">${esc(n.tag)}</span><span class="change-body"><strong>${esc(n.title)}</strong><span class="change-diff">${esc(n.body)}</span></span>${icon('chevron')}</a>`);
   }
   const todo = [];
-  for (const r of d.requests.filter((x) => x.status === 'Готова')) todo.push(item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `Документ готов: ${esc(r.kind.toLowerCase())}`, sub: 'Откройте электронную версию или получите оригинал: Корпус А, ауд. 112.'}));
+  for (const r of d.requests.filter((x) => x.status === 'Готова')) todo.push(item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `Документ готов: ${esc(r.kind.toLowerCase())}`, sub: 'Электронная версия в кабинете, оригинал в ауд. А-112.'}));
   for (const n of d.notices.filter((x) => x.tag === 'Дедлайн')) todo.push(item({href: 'notices', ico: 'clock', tone: 'marigold', title: esc(n.title), sub: esc(n.body)}));
   for (const g of st.risk) todo.push(item({href: 'study', ico: 'alert', tone: 'papaya', title: `Нет допуска: ${esc(g.title)}`, sub: `До порога допуска не хватает ${60 - g.points} ${60 - g.points === 1 ? 'балла' : 'баллов'}.`}));
   const nextControl = d.grades.filter((g) => g.date >= t)[0];
-  if (nextControl) todo.push(item({href: 'study', ico: 'study', tone: 'periwinkle', title: `Ближайший контроль: ${esc(nextControl.title)}`, sub: `${esc(nextControl.assessment)}, ${dayMonth(nextControl.date)} в ${nextControl.start}, ${esc(nextControl.place)} · ${untilText(nextControl.date, t)}`}));
-  for (const r of d.requests.filter((x) => x.status === 'Принята' || x.status === 'В работе')) todo.push(item({href: 'requests', ico: 'requests', title: `Заявка в обработке: ${esc(r.kind.toLowerCase())}`, sub: esc(hintFor(r))}));
+  const nextExam = d.grades.filter((g) => g.date >= t && g.assessment === 'Экзамен')[0] || nextControl;
   const toSession = daysBetween(t, s.session_starts);
-  const freeNow = roomsIsToday() ? freeRooms(defaultPair()).length : freeRooms(1).length;
+  const pair = defaultPair();
+  const freeNow = freeRooms(pair, 'А').length, totalA = S.data.campus.rooms.filter((r) => r.building === 'А' && r.seats).length;
   const pairsToday = todayLessons.filter((l) => !l.cancelled).length;
+  const lastReq = d.requests[0];
+  const daysToExam = nextExam ? daysBetween(t, nextExam.date) : 0;
   return `<div class="page">
-    <section class="hero">
-      <div class="hero-copy"><p class="eyebrow">${cap(dayLong(t))}</p><h1>${greet},<br>${esc(d.profile.name.split(' ')[0])}</h1><p class="lede">${esc(d.profile.group_name)} · ${esc(d.profile.program)}</p>
-        <div class="semester"><div class="row"><span class="small"><b>Неделя ${s.week} из ${s.weeks}</b>, ${s.parity_label}</span>${toSession > 0 ? `<span class="small">до сессии ${count(toSession, ['день', 'дня', 'дней'])}</span>` : ''}</div>${weeksBar(s)}</div></div>
+    <section class="hero hero-${period(m)}"><span class="orb o1" aria-hidden="true"></span><span class="orb o2" aria-hidden="true"></span><span class="orb o3" aria-hidden="true"></span>
+      <div class="hero-copy"><p class="eyebrow">${cap(dayLong(t))} · <span data-clock>${clockText()}</span></p><h1>${greet},<br>${esc(d.profile.name.split(' ')[0])}</h1><p class="lede">${esc(d.profile.group_name)} · ${esc(d.profile.program)}</p>
+        <div class="hero-day"><div class="row"><span class="small"><b>Ваш день</b> · ${pairsToday ? count(pairsToday, ['пара', 'пары', 'пар']) : 'пар нет'}</span><span class="small">неделя ${s.week} из ${s.weeks}, ${s.parity_label}</span></div>${dayTimeline(today, t)}</div></div>
       ${nowCard()}</section>
-    <section class="stats" aria-label="Коротко">
-      <a class="stat" href="#schedule"><span class="num">${pairsToday}</span><span class="l">${plural(pairsToday, ['пара', 'пары', 'пар'])} сегодня</span></a>
-      <a class="stat" href="#study"><span class="num">${st.avg}</span><span class="l">средний балл из 100</span></a>
-      <a class="stat" href="#study"><span class="num">${st.admitted}<small>/${st.total}</small></span><span class="l">дисциплин с допуском</span></a>
-      <a class="stat" href="#rooms"><span class="num">${freeNow}</span><span class="l">${roomsIsToday() ? 'свободных аудиторий сейчас' : 'свободных аудиторий на 1 паре завтра'}</span></a></section>
-    <div class="cols"><div class="stack lg">
-      <section class="sec">${secHead('Что изменилось', go('notices', 'Все уведомления'))}${notes.length ? `<div class="card flush"><div class="changes">${notes.join('')}</div></div>` : empty('check', 'Изменений нет', 'Занятия проходят по расписанию.')}</section>
-      <section class="sec">${secHead('Сегодня', go('schedule', 'Вся неделя'))}${todayLessons.length ? lessonsList(todayLessons, t) : empty('schedule', 'Занятий нет', 'Свободный день.')}</section></div>
-      <div class="stack lg">
-        <section class="card"><div class="stack"><p class="title">Что нужно сделать</p>${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('check', 'Срочных дел нет')}</div></section>
-        <section class="card"><div class="stack"><p class="title">Быстрые действия</p>
-          <button class="btn block" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button>
-          <button class="btn ghost block" data-calendar="week">${icon('download')}Расписание в календарь</button>
-          <a class="btn ghost block" href="#rooms">${icon('building')}Свободные аудитории</a></div></section></div></div></div>`;
+    <div class="bento">
+      <section class="card b-changes"><div class="sec-head"><p class="title">Что изменилось</p>${go('notices', 'Все уведомления')}</div>${notes.length ? `<div class="changes">${notes.join('')}</div>` : empty('check', 'Изменений нет', 'Занятия проходят по расписанию.')}</section>
+      <section class="card b-count">${nextExam ? `<p class="eyebrow">До ${nextExam.assessment === 'Экзамен' ? 'экзамена' : 'зачёта'}</p>
+        <div class="count"><span class="big" data-count="${daysToExam}">${daysToExam}</span><span>${plural(daysToExam, ['день', 'дня', 'дней'])}</span></div>
+        <p class="b-count-title">${esc(nextExam.title)}</p><p class="small">${dayMonth(nextExam.date)}, ${nextExam.start} · ${esc(nextExam.place)}</p>
+        <div class="b-count-foot"><span class="small">Неделя ${s.week} из ${s.weeks}${toSession > 0 ? ` · сессия через ${count(toSession, ['день', 'дня', 'дней'])}` : ''}</span>${weeksBar(s)}</div>` : '<p class="title">Сессия завершена</p>'}</section>
+      <a class="card b-ring" href="#study"><div class="ring-wrap">${ring(st.avg, {size: 132, stroke: 7, label: `Средний балл ${st.avg} из 100`})}<span class="ring-num"><span data-count="${st.avg}">${st.avg}</span><small>из 100</small></span></div>
+        <div class="stack-sm"><p class="eyebrow">Успеваемость</p><p class="b-big">Средний балл</p><p class="small muted">Допуск по ${st.admitted} из ${st.total} дисциплин${st.risk.length ? `. Требует внимания: ${esc(st.risk[0].title)}` : ''}</p></div></a>
+      <a class="card b-rooms" href="#rooms"><div class="row"><p class="eyebrow">Корпус А · ${pair} пара${roomsIsToday() ? '' : ', завтра'}</p><span class="tag mint">${freeNow} свободно</span></div>${heatmap('А', pair)}<p class="small muted">Свободно ${freeNow} из ${totalA} аудиторий. Нажмите, чтобы открыть схему.</p></a>
+      <a class="card b-req" href="#requests">${lastReq ? `<p class="eyebrow">Последняя заявка</p><p class="b-big">${esc(lastReq.kind)}</p><span>${statusTag(lastReq.status)}</span>${lastReq.status === 'Отклонена' ? '' : miniTrack(lastReq.status, STEPS)}<p class="small muted">${esc(hintFor(lastReq))}</p>` : '<p class="eyebrow">Заявки</p><p class="b-big">Справка за 1–2 дня</p><p class="small muted">Закажите онлайн и следите за статусом.</p>'}</a>
+      <section class="b-today"><div class="sec-head"><p class="title">Сегодня</p>${go('schedule', 'Вся неделя')}</div>${todayLessons.length ? lessonsList(todayLessons, t) : empty('schedule', 'Занятий нет', 'Свободный день.')}</section>
+      <section class="card b-todo"><div class="stack"><p class="title">Что нужно сделать</p>${todo.length ? `<div class="list">${todo.join('')}</div>` : empty('check', 'Срочных дел нет')}
+        <div class="b-actions"><button class="btn block" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button><button class="btn ghost block" data-calendar="week">${icon('download')}Неделя в календарь</button></div></div></section>
+    </div></div>`;
 }
 
 /* ---------- Расписание ---------- */
@@ -160,7 +165,9 @@ export function viewSchedule() {
   const upcoming = !active.length ? nextLessonDay(current.date) : null, nextFirst = upcoming?.lessons.find((l) => !l.cancelled);
   const curPair = current.date === t ? defaultPair() : 0;
   return `<div class="page">${head(S.data.semester.term, 'Расписание', 'Нажмите на занятие, чтобы увидеть преподавателя, этаж и как пройти. Время московское.')}
-    <div class="cols"><div class="stack lg">
+    <div class="seg wk-seg only-desk" role="group" aria-label="Неделя"><button data-week="0" aria-pressed="${S.week === 0}">Эта неделя<small>${range(w0)}</small></button><button data-week="1" aria-pressed="${S.week === 1}">Следующая<small>${range(w1)}</small></button></div>
+    <section class="card wk-card only-desk">${weekGrid(week, t, S.day)}</section>
+    <div class="cols"><div class="stack lg only-mob">
       <div class="stack"><div class="seg" role="group" aria-label="Неделя"><button data-week="0" aria-pressed="${S.week === 0}">Эта неделя<small>${range(w0)}</small></button><button data-week="1" aria-pressed="${S.week === 1}">Следующая<small>${range(w1)}</small></button></div>
       <div class="days" role="group" aria-label="Дни недели">${week.map((x) => {
         const n = x.lessons.filter((l) => !l.cancelled).length, chg = x.lessons.some((l) => l.change);
@@ -168,7 +175,7 @@ export function viewSchedule() {
       }).join('')}</div></div>
       <section class="sec"><div class="sec-head"><h2>${cap(dayLong(current.date))}</h2><span class="small muted">неделя ${current.week}, ${current.parity === 'odd' ? 'нечётная' : 'чётная'} · ${summary}</span></div>
         ${lessons.length ? lessonsList(lessons, current.date) : empty('schedule', 'Занятий нет', nextFirst ? `Ближайшее занятие: ${esc(relativeDay(upcoming.date, t))}, ${nextFirst.start} — ${esc(nextFirst.title)}.` : '')}</section></div>
-      <div class="stack lg">
+      <div class="stack lg side-row">
         <section class="card"><div class="stack"><p class="title">В календарь</p><p class="small">Файл .ics открывается в Яндекс Календаре, Google Календаре и в календаре телефона.</p>
           <button class="btn ghost block" data-calendar="day">${icon('download')}Выбранный день</button><button class="btn block" data-calendar="week">${icon('download')}Неделя целиком</button></div></section>
         <section class="card"><div class="stack"><p class="title">Звонки</p><table class="bells"><tbody>${S.data.campus.bells.map((b) => `<tr class="${b.pair === curPair ? 'cur' : ''}"><th scope="row">${b.pair} пара</th><td>${b.start}–${b.end}${b.pair === curPair ? ' · сейчас' : ''}</td></tr>`).join('')}</tbody></table><p class="cap">Между 2 и 3 парой обеденный перерыв 30 минут.</p></div></section>
@@ -216,10 +223,11 @@ export function viewStudy() {
       <div class="stat"><span class="num">${toSession > 0 ? toSession : 0}</span><span class="l">дней до начала сессии</span></div></section>
     ${risk}
     <section class="sec">${secHead('Семестр')}<div class="strip" role="img" aria-label="Идёт ${s.week}-я неделя из ${s.weeks}, сессия с ${dayMonth(s.session_starts)}">${Array.from({length: s.weeks}, (_, i) => `<div class="${i + 1 < s.week ? 'done' : i + 1 === s.week ? 'cur' : ''}"><b>${i + 1}</b>${i + 1 === s.week ? 'сейчас' : 'нед.'}</div>`).join('')}<div class="session"><b>Сессия</b>с ${dayMonth(s.session_starts)}</div></div></section>
-    <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span></div><span class="num">${g.points}</span></div>
-      <div class="bar mark" data-pct="${g.points}" role="img" aria-label="${g.points} баллов из 100, порог допуска 60"></div>
-      <div class="row"><span class="tag ${g.result === 'Нет допуска' ? 'papaya' : 'mint'}">${esc(g.result)}</span><span class="small muted">${advice(g)}</span></div></article>`).join('')}</div>
-      <p class="cap">Оранжевая отметка на шкале — порог допуска, 60 баллов. Шкала перевода в оценку условная, данные демонстрационные.</p></section>
+    <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div class="ring-wrap sm">${ring(g.points, {size: 76, stroke: 9, tone: g.points < 60 ? 'papaya' : 'ink', label: `${g.points} баллов из 100`})}<span class="ring-num"><span data-count="${g.points}">${g.points}</span></span></div>
+      <div class="course-info"><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span><span><span class="tag ${g.result === 'Нет допуска' ? 'papaya' : 'mint'}">${esc(g.result)}</span></span></div></div>
+      <div class="spark-wrap">${sparkline(g.trend, {label: `Баллы по неделям: ${g.trend.join(', ')}`})}<div class="spark-axis"><span>1 нед.</span><span>порог 60</span><span>${g.trend.length} нед.</span></div></div>
+      <p class="small muted">${advice(g)}</p></article>`).join('')}</div>
+      <p class="cap">Кольцо — баллы из 100. График — накопление баллов по неделям, пунктир — порог допуска 60. Шкала перевода условная, данные демонстрационные.</p></section>
     <section class="sec">${secHead('График сессии')}<div class="card">${d.grades.map((g) => `<div class="tl ${g.assessment === 'Экзамен' ? 'exam' : ''} ${g.date < t ? 'past' : ''}"><div class="tl-date"><b>${fmt(g.date, {day: 'numeric'})}</b><span>${fmt(g.date, {month: 'short'}).replace('.', '')}</span></div>
       <div><div class="row"><h3>${esc(g.title)}</h3><span class="tag ${g.assessment === 'Экзамен' ? 'marigold' : 'periwinkle'}">${esc(g.assessment)}</span></div><p>${g.start} · ${esc(g.place)} · ${esc(g.examiner)} · ${untilText(g.date, t)}${g.consultation ? `<br>Консультация: ${dayShort(g.consultation.date)}, ${g.consultation.start}, ${esc(g.consultation.place)}` : ''}</p></div></div>`).join('')}</div></section></div>`;
 }
@@ -315,7 +323,7 @@ export function viewRooms() {
   return `<div class="page">${head('Корпуса и аудитории', 'Где свободно', `Схема этажей на сегодня. Выберите корпус и пару: свободные аудитории подсвечены. ${esc(S.data.campus.note)}`)}
     <div class="stack">${roomsDayNote()}${buildingSeg()}${pairChips(pair)}</div>
     <div class="cols"><section class="card"><div class="row"><div><p class="eyebrow">${esc(b.name)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div></div>
-        <div class="b3d-wrap">${building3d(S.bld, pair, {mine, selected: S.room})}</div>${legend3d()}</section>
+        <div class="b3d-wrap">${building3d(S.bld, pair, {mine, selected: S.room})}</div><div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть влево">${icon('arrow')}</button><span class="cap">Потяните схему, чтобы повернуть</span><button class="icon-btn" data-rot="15" aria-label="Повернуть вправо">${icon('arrow')}</button></div>${legend3d()}</section>
       <div class="stack lg"><div id="room-card">${roomCard(S.room, pair)}</div>
         <section class="card"><div class="stack"><p class="title">Свободны на ${pair} паре</p>${free.length ? `<div class="free-list">${free.slice(0, 9).map(freeChip).join('')}</div>${free.length > 9 ? `<details class="more" ${free.slice(9).some((r) => r.key === S.room) ? 'open' : ''}><summary>Показать ещё ${free.length - 9}</summary><div class="free-list">${free.slice(9).map(freeChip).join('')}</div></details>` : ''}` : '<p class="muted">В этом корпусе свободных аудиторий на выбранной паре нет.</p>'}<p class="cap">${esc(b.name)}: открыт ${esc(b.hours)}. ${esc(b.hint)}</p></div></section>
         <section class="card"><div class="stack"><label for="room-q" class="title">Найти аудиторию</label><input id="room-q" type="search" placeholder="Номер, например 512, или «деканат»" value="${esc(S.roomQuery)}" autocomplete="off" enterkeyhint="search"><div id="rooms-list">${roomsFiltered()}</div></div></section></div></div></div>`;

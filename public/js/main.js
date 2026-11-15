@@ -5,13 +5,15 @@ import {esc, buildIcs, downloadIcs, dayMonth} from './util.js';
 import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
 import * as stf from './staff.js';
+import {ring} from './viz.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
 const sheet = document.querySelector('#sheet');
 const sheetBody = document.querySelector('#sheet-body');
 const DEMO_PASSWORD = 'Campus-demo-2026';
-let toastTimer, lastFocus;
+let toastTimer, lastFocus, lastKey = '', drag = null, suppressClick = false;
+const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const isStaff = () => S.data?.role === 'staff';
 const routes = () => (isStaff() ? stf.ROUTES : stu.ROUTES);
@@ -45,17 +47,26 @@ function shell(content, key) {
 function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
   const features = [['schedule', 'periwinkle', 'Расписание с изменениями, окнами и аудиториями'], ['study', 'marigold', 'Баллы, допуск и график сессии'], ['requests', 'mint', 'Справки с QR-проверкой и статусом'], ['building', 'sky', 'Схема корпусов и свободные аудитории']];
-  app.innerHTML = `<div class="login"><section class="login-hero">
+  lastKey = '';
+  app.innerHTML = `<div class="login enter"><section class="login-hero">
       <div class="login-top">${brand('/')}<span class="tag">Концепт</span></div><p class="eyebrow">Личный кабинет студента</p><h1>Деканат, в который не нужно идти</h1><p class="lede">Расписание, баллы, справки и связь с деканатом в одном спокойном месте. С телефона и компьютера.</p></section>
-    <div class="login-pad"><div class="login-stage"><section class="card login-card"><h2 class="title">Вход в кабинет</h2>
+    <div class="login-pad"><div class="login-stage">
+      <div class="floats fl-left" aria-hidden="true">
+        <div class="card mini m1"><div class="row"><span class="tag ink"><span class="dot pulse"></span>Идёт сейчас</span><span class="cap">ещё 32 мин</span></div><p class="mini-t">Математический анализ</p><p class="cap">09:00–10:30 · Корпус А, ауд. 304</p><div class="bar" data-pct="64"></div></div>
+        <div class="card mini m2"><span class="ico mint">${icon('check')}</span><div><b>Справка готова</b><p class="cap">Электронная версия с QR</p></div></div></div>
+      <section class="card login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
       <p class="form-error" role="alert">${esc(error)}</p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role]) => `<button class="demo" data-demo="${id}"><span class="avatar" aria-hidden="true">${name[0]}</span><span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
-      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></section></div>
+      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></section>
+      <div class="floats fl-right" aria-hidden="true">
+        <div class="card mini m3"><div class="ring-wrap">${ring(88, {size: 86, stroke: 8})}<span class="ring-num">88</span></div><div><b>Средний балл</b><p class="cap">6 из 6 с допуском</p></div></div>
+        <div class="card mini m4"><span class="change-kind">Новая аудитория</span><b>Базы данных</b><p class="cap"><s>А-305</s> → Б-512 · вт, 2 пара</p></div></div></div>
     <ul class="features">${features.map(([ico, tone, text]) => `<li><span class="ico ${tone}">${icon(ico)}</span>${text}</li>`).join('')}</ul>
     <p class="disclaimer">Концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></div></div>`;
+  decorate(app);
   app.setAttribute('aria-busy', 'false');
 }
 function errorScreen() {
@@ -78,15 +89,39 @@ async function verifyScreen(code) {
   }
 }
 
-function decorate(root) { root.querySelectorAll('[data-pct]').forEach((el) => el.style.setProperty('--pct', el.dataset.pct)); }
+function decorate(root) {
+  root.querySelectorAll('[data-pct]').forEach((el) => el.style.setProperty('--pct', el.dataset.pct));
+  root.querySelectorAll('[data-vars]').forEach((el) => el.dataset.vars.split(';').forEach((pair) => {
+    const i = pair.indexOf(':');
+    if (i > 0) el.style.setProperty(pair.slice(0, i).trim(), pair.slice(i + 1).trim());
+  }));
+}
+function countUp(root) {
+  if (reduceMotion()) return;
+  root.querySelectorAll('[data-count]').forEach((el) => {
+    const target = Number(el.dataset.count);
+    if (!Number.isFinite(target) || target <= 0) return;
+    const t0 = performance.now(), dur = 900;
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur), eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = String(Math.round(target * eased));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    el.textContent = '0';
+    requestAnimationFrame(step);
+  });
+}
 function render() {
   if (hashParts()[0] === 'verify') return verifyScreen(hashParts()[1]);
   if (!S.data) return loginScreen();
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
     : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, more: stu.viewMore, notices: stu.viewNotices, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
+  const entering = key !== lastKey;
+  lastKey = key;
   app.innerHTML = shell(views[key](), key);
   decorate(app);
+  if (entering) { const main = app.querySelector('#main'); main.classList.add('enter'); countUp(main); }
   app.setAttribute('aria-busy', 'false');
 }
 function openSheet(html) {
@@ -137,13 +172,15 @@ function showRoom(key) {
 }
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark]';
+const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot]';
 document.addEventListener('click', async (event) => {
+  if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
   if (!el) { if (event.target === sheet) closeSheet(); return; }
   const d = el.dataset;
   try {
     if (d.retry !== undefined) return location.reload();
+    if (d.rot) { setRotation(S.rz + Number(d.rot)); return; }
     if (d.demo) return doLogin(d.demo, DEMO_PASSWORD);
     if (d.close !== undefined) return closeSheet();
     if (d.search !== undefined) return openSearch();
@@ -221,6 +258,29 @@ window.addEventListener('hashchange', () => {
   closeSheet(); render(); window.scrollTo(0, 0);
   if (S.data) document.querySelector('#main')?.focus({preventScroll: true});
 });
+
+/* вращение 3D-схемы */
+function setRotation(value) {
+  S.rz = Math.max(-80, Math.min(40, Math.round(value)));
+  document.querySelectorAll('.b3d-stage').forEach((el) => el.style.setProperty('--rz', `${S.rz}deg`));
+}
+document.addEventListener('pointerdown', (event) => {
+  const el = event.target.closest('[data-drag3d]');
+  if (!el || event.button > 0) return;
+  drag = {x: event.clientX, rz: S.rz, moved: false};
+});
+document.addEventListener('pointermove', (event) => {
+  if (!drag) return;
+  const dx = event.clientX - drag.x;
+  if (Math.abs(dx) > 5) drag.moved = true;
+  if (drag.moved) setRotation(drag.rz + dx * 0.35);
+});
+const endDrag = () => { if (drag?.moved) suppressClick = true; drag = null; setTimeout(() => { suppressClick = false; }, 0); };
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', () => { drag = null; });
+
+/* живые часы на главной */
+setInterval(() => { document.querySelectorAll('[data-clock]').forEach((el) => { el.textContent = stu.clockText(); }); }, 15000);
 
 /* актуальность данных */
 const busyUi = () => sheet.open || document.activeElement?.matches?.('input,textarea,select') || S.busy;

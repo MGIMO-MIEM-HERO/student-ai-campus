@@ -34,7 +34,7 @@ export function building3d(buildingId, pair, {mine = new Set(), selected = ''} =
       return `<button class="r3 ${cls} ${selected === r.key ? 'sel' : ''}" data-room3="${esc(r.key)}" aria-label="Аудитория ${esc(r.room)}, ${f} этаж. ${mine.has(r.key) ? 'Ваше занятие. ' : ''}${esc(st.text)}" aria-pressed="${selected === r.key}">${esc(r.room)}</button>`;
     }).join('')}</div>`);
   }
-  return `<div class="b3d n${b.floors}" role="group" aria-label="Схема этажей: ${esc(b.name)}"><div class="b3d-stage">${floors.join('')}</div></div>`;
+  return `<div class="b3d n${b.floors}" role="group" aria-label="Схема этажей: ${esc(b.name)}" data-drag3d><div class="b3d-stage" data-vars="--rz:${S.rz}deg">${floors.join('')}</div></div>`;
 }
 export const legend3d = (staff = false) => `<div class="legend"><span><i class="sw sw-free"></i>свободна</span><span><i class="sw sw-busy"></i>занята по расписанию</span><span><i class="sw sw-staff"></i>занята: отмечено деканатом</span>${staff ? '' : '<span><i class="sw sw-mine"></i>ваше занятие</span>'}</div>`;
 export function pairChips(pair) {

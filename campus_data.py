@@ -234,14 +234,28 @@ def result_label(assessment, points):
     return "Допуск получен"
 
 
-def build_session(login):
+def points_trend(login, course, points, week):
+    """Накопленные баллы по неделям до текущей: демо-ряд, монотонный, заканчивается текущим значением."""
+    week = max(week, 2)
+    values, last = [], 0
+    for w in range(1, week + 1):
+        noise = int(hashlib.md5(f"{login}-{course}-{w}".encode()).hexdigest(), 16) % 7 - 3
+        target = round(points * (w / week) ** 1.15) + (noise if w < week else 0)
+        last = max(last, min(points, target))
+        values.append(last)
+    values[-1] = points
+    return values
+
+
+def build_session(login, today=None):
+    week = week_info(today)[0] if today else TEACHING_WEEKS
     items = []
     for key, (title, teacher_key, assessment, points, control, pair, building, room) in COURSES[login].items():
         examiner = teacher(teacher_key)
         item = {"course": key, "title": title, "assessment": assessment, "points": points,
                 "result": result_label(assessment, points), "date": control.isoformat(),
                 "start": BELLS[pair][0], "place": place(building, room), "examiner": examiner["short"],
-                "teacher": examiner}
+                "teacher": examiner, "trend": points_trend(login, key, points, week)}
         if assessment == "Экзамен":
             item["consultation"] = {"date": (control - timedelta(days=1)).isoformat(), "start": "12:00",
                                     "place": place(building, room)}

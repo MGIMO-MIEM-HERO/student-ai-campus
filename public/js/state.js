@@ -1,4 +1,4 @@
-export const S = {data: null, day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', bld: 'А', pair: null, room: '', version: 0};
+export const S = {data: null, day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', bld: 'А', pair: null, room: '', rz: -20, version: 0};
 export const lessonIndex = new Map();
 export function indexLessons() {
   lessonIndex.clear();
