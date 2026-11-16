@@ -28,10 +28,10 @@ function flash(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.textContent = ''; }, 5000);
 }
-/* Название продукта. Keystone — замковый камень арки: держит всю конструкцию, как кабинет держит учёбу. */
-const BRAND = 'Keystone';
-const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>${BRAND}</b><small>${ROLE_LABEL[S.data?.role] || 'личный кабинет'} · концепт</small></span></a>`;
-const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>${BRAND} — концепт-прототип личного кабинета студента и преподавателя для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены, портреты преподавателей сгенерированы нейросетью. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
+/* Название продукта и знак: корпус кампуса в круге. */
+const BRAND = 'Кампус';
+const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.png" alt="" width="36" height="36"><span class="brand-text"><b>${BRAND}</b><small>${ROLE_LABEL[S.data?.role] || 'личный кабинет'} · концепт</small></span></a>`;
+const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.png" alt="" width="28" height="28"><p>${BRAND} — концепт-прототип личного кабинета студента и преподавателя для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены, портреты преподавателей сгенерированы нейросетью. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -66,7 +66,7 @@ function loginScreen(error = '', login = '') {
       <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role, photo]) => `<button class="demo" data-demo="${id}">${photo ? `<img class="avatar" src="${photo}" alt="" width="38" height="38">` : `<span class="avatar" aria-hidden="true">${name[0]}</span>`}<span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
-      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p><a class="link" href="#about">Как устроен Keystone ${icon('arrow')}</a></div>
+      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p><a class="link" href="#about">Как устроен Кампус ${icon('arrow')}</a></div>
       <p class="disclaimer">${BRAND} — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');

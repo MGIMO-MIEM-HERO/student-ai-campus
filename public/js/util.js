@@ -64,7 +64,7 @@ export function buildIcs(days) {
     for (const l of day.lessons) {
       if (l.cancelled) continue;
       const description = [`${l.type}, ${l.pair} пара`, l.teacher?.name, l.groups ? `Группы: ${l.groups.join(', ')}` : '', l.subgroup, l.format === 'Онлайн' ? 'Онлайн (ссылка в LMS)' : '', l.change ? `${l.change.label}: ${l.change.was} → ${l.change.now}` : ''].filter(Boolean).join('\n');
-      events.push(['BEGIN:VEVENT', `UID:${l.id}@keystone-demo`, `DTSTAMP:${stampNow}`,
+      events.push(['BEGIN:VEVENT', `UID:${l.id}@campus-demo`, `DTSTAMP:${stampNow}`,
         `DTSTART;TZID=Europe/Moscow:${date}T${l.start.replace(':', '')}00`, `DTEND;TZID=Europe/Moscow:${date}T${l.end.replace(':', '')}00`,
         `SUMMARY:${icsEscape(l.title + ' (' + l.type.toLowerCase() + ')')}`, `LOCATION:${icsEscape(l.place)}`, `DESCRIPTION:${icsEscape(description)}`, 'END:VEVENT'].join('\r\n'));
     }

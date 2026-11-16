@@ -1,4 +1,4 @@
-/* Keystone. Белый фон, серые карточки, чёрные действия, приглушённое небо в одном главном блоке страницы. Значения из tokens.css. */
+/* Кампус. Белый фон, серые карточки, чёрные действия, приглушённое небо в одном главном блоке страницы. Значения из tokens.css. */
 *,*::before,*::after{box-sizing:border-box}
 html{background:var(--paper);-webkit-text-size-adjust:100%;scroll-padding-top:88px}
 body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--font-sans);letter-spacing:-.005em;font-feature-settings:"tnum" 1,"liga" 1;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -556,7 +556,7 @@ details.faq summary:hover{color:var(--navy-3)}
 details.faq p{padding:0 2px 20px;max-width:70ch;color:var(--ink-2)}
 
 
-/* ===================== Keystone: белое, серые карточки, небо в главном блоке ===================== */
+/* ===================== Кампус: белое, серые карточки, небо в главном блоке ===================== */
 h1,.h1{font:600 clamp(34px,3.6vw,48px)/1.06 var(--font-sans);letter-spacing:-.035em}
 h2,.h2{font:600 clamp(24px,2.2vw,30px)/1.15 var(--font-sans);letter-spacing:-.025em}
 h3{font:600 17px/1.3 var(--font-sans);letter-spacing:-.01em}
@@ -1056,7 +1056,7 @@ button.slot:hover{border-color:var(--ink)}
 .cs-list strong{display:block;font-weight:600;font-size:14px}.cs-list span span{display:block;font-size:12.5px;color:var(--muted)}
 .tcard>.chips{width:100%;flex-wrap:nowrap}
 .tcard>.chips .btn{flex:1;padding-inline:10px}
-/* Страница «Как устроен Keystone» */
+/* Страница «Как устроен Кампус» */
 .about{min-height:100vh;background:var(--paper)}
 .about-hero{margin:12px;border-radius:var(--r-xl);padding:28px 20px 48px;display:grid;gap:48px}
 .about-hero .brand{color:#fff}.about-hero .brand small{color:rgba(255,255,255,.85)}
@@ -1088,3 +1088,7 @@ button.slot:hover{border-color:var(--ink)}
 @media (min-width:900px){.about-facts{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .about-facts .card{display:grid;gap:8px;align-content:start}
 .login-card>.link{justify-self:start}
+/* Знак «Кампуса»: корпус в круге */
+.brand img,.login-side .brand img{width:38px;height:38px;border-radius:50%;box-shadow:none}
+.foot-mark{border-radius:50%}
+.sky .brand img{box-shadow:0 0 0 2px rgba(255,255,255,.5)}
