@@ -6,6 +6,7 @@ import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
 import * as stf from './staff.js';
 import * as tch from './teacher.js';
+import {aboutScreen} from './about.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -65,7 +66,7 @@ function loginScreen(error = '', login = '') {
       <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role, photo]) => `<button class="demo" data-demo="${id}">${photo ? `<img class="avatar" src="${photo}" alt="" width="38" height="38">` : `<span class="avatar" aria-hidden="true">${name[0]}</span>`}<span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
-      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></div>
+      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p><a class="link" href="#about">Как устроен Keystone ${icon('arrow')}</a></div>
       <p class="disclaimer">${BRAND} — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');
@@ -114,6 +115,7 @@ function countUp(root) {
 }
 function render() {
   if (hashParts()[0] === 'verify') return verifyScreen(hashParts()[1]);
+  if (hashParts()[0] === 'about') { lastKey = 'about'; app.innerHTML = aboutScreen(brand('#')); decorate(app); app.setAttribute('aria-busy', 'false'); return; }
   if (!S.data) return loginScreen();
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
