@@ -110,10 +110,10 @@ function core(floor, buildingId) {
   const steps = Array.from({length: 9}, (_, i) => `<path d="M${CORE0 + 6} ${n1(PM + 8 + i * 8.5)}H${CORE0 + 34}"/>`).join('');
   return `<g class="core"><rect x="${CORE0}" y="${PM}" width="${CORE1 - CORE0}" height="${CY0 - PM}"/>${steps}<path d="M${CORE0 + 20} ${PM + 80}V${PM + 14}l-4 6m4-6l4 6"/>
     <rect class="lift" x="${CORE0 + 40}" y="${PM + 10}" width="22" height="22"/><path d="M${CORE0 + 40} ${PM + 10}l22 22m0-22l-22 22"/>
-    <rect x="${CORE0}" y="${CY1}" width="${CORE1 - CORE0}" height="${PH - PM - CY1}"/><path d="M${CORE0 + 34} ${CY1}V${PH - PM}"/>
-    <text class="tiny" x="${CORE0 + 17}" y="${CY1 + 50}">WC</text><text class="tiny" x="${CORE0 + 51}" y="${CY1 + 50}">WC</text>
+    <rect x="${CORE0}" y="${CY1}" width="${CORE1 - CORE0}" height="${PH - PM - CY1}"/>${floor === 1 ? '' : `<path d="M${CORE0 + 34} ${CY1}V${PH - PM}"/>`}
+    ${floor === 1 ? '' : `<text class="tiny" x="${CORE0 + 17}" y="${CY1 + 50}">WC</text><text class="tiny" x="${CORE0 + 51}" y="${CY1 + 50}">WC</text>`}
     <text class="tiny" x="${CORE0 + 51}" y="${PM + 52}">лифт</text><text class="tiny" x="${CORE0 + 51}" y="${PM + 66}">лестн.</text></g>
-    ${floor === 1 ? `<g class="entry"><path d="M${PM} ${CY0 + 8}V${CY1 - 8}" /><text class="tiny strong" x="${PM + 28}" y="${CY0 + 22}">Вход</text></g>` : ''}
+    ${floor === 1 ? `<g class="entry"><path d="M${CORE0 + 10} ${PH - PM}H${CORE1 - 10}" /><text class="tiny strong" x="${CORE0 + 15}" y="${PH - PM - 10}">Вход</text><text class="tiny" x="${CORE1 - 16}" y="${CY1 + 44}">холл</text></g>` : ''}
     ${floor === 2 && buildingId === 'А' ? `<g class="entry"><path d="M${PW - PM} ${CY0 + 8}V${CY1 - 8}"/><text class="tiny strong" x="${PW - PM - 62}" y="${CY0 + 22}">Переход в Б</text></g>` : ''}`;
 }
 export function floorSvg(buildingId, floor, pair, {mine = new Set(), selected = '', mini = false} = {}) {

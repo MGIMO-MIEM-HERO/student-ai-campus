@@ -196,6 +196,12 @@ export function mountScene(host) {
     box(cx-.55,.7,cz+.7,.04,.8,1.6,metal);box(cx+.55,.7,cz+.7,.04,.8,1.6,metal);
     box(cx+1.75,.6,cz+.4,.95,1.2,1.2,concrete);box(cx+1.75,.58,cz+1.02,.7,1.05,.025,metal);
     text('ЛИФТ',cx+1.75,1.55,cz+.4,1);
+    if(floor===1&&height===224) {
+      // Вестибюль у главного входа посередине южного фасада, как на плане и под козырьком фасада.
+      box(X(300),.03,Z(206),2.4,.05,.6,material('doormat',0x5d6a6c,.95));
+      box(X(300),.6,Z(214),2.6,1.2,.06,m.glassLight||blue);
+      text('ВХОД',X(300),1.32,Z(190),1.2);
+    }
     for(const p of corridors.filter((p)=>p.w>100)) {
       for(let i=0;i<2;i++){const bx=X(p.x+60+i*(p.w-120)),bz=Z(p.y+1);bench(bx,bz);plant(bx+1,bz);}
       for(let j=20;j<p.w;j+=20)box(X(p.x+j),.045,Z(p.y+p.h/2),.012,.012,p.h/20,material('grout',0xc2c1b7));
