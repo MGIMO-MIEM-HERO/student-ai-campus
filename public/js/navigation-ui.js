@@ -1,7 +1,8 @@
 import {S} from './state.js';
 import {esc,dayLong,mskNow,toMin} from './util.js';
-import {currentRoute,mapDate,roomByKey} from './campus.js';
+import {currentRoute,mapDate,roomByKey,freeRooms,activePair,floorLayout} from './campus.js';
 import {scheduleEntries,nextPhysicalLesson,findNavigationLesson,roomKey} from './schedule-navigation.js';
+import {streetsOnRoute} from './interior-layout.js';
 
 function lessonStatus(l,date) {
   const t=mskNow();
@@ -29,8 +30,19 @@ export function navigationPanel() {
     }).join(''):'<p class="small muted">На этот день пар нет. Можно выбрать кабинет в поиске ниже.</p>'}</div>
     ${active?`<div class="navigation-context" data-navigation-lesson="${esc(active.id)}"><b>${esc(active.title)}</b><span>${esc(dayLong(chosen.date))} · ${esc(active.start)}–${esc(active.end)} · ${active.pair} пара</span><span>${esc(active.teacher?.name||S.data.profile.name)} · ${esc(active.place)}</span>${active.change?`<span class="navigation-change">${esc(active.change.label)}: ${esc(active.change.was||'')} → ${esc(active.change.now||active.change.reason||'')}</span>`:''}</div>`:''}
     ${S.routeNotice?`<p class="navigation-notice" role="status">${esc(S.routeNotice)}</p>`:''}
+    ${target&&!S.routeBlocked&&mapDate()===S.data.campus.rooms_date?`<div class="navigation-near"><button class="btn ghost sm" data-near-free>Ближайшая свободная аудитория</button><span class="small muted">для подготовки между парами · ${activePair()} пара</span></div>`:''}
     ${target&&!S.routeBlocked?`<div class="navigation-origin"><label for="route-origin">Откуда идти<select id="route-origin"><option value="entry" ${S.routeOrigin==='entry'?'selected':''}>Главный вход · корпус ${esc(target.building)}</option><option value="lift" ${S.routeOrigin==='lift'?'selected':''}>От лифта на ${target.floor} этаже</option><optgroup label="От другой аудитории">${S.data.campus.rooms.filter((r)=>r.building===target.building).map((r)=>`<option value="${esc(r.key)}" ${S.routeOrigin===r.key?'selected':''}>${esc(r.room)} · ${r.floor} этаж</option>`).join('')}</optgroup></select></label></div>`:''}
     ${route?route.arrived?'<p class="small">Начальная и конечная аудитории совпадают — переход не нужен.</p>':`<div class="navigation-stages" role="group" aria-label="Этапы маршрута">${route.segments.map((s,i)=>`<button data-route-floor="${s.floor}" aria-pressed="${S.floor===s.floor}"><b>${i+1}</b><span>${s.floor} этаж<small>${s.kind==='departure'?'К лифту':esc(s.end)}</small></span></button>`).join('')}</div>
-    <ol class="navigation-steps"><li>Начните от точки «${esc(route.originName)}».</li>${route.segments.length>1?`<li>Пройдите по линии до лифта на ${route.startFloor} этаже. ${target.floor>route.startFloor?'Поднимитесь':'Спуститесь'} на ${target.floor} этаж.</li>`:''}<li>Следуйте по синей линии по коридорам до отмеченной двери аудитории ${esc(target.room)}.</li></ol><p class="cap">Круг — начало участка, метка — его конец. Маршрут по проектной схеме корпуса.</p>`:target&&!S.routeBlocked?'<p class="small">Для этой точки пока не удалось построить маршрут.</p>':'<p class="small muted">Выберите пару выше или аудиторию в поиске — маршрут появится на 3D-карте и плане.</p>'}
+    <ol class="navigation-steps"><li>Начните от точки «${esc(route.originName)}».</li>${route.segments.length>1?`<li>Пройдите по линии до лифта на ${route.startFloor} этаже. ${target.floor>route.startFloor?'Поднимитесь':'Спуститесь'} на ${target.floor} этаж.</li>`:''}<li>${(()=>{const s=target.building==='А'?streetsOnRoute(route.segments.at(-1)?.points):[];return s.length?`Идите по ${s.map(esc).join(', затем по ')} до отмеченной двери аудитории ${esc(target.room)}.`:`Следуйте по синей линии по коридорам до отмеченной двери аудитории ${esc(target.room)}.`;})()}</li></ol><p class="cap">Круг — начало участка, метка — его конец. Маршрут по проектной схеме корпуса.</p>`:target&&!S.routeBlocked?'<p class="small">Для этой точки пока не удалось построить маршрут.</p>':'<p class="small muted">Выберите пару выше или аудиторию в поиске — маршрут появится на 3D-карте и плане.</p>'}
   </section>`;
+}
+
+/** Ближайшая свободная аудитория на выбранной паре: сначала тот же этаж, затем соседние, затем по расстоянию на плане. */
+export function nearestFreeRoom(fromKey) {
+  const from=roomByKey(fromKey);if(!from)return null;
+  const center=(r)=>{const b=floorLayout(r.building,r.floor).boxes.find((x)=>x.r.key===r.key);return b?[b.x+b.w/2,b.y+b.h/2]:[0,0];};
+  const [fx,fy]=center(from);
+  return freeRooms(activePair(),from.building).filter((r)=>r.key!==from.key&&r.seats)
+    .map((r)=>{const [x,y]=center(r);return {r,score:Math.abs(r.floor-from.floor)*1000+Math.hypot(x-fx,y-fy)};})
+    .sort((a,b)=>a.score-b.score)[0]?.r||null;
 }

@@ -8,6 +8,10 @@ import {buildTerritory, buildBuilding} from './architecture-exterior.js';
 import {mountControls} from './scene-controls.js';
 
 
+let sceneMode='day';
+try { if(localStorage.getItem('campusSceneMode')==='evening')sceneMode='evening'; } catch {}
+const modeListeners=new Set();
+
 export function mountScene(host) {
   const territory = host.dataset.scene === 'territory';
   const renderer = new T.WebGLRenderer({antialias:true, alpha:true, powerPreference:'low-power'});
@@ -189,7 +193,33 @@ export function mountScene(host) {
   const ground=new T.Mesh(new T.PlaneGeometry(180,160),new T.ShadowMaterial({opacity:.26}));
   ground.rotation.x=-Math.PI/2;ground.position.y=territory?-.77:-.4;ground.receiveShadow=true;scene.add(ground);
   const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced});
+  const modeButton=host.querySelector('[data-scene-mode]');
+  const applyMode=(draw=true)=>{
+    const evening=sceneMode==='evening';
+    host.classList.toggle('scene-evening',evening);
+    host.dataset.lighting=sceneMode;
+    if(modeButton){modeButton.textContent=evening?'День':'Вечер';modeButton.setAttribute('aria-pressed',String(evening));}
+    sun.color.setHex(evening?0xffa35c:0xffe7c7);
+    sun.position.set(-26,evening?9:27,-16);sun.intensity=evening?1.15:3.1;
+    hemi.color.setHex(evening?0x294b91:0xdde9f3);
+    hemi.groundColor.setHex(evening?0x34394c:0x7f8c6c);hemi.intensity=evening?.75:1.25;
+    fill.intensity=evening?.25:.6;
+    renderer.toneMappingExposure=evening?.94:1.08;
+    scene.environmentIntensity=evening?.22:.62;
+    kit.setEvening(evening);
+    renderer.shadowMap.needsUpdate=true;sun.shadow.needsUpdate=true;
+    // Controls own the on-demand loop; a mode change needs just one extra frame.
+    if(draw&&host.dataset.ready==='true')renderer.render(scene,camera);
+  };
+  const toggleMode=()=>{
+    sceneMode=sceneMode==='evening'?'day':'evening';
+    try { localStorage.setItem('campusSceneMode',sceneMode); } catch {}
+    modeListeners.forEach((apply)=>apply());
+  };
+  modeListeners.add(applyMode);modeButton?.addEventListener('click',toggleMode);
+  applyMode(false);
   return ()=>{
+    modeListeners.delete(applyMode);modeButton?.removeEventListener('click',toggleMode);
     stop();environment.dispose();
     const geometries=new Set(),materials=new Set(),textures=new Set();
     scene.traverse((o)=>{if(o.geometry)geometries.add(o.geometry);for(const mat of [o.material||[]].flat()){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v);}o.dispose?.();});

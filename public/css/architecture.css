@@ -107,3 +107,8 @@
 .navigation-map-caption{display:grid;gap:4px;border-left:3px solid #237794;padding:6px 14px;font-size:14px;line-height:1.5}.navigation-map-caption span{font-size:13px;color:#52666b}.navigation-map-caption .link{justify-self:start;font-size:12px;margin-top:4px}
 
 @media(max-width:600px){.campus-card:has(.navigation-map-caption) .floor-model{height:340px}}
+.interior-plan .street{fill:var(--sky-ink,#3e6189);font-weight:600;letter-spacing:.04em;text-anchor:middle}
+.navigation-near{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+
+.model-view.scene-evening{background:radial-gradient(ellipse at 50% 40%,#b1bdce,#899aae);color:#243b43}
+@media(max-width:599px){.floor-model .model-modes button{padding-inline:10px}}

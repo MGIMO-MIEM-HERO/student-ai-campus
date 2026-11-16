@@ -36,6 +36,7 @@ export const territoryScene = (compact = false, route = null) => `<section class
   <div class="territory-heading"><div><p class="eyebrow">Москва · Вернадского, 76</p><h2>Кампус<br>на Вернадского</h2></div>${compact ? '' : '<p>Дворы, корпуса и переходы<br>на одной объёмной схеме.</p>'}</div>
   <div class="model-view territory-view" data-scene="territory" ${route ? `data-route-building="${route.building}"` : ''}>
     ${footprint()}
+    <div class="model-modes"><button type="button" data-scene-mode aria-pressed="false">Вечер</button></div>
     <div class="model-stamp"><span>МГИМО</span><small>Территория</small></div>
     <div class="scene-status" data-scene-status role="status">Собираем макет…</div>
     <button class="model-tour" data-model-action="tour" aria-pressed="false">Облёт</button>

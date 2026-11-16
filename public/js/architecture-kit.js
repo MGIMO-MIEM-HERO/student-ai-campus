@@ -65,6 +65,16 @@ export function createArchitectureKit(root) {
   wc.fillStyle='#aab3af';wc.fillRect(6,123,116,1);
   const windowMap=new T.CanvasTexture(windowCanvas);windowMap.colorSpace=T.SRGBColorSpace;windowMap.anisotropy=4;
   m.windowFlat=new T.MeshStandardMaterial({map:windowMap,roughness:.24,metalness:.32});
+  // Two shared sets preserve instancing and the same lit windows across LODs.
+  const glowingWindows=[m.windowFlat,m.glass,m.glassLight].map((mat)=>{
+    mat.emissive.setHex(0xffbd70);mat.emissiveIntensity=0;
+    const glow=mat.clone();return glow;
+  });
+  function setEvening(evening) {
+    glowingWindows.forEach((mat)=>{mat.emissiveIntensity=evening?.8:0;});
+    lampGlow.emissiveIntensity=evening?1.8:.65;
+  }
+  let windowIndex=0;
   function instance(geometry,mat,x,y,z,w,h,d,rotation=0,detail=0) {
     if(w<=0||h<=0||d<=0)return;
     let list=batches.get(target);if(!list){list=[];batches.set(target,list);}
@@ -132,11 +142,13 @@ export function createArchitectureKit(root) {
   // Opaque glass: recesses, two differently tinted panes, frame and a fine mullion.
   // All windows share these batches; thousands of parts are a handful of draws.
   function windowBay(x,y,z,w,h,rotation=0,variant=0) {
-    instance(geometries.window,m.windowFlat,x+Math.sin(rotation)*.075,y,z+Math.cos(rotation)*.075,w+.18,h+.2,1,rotation,3);
+    const lit=(windowIndex++ % 5)<3;
+    const [flat,glass,glassLight]=lit?glowingWindows:[m.windowFlat,m.glass,m.glassLight];
+    instance(geometries.window,flat,x+Math.sin(rotation)*.075,y,z+Math.cos(rotation)*.075,w+.18,h+.2,1,rotation,3);
     const part=(dx,dy,dz,ww,hh,dd,mat)=>box(x+dx*Math.cos(rotation)+dz*Math.sin(rotation),y+dy,z-dx*Math.sin(rotation)+dz*Math.cos(rotation),ww,hh,dd,mat,rotation,2);
     part(0,0,0,w+.12,h+.13,.055,m.reveal);
-    part(-w*.245,0,.04,w*.46,h,.025,variant%3?m.glass:m.glassLight);
-    part(w*.245,0,.04,w*.46,h,.025,variant%4?m.glassLight:m.glass);
+    part(-w*.245,0,.04,w*.46,h,.025,variant%3?glass:glassLight);
+    part(w*.245,0,.04,w*.46,h,.025,variant%4?glassLight:glass);
     for(const sign of [-1,1]){part(sign*(w/2+.025),0,.065,.05,h+.1,.06,m.trim);part(0,sign*(h/2+.025),.065,w+.1,.05,.06,m.trim);}
     part(0,0,.075,.028,h,.035,m.trim,1);
     part(0,h*.17,.075,w,.022,.035,m.trim,1);
@@ -171,7 +183,7 @@ export function createArchitectureKit(root) {
     }
     batches.clear();labels.clear();
   }
-  return {m,material,box,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
+  return {m,setEvening,material,box,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
 }
 
 export function studioEnvironment() {

@@ -24,7 +24,7 @@ function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHe
 }
 
 export function buildTerritory(kit,picks) {
-  const {box,prism,text,plant,bench,m}=kit;
+  const {box,prism,text,plant,lamp,hedge,bench,m}=kit;
   box(0,-.46,0,47,.5,27,m.concrete);
   box(0,-.18,0,46.9,.1,26.9,m.lawn);
   // Дорожки: кольцо по периметру, аллея от главного входа и площадка перед ним.
@@ -53,9 +53,20 @@ export function buildTerritory(kit,picks) {
   // Аллеи: деревья вдоль дорожек, размер слегка меняется, как у настоящих посадок.
   const size=(i)=>.78+((i*37)%9)/22;
   let k=0;
-  for(let x=-21.2;x<=21.2;x+=1.75){for(const z of [-12.55,12.55])plant(x,z,-.12,size(k++),true);}
+  for(let x=-21.2;x<=21.2;x+=1.75){for(const z of [-12.55,12.55]){
+    if(Math.hypot(x-2.25,z-13)<1.5)continue; // Clearance around the avenue's gate lamp.
+    plant(x,z,-.12,size(k++),true);
+  }}
   for(let z=-10.6;z<=10.6;z+=1.75){for(const x of [-22.75,22.75])plant(x,z,-.12,size(k++),true);}
   for(const x of [-.6,5.1])for(let z=6.6;z<=10.6;z+=1.4)plant(x,z,-.12,size(k++)*.85,true);
+  // Lamps sit on the paths, inside the perimeter tree rows and between avenue trees.
+  for(let x=-19.25;x<=19.25;x+=3.5)for(const z of [-11.6,11.6])lamp(x,z,-.11);
+  for(let z=-8.75;z<=8.75;z+=3.5)for(const x of [-21.7,21.7])lamp(x,z,-.11);
+  for(const z of [6,9.5,13])lamp(2.25,z,-.11);
+  // Leave the central approach and cross-path junction open for the route.
+  for(const x of [-1.8,6.3])hedge(x,5.6,.45,2.2,-.12);
+  for(const x of [-.1,4.6])hedge(x,6.95,1.5,.4,-.12);
+  for(const x of [-13,-7,9,15])hedge(x,9.65,3.2,.45,-.12);
   const [ex,ez]=world([455,278]);
   for(let i=0;i<5;i++)box(ex,.08-i*.035,ez+.5+i*.19,2.7,.2-i*.035,.22,m.trim);
   box(ex,1.05,ez-.08,2.5,2.1,.14,m.glass);
@@ -65,7 +76,7 @@ export function buildTerritory(kit,picks) {
 }
 
 export function buildBuilding(kit,layout,floors=6) {
-  const {box,prism,windowBay,plant,bench,text,m}=kit;
+  const {box,prism,windowBay,plant,lamp,hedge,bench,text,m}=kit;
   const H=layout.height||224,X=(x)=>(x-300)/20,Z=(z)=>(z-H/2)/20;
   const height=floors*1.18+.3;
   const outline=[[12,12],[588,12],[588,H-12],[12,H-12]].map(([x,z])=>[X(x),Z(z)]);
@@ -99,6 +110,8 @@ export function buildBuilding(kit,layout,floors=6) {
   box(0,2.76,front+.9,4.7,.065,2.3,m.plinth);
   for(const sign of [-1,1])box(sign*2.04,1.26,front+1.65,.095,2.52,.095,m.metal);
   for(let i=0;i<5;i++)box(0,.16-i*.055,front+1.75+i*.18,4.6,.32-i*.055,.25,m.trim);
+  for(const x of [-3.6,3.6])lamp(x,H/40+1.8,-.065);
+  for(const sign of [-1,1])hedge(sign*2.65,front+2.05,.4,1.25,-.065);
   for(const sign of [-1,1]){
     box(sign*3.2,.12,front+1.1,.85,.45,.85,m.trim);plant(sign*3.2,front+1.1,.35,.65);
     box(sign*5.3,1.2,front+.7,.035,2.6,.035,m.metal);

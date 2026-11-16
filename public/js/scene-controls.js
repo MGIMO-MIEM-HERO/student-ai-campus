@@ -11,7 +11,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
   host.prepend(canvas);
   let mode=territory?'territory':S.modelMode||'building';
   const viewKey=()=>territory?'territory':`${host.dataset.building}-${mode}`;
-  const initial={a:territory?-.14:-20*Math.PI/180,e:.76,z:1};
+  const initial={a:territory?-.14:-20*Math.PI/180,e:.76,z:1,x:0,depth:0};
   const target={...initial,a:territory?-.14:S.rz*Math.PI/180,...views.get(viewKey())};
   const current={...target};
   let frame=0,disposed=false,visible=true,dirtyShadow=true,gesture=null,velocity=0;
@@ -46,8 +46,8 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     }
     if(!gesture&&!reduced.matches&&Math.abs(velocity)>.006){target.a+=velocity*dt;velocity*=Math.exp(-7.5*dt);}else if(!gesture)velocity=0;
     const damping=reduced.matches?1:1-Math.exp(-18*dt);
-    for(const k of ['a','e','z'])current[k]+=(target[k]-current[k])*damping;
-    const unsettled=['a','e','z'].some((k)=>Math.abs(current[k]-target[k])>.0008);
+    for(const k of ['a','e','z','x','depth'])current[k]+=(target[k]-current[k])*damping;
+    const unsettled=['a','e','z','x','depth'].some((k)=>Math.abs(current[k]-target[k])>.0008);
     const moving=!!gesture||!!tourUntil||Math.abs(velocity)>.006||unsettled;
     if(!moving)Object.assign(current,target);
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
@@ -60,7 +60,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     const aspect=width/height,span=Math.max(territory?29:mode==='building'?30:23,worldWidth/aspect);
     camera.left=-span*aspect/2/current.z;camera.right=-camera.left;camera.top=span/2/current.z;camera.bottom=-camera.top;camera.updateProjectionMatrix();
     const y=mode==='building'?buildingHeight*.28:0;
-    camera.position.set(Math.sin(current.a)*Math.cos(current.e)*60,Math.sin(current.e)*60+y,Math.cos(current.a)*Math.cos(current.e)*60);camera.lookAt(0,y,0);
+    camera.position.set(current.x+Math.sin(current.a)*Math.cos(current.e)*60,Math.sin(current.e)*60+y,current.depth+Math.cos(current.a)*Math.cos(current.e)*60);camera.lookAt(current.x,y,current.depth);
     const close=!moving&&width*current.z/worldWidth>32;
     model.traverse((o)=>{
       if(o.userData.detail===1)o.visible=!moving&&(current.z>1.22||width>700);
@@ -88,11 +88,20 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     else {lastTime=0;request();}
   },opts);
   const pick=new T.Raycaster(),pointer=new T.Vector2();
-  function selectWing(id) {
+  function selectWing(id,preserveCaption=false) {
     for(const mesh of picks)if(mesh.userData.wing)mesh.material[0].color.set(mesh.userData.wing.id===id?0x5f93a6:0x80878a);
     const root=host.closest('.territory');root?.querySelectorAll('[data-wing]').forEach((b)=>b.setAttribute('aria-pressed',String(b.dataset.wing===id)));
-    const desc=root?.querySelector('.model-description');if(desc)desc.textContent=`Корпус ${id} · расположение по предоставленной схеме`;
+    const desc=root?.querySelector('.model-description');if(desc&&(!preserveCaption||!desc.textContent.trim()))desc.textContent=`Корпус ${id} · расположение по предоставленной схеме`;
     request();
+  }
+  if(territory&&host.dataset.routeWing) {
+    const wing=picks.find((mesh)=>mesh.userData.wing?.id===host.dataset.routeWing);
+    if(wing) {
+      const center=new T.Box3().setFromObject(wing).getCenter(new T.Vector3());
+      Object.assign(target,{x:center.x,depth:center.z,z:1.18});
+      if(reduced.matches)Object.assign(current,target);
+      selectWing(host.dataset.routeWing,true);
+    }
   }
   function action(name) {
     velocity=0;
