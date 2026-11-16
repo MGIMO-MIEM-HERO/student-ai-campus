@@ -1,3 +1,4 @@
+export {viewLibrary} from './library.js';
 import {BUILDING_WING} from './campus-geometry.js';
 import {S, lessonIndex} from './state.js';
 import {icon} from './icons.js';
@@ -9,8 +10,8 @@ import {navigationPanel,navigationCaption} from './navigation-ui.js';
 import {scheduleEntries} from './schedule-navigation.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['tasks', 'Задания', 'tasks'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Корпуса', 'building']];
-export const ROUTES = ['today', 'schedule', 'tasks', 'study', 'requests', 'rooms', 'news', 'notices', 'assistant', 'profile', 'doc'];
-export const NAV_OF = {doc: 'requests', news: 'today', notices: 'today'};
+export const ROUTES = ['today', 'schedule', 'tasks', 'study', 'requests', 'rooms', 'news', 'notices', 'assistant', 'profile', 'doc', 'library'];
+export const NAV_OF = {library: 'study', doc: 'requests', news: 'today', notices: 'today'};
 export const DOCS = [
   {kind: 'Справка об обучении', ico: 'cap', tone: 'mint', what: 'Подтверждает, что вы обучаетесь в университете. Для военкомата, визы, банка, места работы.', sla: '1–2 рабочих дня', how: 'Электронная версия с QR-проверкой и оригинал в деканате'},
   {kind: 'Выписка об успеваемости', ico: 'study', tone: 'marigold', what: 'Перечень дисциплин с баллами и формой контроля за текущий семестр.', sla: '2–3 рабочих дня', how: 'Электронная версия с QR-проверкой и оригинал в деканате'},
@@ -361,6 +362,7 @@ export function viewStudy() {
     return `По шкале сейчас «${w}».${nextStep}`;
   };
   return `<div class="page">${head(s.term, 'Учёба', 'Баллы текущего контроля, допуск, преподаватели и график сессии.')}
+    <a class="lib-study-link" href="#library">Библиотека курса →</a>
     <section class="stats" aria-label="Показатели">
       <div class="stat"><span class="num">${st.avg}</span><span class="l">средний балл из 100</span></div>
       <div class="stat"><span class="num">${st.admitted}<small>/${st.total}</small></span><span class="l">дисциплин с допуском</span></div>

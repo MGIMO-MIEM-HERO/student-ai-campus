@@ -116,3 +116,7 @@
 /* Подсказка для плана, который шире экрана: мягкий край и надпись, пока справа есть продолжение. */
 .plan-scroll[data-more="true"]{-webkit-mask-image:linear-gradient(to right,#000 82%,transparent);mask-image:linear-gradient(to right,#000 82%,transparent)}
 .plan-side:has(.plan-scroll[data-more="true"])::after{content:"План шире экрана — листайте вбок →";display:block;margin-top:6px;font-size:12px;color:#5d6f73}
+
+/* Очень узкие экраны (320–360px): сетка страницы не растягивается по содержимому, панель управления макетом уже. */
+.campus-page,.campus-card{grid-template-columns:minmax(0,1fr)}
+@media(max-width:360px){.campus-card{padding:16px}.model-controls{gap:0}.model-controls button{padding-inline:7px}}

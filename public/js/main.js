@@ -1,3 +1,4 @@
+import {syncLibrary} from './library.js';
 import {S, indexLessons, lessonIndex} from './state.js';
 import {api} from './api.js';
 import {icon} from './icons.js';
@@ -91,7 +92,7 @@ async function verifyScreen(code) {
 }
 
 function decorate(root) {
-  if (root === app) syncScenes(root);
+  if (root === app) { syncScenes(root); syncLibrary(root); }
   // План шире экрана телефона: показываем выбранную аудиторию и подсказку «листайте», пока не дошли до края.
   root.querySelectorAll('.plan-scroll').forEach((box) => {
     const mark = () => { box.dataset.more = String(box.scrollWidth - box.clientWidth - box.scrollLeft > 8); };
@@ -128,7 +129,7 @@ function render() {
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
     : isTeacher() ? {today: tch.viewToday, schedule: tch.viewSchedule, journal: tch.viewJournal, tasks: tch.viewTasks, rooms: stu.viewRooms, profile: tch.viewProfile}
-    : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, tasks: stu.viewTasks, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
+    : {library: stu.viewLibrary, today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, tasks: stu.viewTasks, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
   const entering = key !== lastKey;
   lastKey = key;
   app.innerHTML = shell(views[key](), key);
@@ -409,3 +410,5 @@ document.addEventListener('keydown', (event) => {
     el.dispatchEvent(new MouseEvent('click', {bubbles: true}));
   }
 });
+
+document.addEventListener('campus-flash', (e) => flash(e.detail));

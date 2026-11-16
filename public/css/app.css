@@ -79,9 +79,9 @@ main{outline:none;min-width:0}
 .card.navy{background:var(--navy);border-color:var(--navy);color:#f3ede2}
 .sec{display:grid;gap:22px;min-width:0}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
-.cols{display:grid;gap:56px}
+.cols{display:grid;gap:56px;grid-template-columns:minmax(0,1fr)}.cols>*{min-width:0}
 @media (min-width:960px){.cols{grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:64px;align-items:start}.cols.even{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.stack{display:grid;gap:16px}.stack.lg{gap:56px}.stack-sm{display:grid;gap:6px}
+.stack{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}.stack.lg{gap:56px}.stack-sm{display:grid;gap:6px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .link{display:inline-flex;align-items:center;gap:6px;font:500 13.5px/1.4 var(--font-sans);color:var(--ink-2);text-decoration:none;background:none;border:0;padding:0;min-height:32px;border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
 .link:hover{color:var(--ink);border-bottom-color:var(--gold)}
