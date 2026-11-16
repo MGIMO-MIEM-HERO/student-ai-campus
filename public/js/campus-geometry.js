@@ -10,3 +10,15 @@ export const WINGS = [
   {height:2.2, pts:[[372,1],[444,0],[445,43],[452,42],[452,51],[441,52],[440,62],[375,61]]},
   {height:2.5, pts:[[611,1],[663,4],[666,26],[708,31],[708,22],[801,32],[805,113],[745,120],[703,108],[707,41],[663,36],[659,54],[607,46]]},
 ];
+
+// Учебные корпуса расписания на макете территории (проектное соответствие, не официальная схема).
+export const BUILDING_WING = {'А':'В', 'Б':'Б', 'С':'Н'};
+// Маршрут от входа на территорию по аллее и поперечным дорожкам к двери корпуса, в координатах схемы.
+const GATE=[455,456], CROSS=368;
+const DOORS={'В':[455,284], 'Б':[220,293], 'Н':[690,321]};
+export function territoryRoute(buildingId) {
+  const wing=BUILDING_WING[buildingId], door=DOORS[wing];
+  if(!door)return null;
+  const points=door[0]===GATE[0]?[GATE,door]:[GATE,[GATE[0],CROSS],[door[0],CROSS],door];
+  return {wing, points};
+}

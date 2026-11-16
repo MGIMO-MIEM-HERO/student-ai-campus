@@ -22,7 +22,16 @@ function surfaceTexture(kind) {
 export function createArchitectureKit(root) {
   let target=root;
   const materials=new Map(),textures=new Map(),batches=new Map(),labels=new Map();
-  const geometries={box:new T.BoxGeometry(1,1,1),window:new T.PlaneGeometry(1,1),trunk:new T.CylinderGeometry(.65,1,1,8),crown:new T.IcosahedronGeometry(1,2)};
+  const geometries={box:new T.BoxGeometry(1,1,1),window:new T.PlaneGeometry(1,1),trunk:new T.CylinderGeometry(.65,1,1,8),crown:new T.IcosahedronGeometry(1,2),conifer:new T.ConeGeometry(1,1,10),hedge:new T.BoxGeometry(1,1,1,4,4,4)};
+  // Round a shared unit box; instances retain a clipped, architectural hedge silhouette.
+  const hedgePositions=geometries.hedge.attributes.position,corner=new T.Vector3(),offset=new T.Vector3();
+  for(let i=0;i<hedgePositions.count;i++) {
+    offset.fromBufferAttribute(hedgePositions,i);
+    corner.copy(offset).clampScalar(-.34,.34);
+    offset.sub(corner).normalize().multiplyScalar(.16).add(corner);
+    hedgePositions.setXYZ(i,offset.x,offset.y,offset.z);
+  }
+  geometries.hedge.computeVertexNormals();
   function material(name,color,roughness=.8,metalness=0,texture) {
     if(!materials.has(name)) {
       if(texture&&!textures.has(texture))textures.set(texture,surfaceTexture(texture));
@@ -41,6 +50,9 @@ export function createArchitectureKit(root) {
     lawn:material('lawn',0x8eab72,.97,0,'grass'),paving:material('paving',0xd9d3c7,.92,0,'stone'),
     soil:material('soil',0x4c4537,.95),pot:material('pot',0xb6ab94,.85),
   };
+  const lampMetal=material('lamp-metal',0x303c40,.38,.65);
+  const lampGlow=material('lamp-glow',0xffe8bd,.45);
+  lampGlow.emissive.setHex(0xffd69a);lampGlow.emissiveIntensity=.65;
   const windowCanvas=document.createElement('canvas');windowCanvas.width=windowCanvas.height=128;
   const wc=windowCanvas.getContext('2d');wc.fillStyle='#d6d6cc';wc.fillRect(0,0,128,128);
   wc.fillStyle='#37454b';wc.fillRect(7,7,114,111);
@@ -48,6 +60,9 @@ export function createArchitectureKit(root) {
   wc.fillStyle=pane;wc.fillRect(15,14,98,96);
   wc.fillStyle='#ecebe0';for(const [x,y,w,h] of [[10,9,5,104],[113,9,5,104],[10,9,108,5],[10,110,108,6],[61,11,4,103],[12,40,104,3]])wc.fillRect(x,y,w,h);
   wc.fillStyle='#f3f1e9';wc.fillRect(4,116,120,6);wc.fillStyle='#8d948f';wc.fillRect(4,122,120,4);
+  // Fine contact shadow beneath the pale sill, baked into the existing window plane.
+  wc.fillStyle='#6e7d81';wc.fillRect(6,122,116,1);
+  wc.fillStyle='#aab3af';wc.fillRect(6,123,116,1);
   const windowMap=new T.CanvasTexture(windowCanvas);windowMap.colorSpace=T.SRGBColorSpace;windowMap.anisotropy=4;
   m.windowFlat=new T.MeshStandardMaterial({map:windowMap,roughness:.24,metalness:.32});
   function instance(geometry,mat,x,y,z,w,h,d,rotation=0,detail=0) {
@@ -70,11 +85,43 @@ export function createArchitectureKit(root) {
     const list=labels.get(target)||[];list.push({value,x,y,z,size});labels.set(target,list);
   }
   function plant(x,z,y=0,scale=1,outdoor=false) {
+    if(outdoor) {
+      // Position hash keeps species and silhouette stable across rebuilds and groups.
+      let seed=(Math.imul(Math.round(x*100),73856093)^Math.imul(Math.round(z*100),19349663))>>>0;
+      const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+      const conifer=random()<.25,size=scale*(.92+random()*.16),turn=random()*Math.PI*2;
+      instance(geometries.trunk,m.bark,x,y+.7*size,z,.065*size,1.4*size,.065*size);
+      if(conifer) {
+        for(let i=0;i<3;i++) {
+          const radius=.43-i*.105;
+          instance(geometries.conifer,m.green,x,y+(1.12+i*.4)*size,z,radius*size,(1.02-i*.12)*size,radius*size,turn+i*.5);
+        }
+      } else {
+        const count=6+Math.floor(random()*3);
+        instance(geometries.crown,m.green,x,y+1.62*size,z,.43*size,.51*size,.42*size,turn);
+        for(let i=1;i<count;i++) {
+          const angle=turn+i*2.39996,radius=.23+random()*.13,r=.29+random()*.15;
+          const dx=Math.cos(angle)*radius,dz=Math.sin(angle)*radius;
+          const height=1.38+random()*.6;
+          const leaf=i%3===0?m.leafLight:m.green;
+          instance(geometries.crown,leaf,x+dx*size,y+height*size,z+dz*size,r*size,r*(1.05+random()*.3)*size,r*(.85+random()*.2)*size,angle);
+        }
+      }
+      return;
+    }
     if(!outdoor){instance(geometries.trunk,m.pot,x,y+.16*scale,z,.22*scale,.32*scale,.22*scale);box(x,y+.33*scale,z,.31*scale,.025,.31*scale,m.soil);}
     instance(geometries.trunk,m.bark,x,y+.5*scale,z,.045*scale,scale,.045*scale);
-    const lobes=outdoor?[[0,1.35,0,.45],[-.25,1.1,.08,.33],[.22,1.13,.18,.34],[.12,1.05,-.24,.35],[0,1.65,.05,.27]]:[[0,.68,0,.27],[-.14,.58,.06,.21],[.12,.59,-.1,.23]];
+    const lobes=[[0,.68,0,.27],[-.14,.58,.06,.21],[.12,.59,-.1,.23]];
     const tone=Math.abs(Math.round(x*7.3+z*3.1))%5,leaves=tone===4?[m.leafWarm,m.leafLight]:tone>1?[m.green,m.leafLight]:[m.leafLight,m.green];
     lobes.forEach(([dx,dy,dz,r],i)=>instance(geometries.crown,leaves[i%2],x+dx*scale,y+dy*scale,z+dz*scale,r*scale,r*scale*1.12,r*scale,i*.9));
+  }
+  function lamp(x,z,y=0) {
+    box(x,y+.79,z,.045,1.58,.045,lampMetal);
+    box(x,y+1.57,z,.24,.07,.24,lampMetal);
+    box(x,y+1.615,z,.18,.025,.18,lampGlow);
+  }
+  function hedge(x,z,w,d,y=0) {
+    instance(geometries.hedge,m.green,x,y+.24,z,w,.48,d);
   }
   function bench(x,z,y=0,rotation=0) {
     const part=(dx,dy,dz,w,h,d,mat)=>box(x+dx*Math.cos(rotation)+dz*Math.sin(rotation),y+dy,z-dx*Math.sin(rotation)+dz*Math.cos(rotation),w,h,d,mat,rotation);
@@ -124,7 +171,7 @@ export function createArchitectureKit(root) {
     }
     batches.clear();labels.clear();
   }
-  return {m,material,box,prism,text,plant,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
+  return {m,material,box,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
 }
 
 export function studioEnvironment() {

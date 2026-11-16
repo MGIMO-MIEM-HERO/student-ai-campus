@@ -3,6 +3,7 @@ import {S} from './state.js';
 import {floorLayout, roomState,routeForFloor} from './campus.js';
 
 import {createArchitectureKit, studioEnvironment} from './architecture-kit.js';
+import {territoryRoute} from './campus-geometry.js';
 import {buildTerritory, buildBuilding} from './architecture-exterior.js';
 import {mountControls} from './scene-controls.js';
 
@@ -16,7 +17,7 @@ export function mountScene(host) {
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.shadowMap.type = T.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
   const scene = new T.Scene();
   const model = new T.Group();
@@ -41,6 +42,36 @@ export function mountScene(host) {
   let buildingHeight=0;
   if(territory) {
     buildTerritory(kit,picks);
+    const route=territoryRoute(host.dataset.routeBuilding);
+    if(route) {
+      const W=([x,z])=>new T.Vector3((x-410)/20,-.02,(z-190)/20);
+      const points=route.points.map(W),path=new T.CurvePath();
+      for(let i=1;i<points.length;i++)path.add(new T.LineCurve3(points[i-1],points[i]));
+      // Широкая светлая подложка и насыщенная линия поверх: читается сверху и под углом.
+      for(const [radius,color,order] of [[.24,0xffffff,20],[.13,0x1f6f98,21]]) {
+        const line=new T.Mesh(new T.TubeGeometry(path,points.length*24,radius,8,false),new T.MeshBasicMaterial({color,depthTest:false,depthWrite:false,toneMapped:false}));
+        line.renderOrder=order;model.add(line);
+      }
+      // Стрелки-шевроны вдоль пути показывают направление.
+      const chevron=new T.Shape([[0,.22],[.2,-.08],[.09,-.08],[0,.06],[-.09,-.08],[-.2,-.08]].map(([x,y])=>new T.Vector2(x,y)));
+      const chevGeo=new T.ShapeGeometry(chevron),chevMat=new T.MeshBasicMaterial({color:0xffffff,depthTest:false,depthWrite:false,toneMapped:false,side:T.DoubleSide});
+      const total=path.getLength();
+      for(let d=1.1;d<total-.6;d+=1.3) {
+        const p=path.getPointAt(d/total),t=path.getTangentAt(d/total),c=new T.Mesh(chevGeo,chevMat);
+        c.rotation.set(-Math.PI/2,0,Math.atan2(-t.x,-t.z));c.position.set(p.x,.02,p.z);c.renderOrder=23;model.add(c);
+      }
+      const start=points[0],end=points.at(-1);
+      for(const [p,color,inner,outer] of [[start,0x2a8f8f,.25,.45],[end,0x1f6f98,.32,.58]]) {
+        const ring=new T.Mesh(new T.RingGeometry(inner,outer,32),new T.MeshBasicMaterial({color,depthTest:false,depthWrite:false,side:T.DoubleSide,toneMapped:false}));
+        ring.rotation.x=-Math.PI/2;ring.position.set(p.x,.03,p.z);ring.renderOrder=24;model.add(ring);
+      }
+      const pin=new T.Mesh(new T.ConeGeometry(.32,.9,16),new T.MeshStandardMaterial({color:0x1f6f98,roughness:.35,metalness:.1,emissive:0x0d3d55,emissiveIntensity:.35}));
+      pin.rotation.z=Math.PI;pin.position.set(end.x,1.15,end.z);pin.castShadow=true;model.add(pin);
+      const head=new T.Mesh(new T.SphereGeometry(.34,24,16),pin.material);head.position.set(end.x,1.72,end.z);head.castShadow=true;model.add(head);
+      text('ВХОД НА ТЕРРИТОРИЮ',start.x,.05,start.z+.9,3.2);
+      for(const mesh of picks)if(mesh.userData.wing?.id===route.wing){mesh.material[0].color.set(0x5f93a6);}
+      host.dataset.routeWing=route.wing;
+    }
   } else {
     const b=host.dataset.building, floor=Number(host.dataset.floorNumber), pair=Number(host.dataset.pairNumber);
     const mine=new Set((host.dataset.mine||'').split(','));

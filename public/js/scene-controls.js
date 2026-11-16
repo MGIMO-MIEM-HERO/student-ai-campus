@@ -89,7 +89,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
   },opts);
   const pick=new T.Raycaster(),pointer=new T.Vector2();
   function selectWing(id) {
-    for(const mesh of picks)if(mesh.userData.wing)mesh.material[0].color.set(mesh.userData.wing.id===id?0x7d9d9f:0x9b9f98);
+    for(const mesh of picks)if(mesh.userData.wing)mesh.material[0].color.set(mesh.userData.wing.id===id?0x5f93a6:0x80878a);
     const root=host.closest('.territory');root?.querySelectorAll('[data-wing]').forEach((b)=>b.setAttribute('aria-pressed',String(b.dataset.wing===id)));
     const desc=root?.querySelector('.model-description');if(desc)desc.textContent=`Корпус ${id} · расположение по предоставленной схеме`;
     request();

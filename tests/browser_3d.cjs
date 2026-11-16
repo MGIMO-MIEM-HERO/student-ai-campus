@@ -109,7 +109,9 @@ async function main() {
     await page.waitForFunction(()=>document.querySelector('.floor-model [data-model-action="tour"]')?.getAttribute('aria-pressed')==='false',null,{timeout:15000});
     await page.waitForFunction(()=>document.querySelector('.floor-model')?.dataset.animating==='false');
     await tour.click();
-    await page.locator('.territory').scrollIntoViewIfNeeded();await page.waitForTimeout(150);
+    await page.locator('.territory').scrollIntoViewIfNeeded();
+    // IntersectionObserver срабатывает асинхронно: ждём состояние, а не фиксированную паузу.
+    await page.waitForFunction(()=>document.querySelector('.floor-model [data-model-action="tour"]')?.getAttribute('aria-pressed')==='false',null,{timeout:3000}).catch(()=>{});
     assert.equal(await tour.getAttribute('aria-pressed'),'false','Offscreen tours stop automatically');
     const frozen=await page.locator('.floor-model').getAttribute('data-frames');await page.waitForTimeout(250);
     assert.equal(await page.locator('.floor-model').getAttribute('data-frames'),frozen,'Offscreen renderer does no work');

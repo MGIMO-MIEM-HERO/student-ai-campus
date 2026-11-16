@@ -457,7 +457,8 @@ export function viewRooms() {
   const floor = activeFloor(S.bld, mine);
   const free = freeRooms(pair, S.bld).filter((r) => r.floor === floor), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.floor === floor && r.seats).length;
   const b = building(S.bld);
-  return `<div class="page campus-page">${territoryScene()}${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
+  const target = S.room && !S.routeBlocked ? roomByKey(S.room) : null;
+  return `<div class="page campus-page">${territoryScene(false, target ? {building: target.building, label: target.building, room: target.room} : null)}${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
     ${navigationPanel()}<div class="stack">${mapDate()===S.data.campus.rooms_date?roomsDayNote():''}${buildingSeg()}${pairChips(pair)}</div>
     <section class="card campus-card" id="campus-map"><div class="row"><div><p class="eyebrow">${esc(b.name)} · открыт ${esc(b.hours)}</p><p class="title">${floor} этаж · ${mapDate()===S.data.campus.rooms_date?`свободно ${free.length} из ${total}`:esc(dayShort(mapDate()))}</p></div>
         <div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть корпус влево">${icon('arrow')}</button><button class="icon-btn" data-rot="15" aria-label="Повернуть корпус вправо">${icon('arrow')}</button></div></div>
