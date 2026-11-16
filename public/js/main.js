@@ -269,6 +269,11 @@ document.addEventListener('submit', async (event) => {
       return flash('Заявка отправлена. Статус отображается в истории заявок.');
     }
     if (form.id === 'announce-form') { await mutate('staff/announcements', fields); return flash('Объявление опубликовано.'); }
+    if (form.id === 'submit-form') {
+      const id = form.dataset.hwid;
+      await mutate('homework', {id, done: true, note: fields.note || ''}, () => openSheet(stu.taskSheet(id)));
+      return flash('Отмечено как сданное. Преподаватель это увидит.');
+    }
     if (form.id === 'lesson-form') {
       const [building, room] = String(fields.room || '|').split('|');
       const body = {lesson_id: form.dataset.lid, kind: fields.kind, reason: fields.reason || '', building, room, pair: Number(fields.pair)};

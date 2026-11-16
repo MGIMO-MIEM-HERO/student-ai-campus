@@ -281,10 +281,12 @@ class ApiTest(unittest.TestCase):
         homework = {h["id"]: h for h in alina.call("/api/dashboard")[1]["homework"]}
         self.assertEqual(homework[task["id"]]["status"], "todo")
         self.assertNotIn(task["id"], {h["id"] for h in mark.call("/api/dashboard")[1]["homework"]})
-        self.assertEqual(alina.call("/api/homework", {"id": task["id"], "done": True})[0], 200)
+        self.assertEqual(alina.call("/api/homework", {"id": task["id"], "done": True, "note": "x" * 501})[0], 400)
+        self.assertEqual(alina.call("/api/homework", {"id": task["id"], "done": True, "note": "https://disk.example/ряды.pdf"})[0], 200)
         sid = next(s["id"] for s in data["journals"]["mat:ПИ-241"]["students"] if s["login"] == "alina")
         reviewed = next(t for t in teacher.call("/api/dashboard")[1]["tasks"] if t["id"] == task["id"])
-        self.assertTrue(next(s for s in reviewed["subs"] if s["id"] == sid)["submitted"])
+        sub = next(s for s in reviewed["subs"] if s["id"] == sid)
+        self.assertEqual((sub["submitted"], sub["note"]), (True, "https://disk.example/ряды.pdf"))
         grade = {"task_id": task["id"], "student_id": sid, "points": 9, "comment": "Хорошо, проверь № 6"}
         self.assertEqual(teacher.call("/api/teacher/grade", {**grade, "points": 11})[0], 400)
         self.assertEqual(teacher.call("/api/teacher/grade", {**grade, "student_id": "mo251-09"})[0], 400)

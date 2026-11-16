@@ -192,6 +192,7 @@ export function studentSheet(key) {
 }
 
 /* ---------- Задания ---------- */
+const noteHtml = (note) => (/^https?:\/\/\S+$/.test(note) ? `<a href="${esc(note)}" target="_blank" rel="noopener noreferrer">${esc(note)}</a>` : `«${esc(note)}»`);
 function dueText(x) {
   const d = daysBetween(todayIso(), x.due_date);
   const word = d === 0 ? 'сегодня' : d === 1 ? 'завтра' : d === -1 ? 'вчера' : `${weekdayShort(x.due_date)}, ${dayShort(x.due_date)}`;
@@ -217,17 +218,18 @@ export function viewTasks() {
 export function reviewSheet(id) {
   const x = S.data.tasks.find((y) => y.id === id);
   if (!x) return '';
-  const roster = S.data.rosters[x.group] || [];
+  const rank = (p) => { const s = x.subs.find((y) => y.id === p.id) || {}; return s.submitted && s.points == null ? 0 : s.points != null ? 1 : 2; };
+  const roster = [...(S.data.rosters[x.group] || [])].sort((a, b) => rank(a) - rank(b));
   const rows = roster.map((p) => {
     const sub = x.subs.find((y) => y.id === p.id) || {};
-    return `<li class="${sub.submitted ? 'is-sub' : ''}"><span class="face mono sm f${p.id.charCodeAt(p.id.length - 1) % 5}" aria-hidden="true">${esc(p.initials)}</span><span class="att-name"><strong>${esc(p.name)}</strong><span>${sub.submitted ? `сдано${sub.at ? ` ${esc(stamp(sub.at))}` : ''}` : x.past ? 'не сдано' : 'ещё не сдано'}</span></span>
+    return `<li class="${sub.submitted ? 'is-sub' : ''}"><span class="face mono sm f${p.id.charCodeAt(p.id.length - 1) % 5}" aria-hidden="true">${esc(p.initials)}</span><span class="att-name"><strong>${esc(p.name)}</strong><span>${sub.submitted ? `сдано${sub.at ? ` ${esc(stamp(sub.at))}` : ''}` : x.past ? 'не сдано' : 'ещё не сдано'}</span>${sub.note ? `<span class="sub-note">${noteHtml(sub.note)}</span>` : ''}</span>
       <form class="grade-form" data-gtask="${esc(x.id)}" data-student="${esc(p.id)}"><input name="points" type="number" inputmode="numeric" min="0" max="${x.points_max}" value="${sub.points ?? ''}" placeholder="—" aria-label="Баллы: ${esc(p.name)}, из ${x.points_max}"><span class="of">/${x.points_max}</span>
         <input name="comment" maxlength="600" value="${esc(sub.comment || '')}" placeholder="Комментарий" aria-label="Комментарий: ${esc(p.name)}"><button class="btn sm" aria-label="Сохранить оценку: ${esc(p.name)}">${icon('check')}</button></form></li>`;
   }).join('');
   return `<div class="sheet-in wide"><div class="sheet-top"><div><p class="eyebrow">${esc(x.course_title)} · ${esc(x.group)} · ${esc(x.kind)}</p><h2 id="sheet-title" class="title">${esc(x.title)}</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
     ${x.text ? `<p>${esc(x.text)}</p>` : ''}
     <div class="chips"><span class="tag">${icon('clock')}${x.lesson_id ? 'К занятию' : 'Срок'} ${dueText(x)}</span><span class="tag">до ${x.points_max} баллов</span><span class="tag mint">сдали ${x.submitted} из ${x.total}</span><span class="tag">проверено ${x.graded}</span></div>
-    <ul class="att-list review">${rows}</ul><p class="form-error" role="alert"></p>
+    <p class="cap">Сверху — сдавшие без оценки, затем проверенные, внизу — кто ещё не сдал.</p><ul class="att-list review">${rows}</ul><p class="form-error" role="alert"></p>
     <p class="cap">Оценка сохраняется по кнопке в строке. Пустые баллы и пустой комментарий снимают оценку. Студент сразу видит баллы и комментарий.</p>
     ${x.source === 'teacher' ? `<div><button class="btn ghost sm danger" data-deltask="${esc(x.id)}">${icon('x')}Удалить задание</button></div>` : ''}</div>`;
 }

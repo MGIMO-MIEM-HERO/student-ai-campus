@@ -1023,3 +1023,7 @@ i.jm.m-p::after{width:6px;height:6px}
 .when-room,.when-time{display:grid;gap:6px}
 .mini-l em{font-style:normal;font-weight:600}
 .mini-l em.chg-warn{color:var(--warn)}.mini-l em.chg-bad{color:var(--bad)}
+.done-box{display:grid;gap:10px;padding:16px;border-radius:var(--r-md);background:var(--ok-bg)}
+.done-box .quote{background:var(--surface)}
+.sub-note{display:block;font-size:12.5px;color:var(--ink-2)!important;overflow-wrap:anywhere;margin-top:2px}
+.sub-note a{color:var(--sky-ink)}

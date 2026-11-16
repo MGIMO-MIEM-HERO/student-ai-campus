@@ -100,6 +100,8 @@ def initialize():
             CREATE INDEX IF NOT EXISTS requests_owner ON requests(login, created);
             CREATE INDEX IF NOT EXISTS events_request ON request_events(request_id, at);
         """)
+        if "note" not in {row["name"] for row in db.execute("PRAGMA table_info(homework_done)")}:
+            db.execute("ALTER TABLE homework_done ADD COLUMN note TEXT NOT NULL DEFAULT ''")
         columns = {row["name"] for row in db.execute("PRAGMA table_info(users)")}
         if "role" not in columns:
             db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")
@@ -132,8 +134,9 @@ def initialize():
                             db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (ready_id, status, comment, author, at))
                         db.execute("INSERT INTO documents VALUES (?,?,?)", (ready_id, "d" + secrets.token_urlsafe(9), ready))
         # демо: Алина вовремя сдала домашнюю работу, которую преподаватель ещё не проверил
-        db.execute("INSERT OR IGNORE INTO homework_done VALUES (?,?,?)",
-                   ("alina", "hw-mat-5", (msk_today() - timedelta(days=3)).isoformat() + "T20:15"))
+        db.execute("INSERT OR IGNORE INTO homework_done (login, task_id, at, note) VALUES (?,?,?,?)",
+                   ("alina", "hw-mat-5", (msk_today() - timedelta(days=3)).isoformat() + "T20:15",
+                    "Решения во вложении в LMS, интеграл № 6 расходится."))
         for row in db.execute("SELECT login FROM users WHERE role='student'").fetchall():
             db.execute("INSERT OR IGNORE INTO cards VALUES (?,?)", (row["login"], "s" + secrets.token_urlsafe(9)))
 
@@ -473,12 +476,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, student_data(user, db))
             if self.command == "POST" and path == "/api/homework":
                 body = self.body()
-                task, done = body.get("id"), body.get("done")
+                task, done, note = body.get("id"), body.get("done"), body.get("note", "")
                 known = {h["id"]: h["status"] for h in student_data(user, db)["homework"]}
-                if not isinstance(task, str) or task not in known or not isinstance(done, bool) or known[task] == "graded":
+                if (not isinstance(task, str) or task not in known or not isinstance(done, bool) or known[task] == "graded"
+                        or not isinstance(note, str) or len(note) > 500):
                     raise ValueError()
                 if done:
-                    db.execute("INSERT OR REPLACE INTO homework_done VALUES (?,?,?)", (user["login"], task, now()))
+                    db.execute("INSERT OR REPLACE INTO homework_done (login, task_id, at, note) VALUES (?,?,?,?)",
+                               (user["login"], task, now(), note.strip()))
                 else:
                     db.execute("DELETE FROM homework_done WHERE login=? AND task_id=?", (user["login"], task))
                 db.commit()

@@ -186,16 +186,17 @@ def submissions(db, task, today, now_minutes):
     done = {}
     if logins:
         marks = "?," * len(logins)
-        done = {r["login"]: r["at"] for r in db.execute(
-            f"SELECT login, at FROM homework_done WHERE task_id=? AND login IN ({marks[:-1]})", (task["id"], *logins))}
+        done = {r["login"]: (r["at"], r["note"]) for r in db.execute(
+            f"SELECT login, at, note FROM homework_done WHERE task_id=? AND login IN ({marks[:-1]})", (task["id"], *logins))}
     past = _past(task, today.isoformat(), now_minutes)
     days_left = (date.fromisoformat(task["due_date"]) - today).days
     out = []
     for person in cd.roster(task["group"]):
         v = _h("sub", task["id"], person["id"]) % 100
-        seeded_points = None
+        seeded_points, note = None, ""
         if person["login"]:
-            submitted, at = person["login"] in done, done.get(person["login"])
+            submitted = person["login"] in done
+            at, note = done.get(person["login"], (None, ""))
             seeded_points = task["seed_graded"]
             submitted = submitted or seeded_points is not None
         elif task["source"] == "seed":
@@ -211,7 +212,7 @@ def submissions(db, task, today, now_minutes):
             submitted, at = False, None
         grade = grades.get(person["id"])
         points = grade["points"] if grade and grade["points"] is not None else seeded_points
-        out.append({"id": person["id"], "submitted": submitted, "at": at, "points": points,
+        out.append({"id": person["id"], "submitted": submitted, "at": at, "points": points, "note": note,
                     "comment": grade["comment"] if grade else ""})
     return out
 
@@ -220,7 +221,7 @@ def student_homework(db, login, today, schedule, now_minutes):
     group, sid = cd.student_id(login)
     if not group:
         return []
-    done = {r["task_id"]: r["at"] for r in db.execute("SELECT task_id, at FROM homework_done WHERE login=?", (login,))}
+    done = {r["task_id"]: (r["at"], r["note"]) for r in db.execute("SELECT task_id, at, note FROM homework_done WHERE login=?", (login,))}
     grades = {r["task_id"]: r for r in db.execute("SELECT * FROM grades WHERE student_id=?", (sid,))}
     items = []
     for task in group_tasks(db, group, today, schedule):
@@ -236,7 +237,8 @@ def student_homework(db, login, today, schedule, now_minutes):
             status = "todo"
         items.append({k: task[k] for k in ("id", "course", "course_title", "teacher", "title", "text", "kind", "due_date",
                                             "due_time", "lesson_id", "points_max", "source", "created")}
-                     | {"points": points, "status": status, "done_at": done.get(task["id"]),
+                     | {"points": points, "status": status, "done_at": done.get(task["id"], (None, ""))[0],
+                        "note": done.get(task["id"], (None, ""))[1],
                         "comment": grade["comment"] if grade else "", "graded_at": grade["at"] if grade else None})
     order = {"overdue": 0, "todo": 1, "done": 2}
     active = sorted((x for x in items if x["status"] != "graded"), key=lambda x: (order[x["status"]], x["due_date"], x["due_time"]))

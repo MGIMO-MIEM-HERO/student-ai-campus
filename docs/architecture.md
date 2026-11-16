@@ -86,7 +86,7 @@ Keystone — концепт личного кабинета университе
 | `POST /api/login`, `POST /api/logout`, `GET /api/session` | все | вход, выход, текущая сессия |
 | `GET /api/dashboard` | все | данные кабинета своей роли |
 | `POST /api/requests`, `GET /api/requests/<id>` | студент | заявка и её история |
-| `POST /api/homework` | студент | отметка «Сдано» |
+| `POST /api/homework` | студент | отметка «Сдано» со ссылкой на работу или комментарием для преподавателя |
 | `POST /api/notice` | студент | прочитано |
 | `POST /api/assistant` | студент | вопрос помощнику |
 | `POST /api/teacher/attendance` | преподаватель | отметка одного или нескольких студентов на занятии |
