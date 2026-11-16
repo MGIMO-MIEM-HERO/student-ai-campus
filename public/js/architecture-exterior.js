@@ -1,7 +1,63 @@
-import {WINGS} from './campus-geometry.js';
+import {WINGS,territoryRoute} from './campus-geometry.js';
 
 const world=([x,z])=>[(x-410)/20,(z-190)/20];
 const signedArea=(points)=>points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
+
+function nearestEdge(points,[x,z]) {
+  let nearest;
+  for(let i=0;i<points.length;i++) {
+    const a=points[i],b=points[(i+1)%points.length],dx=b[0]-a[0],dz=b[1]-a[1];
+    const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));
+    const px=a[0]+t*dx,pz=a[1]+t*dz,distance=Math.hypot(x-px,z-pz);
+    if(!nearest||distance<nearest.distance)nearest={x:px,z:pz,dx,dz,distance};
+  }
+  return nearest;
+}
+
+function inside(points,x,z) {
+  let hit=false;
+  for(let i=0,j=points.length-1;i<points.length;j=i++) {
+    const a=points[i],b=points[j];
+    if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])hit=!hit;
+  }
+  return hit;
+}
+
+function roofEquipment(kit,wing,outline,holes) {
+  if(kit.mobile)return;
+  const {box,m}=kit,xs=outline.map(p=>p[0]),zs=outline.map(p=>p[1]);
+  const minX=Math.min(...xs),minZ=Math.min(...zs),width=Math.max(...xs)-minX,depth=Math.max(...zs)-minZ;
+  const label=wing.label&&world(wing.label);
+  let seed=(Math.imul(wing.pts[0][0]+1,73856093)^Math.imul(wing.pts[0][1]+1,19349663))>>>0;
+  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const placed=[];
+  for(let attempt=0;attempt<100&&placed.length<2;attempt++) {
+    const x=minX+random()*width,z=minZ+random()*depth;
+    // A .65 clearance contains the entire unit, including its base, on the roof.
+    if(!inside(outline,x,z)||holes.some(h=>inside(h,x,z))||
+      [outline,...holes].some(loop=>nearestEdge(loop,[x,z]).distance<.65)||
+      (label&&Math.hypot(x-label[0],z-label[1])<1.15)||placed.some(p=>Math.hypot(x-p[0],z-p[1])<1.4))continue;
+    placed.push([x,z]);
+    box(x,wing.height+.08,z,.95,.12,.7,m.plinth);
+    box(x,wing.height+.28,z,.78,.28,.54,m.metal);
+    box(x,wing.height+.44,z,.84,.045,.6,m.plinth);
+  }
+}
+
+function entranceCanopy(kit,route) {
+  const {box,m}=kit,wing=WINGS.find(w=>w.id===route.wing);
+  const [doorX,doorZ]=world(route.points[route.points.length-1]);
+  const edge=nearestEdge(wing.pts.map(world),[doorX,doorZ]);
+  const length=Math.hypot(edge.dx,edge.dz),nx=edge.dz/length,nz=-edge.dx/length;
+  const rotation=-Math.atan2(edge.dz,edge.dx),height=Math.min(2.15,wing.height-.35);
+  // Span from the actual facade to the route endpoint, even where the schema
+  // leaves an entrance apron between the wall and the navigation door.
+  const depth=Math.max(.95,(doorX-edge.x)*nx+(doorZ-edge.z)*nz+.25);
+  box(edge.x+nx*(depth/2-.06),height,edge.z+nz*(depth/2-.06),2.1,.12,depth,m.trim,rotation);
+  for(const sign of [-1,1])box(edge.x+nx*(depth-.2)+sign*edge.dx/length*.88,(height-.06)/2,
+    edge.z+nz*(depth-.2)+sign*edge.dz/length*.88,.065,height-.06,.065,m.metal);
+  box(edge.x+nx*.07,.88,edge.z+nz*.07,1.35,1.76,.14,m.glass,rotation);
+}
 
 function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHeight=.48,base=.14}={}) {
   const {box,windowBay,m}=kit;
@@ -11,9 +67,10 @@ function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHe
     const angle=-Math.atan2(dz,dx),normal=[dz/length,-dx/length];
     const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
     box(mid[0],base+.13,mid[1],length,.26,.095,m.plinth,angle);
-    box(mid[0],height+.1,mid[1],length,.16,.12,m.trim,angle);
+    // Pale coping projects beyond the bevel and meets at the roof corners.
+    box(mid[0],height+.065,mid[1],length+.12,.13,.23,m.trim,angle);
     box(mid[0],height-.18,mid[1],length,.055,.09,m.trim,angle);
-    for(let floor=1;floor<floors;floor++)box(mid[0],base+floor*(height-base)/floors,mid[1],length,.045,.08,m.trim,angle);
+    for(let floor=1;floor<floors;floor++)box(mid[0]+normal[0]*.045,base+floor*(height-base)/floors,mid[1]+normal[1]*.045,length,.035,.08,m.trim,angle);
     const count=Math.max(0,Math.floor((length-.3)/spacing));
     for(let n=0;n<count;n++)for(let f=0;f<floors;f++) {
       const t=(n+.5)/count,x=a[0]+dx*t+normal[0]*.055,z=a[1]+dz*t+normal[1]*.055;
@@ -44,6 +101,7 @@ export function buildTerritory(kit,picks) {
     mesh.userData.wing=wing;if(wing.id)picks.push(mesh);
     facade(kit,outline,wing.height,{floors:Math.max(2,Math.round(wing.height/.78))});
     for(const hole of holes)facade(kit,signedArea(hole)>0?[...hole].reverse():hole,wing.height,{floors:Math.max(2,Math.round(wing.height/.78))});
+    roofEquipment(kit,wing,outline,holes);
     if(wing.id){const [x,z]=world(wing.label);text(wing.id,x,wing.height+.18,z,1.3);}
   }
   for(const [px,pz] of [[176,222],[493,217]]) {
@@ -69,9 +127,7 @@ export function buildTerritory(kit,picks) {
   for(const x of [-13,-7,9,15])hedge(x,9.65,3.2,.45,-.12);
   const [ex,ez]=world([455,278]);
   for(let i=0;i<5;i++)box(ex,.08-i*.035,ez+.5+i*.19,2.7,.2-i*.035,.22,m.trim);
-  box(ex,1.05,ez-.08,2.5,2.1,.14,m.glass);
-  box(ex,2.15,ez+.36,3,.12,1.1,m.trim);
-  for(const sign of [-1,1])box(ex+sign*1.25,1.02,ez+.7,.1,2.04,.1,m.metal);
+  for(const id of ['А','Б','С'])entranceCanopy(kit,territoryRoute(id));
   text('ВХОД',ex,.01,ez+2.4,1.65);
 }
 

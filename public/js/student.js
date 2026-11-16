@@ -1,3 +1,4 @@
+import {BUILDING_WING} from './campus-geometry.js';
 import {S, lessonIndex} from './state.js';
 import {icon} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, dayMonth, weekdayShort, stamp, count, plural, duration, daysBetween, relativeDay, untilText, cap, fmt, qrSvg, verifyUrl} from './util.js';
@@ -458,7 +459,7 @@ export function viewRooms() {
   const free = freeRooms(pair, S.bld).filter((r) => r.floor === floor), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.floor === floor && r.seats).length;
   const b = building(S.bld);
   const target = S.room && !S.routeBlocked ? roomByKey(S.room) : null;
-  return `<div class="page campus-page">${territoryScene(false, target ? {building: target.building, label: target.building, room: target.room} : null)}${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
+  return `<div class="page campus-page">${territoryScene(false, target ? {building: target.building, label: BUILDING_WING[target.building] && BUILDING_WING[target.building] !== target.building ? `${target.building} (на схеме — ${BUILDING_WING[target.building]})` : target.building, room: target.room} : null)}${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
     ${navigationPanel()}<div class="stack">${mapDate()===S.data.campus.rooms_date?roomsDayNote():''}${buildingSeg()}${pairChips(pair)}</div>
     <section class="card campus-card" id="campus-map"><div class="row"><div><p class="eyebrow">${esc(b.name)} · открыт ${esc(b.hours)}</p><p class="title">${floor} этаж · ${mapDate()===S.data.campus.rooms_date?`свободно ${free.length} из ${total}`:esc(dayShort(mapDate()))}</p></div>
         <div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть корпус влево">${icon('arrow')}</button><button class="icon-btn" data-rot="15" aria-label="Повернуть корпус вправо">${icon('arrow')}</button></div></div>

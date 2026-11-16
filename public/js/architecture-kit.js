@@ -21,6 +21,8 @@ function surfaceTexture(kind) {
 
 export function createArchitectureKit(root) {
   let target=root;
+  // Match the renderer's quality profile; keep optional roof equipment off mobile.
+  const mobile=matchMedia('(max-width: 700px)').matches || (navigator.deviceMemory || 8)<=4;
   const materials=new Map(),textures=new Map(),batches=new Map(),labels=new Map();
   const geometries={box:new T.BoxGeometry(1,1,1),window:new T.PlaneGeometry(1,1),trunk:new T.CylinderGeometry(.65,1,1,8),crown:new T.IcosahedronGeometry(1,2),conifer:new T.ConeGeometry(1,1,10),hedge:new T.BoxGeometry(1,1,1,4,4,4)};
   // Round a shared unit box; instances retain a clipped, architectural hedge silhouette.
@@ -219,7 +221,7 @@ export function createArchitectureKit(root) {
     }
     batches.clear();labels.clear();
   }
-  return {m,setEvening,material,box,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
+  return {m,mobile,setEvening,material,box,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
 }
 
 export function studioEnvironment() {
