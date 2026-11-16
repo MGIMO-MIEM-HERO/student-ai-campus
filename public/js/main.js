@@ -5,6 +5,7 @@ import {esc, buildIcs, downloadIcs, dayMonth} from './util.js';
 import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
 import * as stf from './staff.js';
+import * as tch from './teacher.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -15,7 +16,10 @@ let toastTimer, lastFocus, lastKey = '', drag = null, suppressClick = false;
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const isStaff = () => S.data?.role === 'staff';
-const routes = () => (isStaff() ? stf.ROUTES : stu.ROUTES);
+const isTeacher = () => S.data?.role === 'teacher';
+const roleModule = () => (isStaff() ? stf : isTeacher() ? tch : stu);
+const routes = () => roleModule().ROUTES;
+const ROLE_LABEL = {staff: 'кабинет деканата', teacher: 'кабинет преподавателя', student: 'кабинет студента'};
 const hashParts = () => location.hash.slice(1).split('/');
 const route = () => { const k = hashParts()[0]; return routes().includes(k) ? k : routes()[0]; };
 function flash(message) {
@@ -23,31 +27,33 @@ function flash(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.textContent = ''; }, 5000);
 }
-const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>Кампус</b><small>${isStaff() ? 'кабинет сотрудника · концепт' : 'кабинет студента · концепт'}</small></span></a>`;
-const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>Кампус — концепт-прототип личного кабинета студента для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены, портреты преподавателей сгенерированы нейросетью. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
+/* Название продукта. Keystone — замковый камень арки: держит всю конструкцию, как кабинет держит учёбу. */
+const BRAND = 'Keystone';
+const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>${BRAND}</b><small>${ROLE_LABEL[S.data?.role] || 'личный кабинет'} · концепт</small></span></a>`;
+const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>${BRAND} — концепт-прототип личного кабинета студента и преподавателя для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены, портреты преподавателей сгенерированы нейросетью. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
   const staff = isStaff();
-  const nav = staff ? stf.NAV : stu.NAV;
-  const navKey = staff ? key : (stu.NAV_OF[key] || key);
+  const mod = roleModule(), nav = mod.NAV;
+  const navKey = mod.NAV_OF?.[key] || key;
   const name = S.data.profile.name;
-  const badge = (id) => (staff ? (id === 'queue' ? stf.activeCount() : 0) : id === 'requests' ? stu.readyCount() : 0);
+  const badge = (id) => (staff ? (id === 'queue' ? stf.activeCount() : 0) : isTeacher() ? (id === 'tasks' ? tch.reviewCount() : 0) : id === 'requests' ? stu.readyCount() : id === 'tasks' ? stu.activeHomework().filter((h) => h.status === 'overdue').length : 0);
   return `<header class="topbar"><div class="topbar-in">${brand('#' + nav[0][0])}
     <nav class="nav" aria-label="Разделы кабинета"><ul>${nav.map(([id, label, ico]) => {
       const b = badge(id);
       return `<li><a href="#${id}" ${id === navKey ? 'aria-current="page"' : ''}>${icon(ico)}<span>${label}</span>${b ? `<span class="badge" aria-label="${b} новых">${b}</span>` : ''}</a></li>`;
     }).join('')}</ul></nav><span class="grow"></span>
-    ${staff ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button><a class="icon-btn" href="#notices" aria-label="Уведомления${stu.unreadCount() ? `, непрочитанных: ${stu.unreadCount()}` : ''}">${icon('bell')}${stu.unreadCount() ? `<span class="badge">${stu.unreadCount()}</span>` : ''}</a>`}
-    <a class="avatar" href="#profile" aria-label="Профиль: ${esc(name)}">${esc(name[0])}</a></div></header>
+    ${staff || isTeacher() ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button><a class="icon-btn" href="#notices" aria-label="Уведомления${stu.unreadCount() ? `, непрочитанных: ${stu.unreadCount()}` : ''}">${icon('bell')}${stu.unreadCount() ? `<span class="badge">${stu.unreadCount()}</span>` : ''}</a>`}
+    <a class="avatar" href="#profile" aria-label="Профиль: ${esc(name)}">${S.data.profile.photo ? `<img src="${esc(S.data.profile.photo)}" alt="" width="38" height="38">` : esc(name[0])}</a></div></header>
   <div class="wrap"><main id="main" tabindex="-1">${content}</main></div>${footer()}`;
 }
 
 function loginScreen(error = '', login = '') {
-  const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
+  const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['vetrova', 'Ирина Ветрова', 'преподаватель, высшая математика', '/assets/people/vetrova.webp'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
   lastKey = '';
   app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
-      <div class="login-copy"><h1>Личный кабинет студента</h1><p class="lede">Расписание с заменами и аудиториями, домашние задания со сроками, баллы и допуск, справки со статусом. С телефона и с компьютера.</p></div>
+      <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Студенту — расписание с заменами, задания со сроками, баллы и справки. Преподавателю — журнал, посещаемость и проверка работ. С телефона и с компьютера.</p></div>
       <div class="hero-ui" aria-hidden="true">
         <div class="ui-card ui-a"><span class="pill dark">Следующая пара · через 25 мин</span><b>Базы данных</b><span>10:40–12:10 · Корпус Б, ауд. 512</span><span class="ui-who"><img src="/assets/people/granov.webp" alt="" width="28" height="28">Гранов М. А. · практика</span></div>
         <div class="ui-card ui-b"><span class="ui-row"><i class="ui-check"></i><span><b>Лабораторная работа 4</b><span>Алгоритмы · до четверга, 23:59</span></span></span><span class="ui-row"><i class="ui-check on">${icon('check')}</i><span><b>Типовой расчёт № 3</b><span>Математический анализ · сделано</span></span></span></div>
@@ -58,9 +64,9 @@ function loginScreen(error = '', login = '') {
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
       <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
-      <div class="demo-grid">${demo.map(([id, name, role]) => `<button class="demo" data-demo="${id}"><span class="avatar" aria-hidden="true">${name[0]}</span><span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
+      <div class="demo-grid">${demo.map(([id, name, role, photo]) => `<button class="demo" data-demo="${id}">${photo ? `<img class="avatar" src="${photo}" alt="" width="38" height="38">` : `<span class="avatar" aria-hidden="true">${name[0]}</span>`}<span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
       <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p></div>
-      <p class="disclaimer">Кампус — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
+      <p class="disclaimer">${BRAND} — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');
 }
@@ -111,6 +117,7 @@ function render() {
   if (!S.data) return loginScreen();
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
+    : isTeacher() ? {today: tch.viewToday, schedule: tch.viewSchedule, journal: tch.viewJournal, tasks: tch.viewTasks, rooms: stu.viewRooms, profile: tch.viewProfile}
     : {today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, tasks: stu.viewTasks, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
   const entering = key !== lastKey;
   lastKey = key;
@@ -128,10 +135,10 @@ function openSheet(html) {
 }
 function closeSheet() { if (sheet.open) sheet.close(); }
 sheet.addEventListener('close', () => { sheetBody.innerHTML = ''; if (lastFocus?.isConnected) lastFocus.focus(); });
-function openSearch() { if (!S.data || isStaff()) return; openSheet(stu.searchSheet()); document.querySelector('#search-q')?.focus(); }
+function openSearch() { if (!S.data || isStaff() || isTeacher()) return; openSheet(stu.searchSheet()); document.querySelector('#search-q')?.focus(); }
 
 function setData(next) { S.data = next; indexLessons(); }
-function resetUi() { Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', bld: 'А', pair: null, room: ''}); }
+function resetUi() { Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
 async function doLogin(login, password) {
   try {
     setData(await api('login', {login, password}));
@@ -167,7 +174,7 @@ function showRoom(key) {
 }
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor]';
+const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -181,7 +188,26 @@ document.addEventListener('click', async (event) => {
     if (d.search !== undefined) return openSearch();
     if (d.print !== undefined) return window.print();
     if (d.copy) { try { await navigator.clipboard.writeText(d.copy); flash('Ссылка проверки скопирована.'); } catch { flash('Не удалось скопировать. Выделите ссылку вручную.'); } return; }
-    if (d.lesson) return openSheet(stu.lessonSheet(d.lesson));
+    if (d.lesson) return openSheet(isTeacher() ? tch.lessonSheet(d.lesson) : stu.lessonSheet(d.lesson));
+    if (d.att) return openSheet(tch.attSheet(d.att));
+    if (d.review) return openSheet(tch.reviewSheet(d.review));
+    if (d.newtask !== undefined) return openSheet(tch.taskFormSheet(d.newtask));
+    if (d.tannounce !== undefined) return openSheet(tch.announceSheet());
+    if (d.stud) return openSheet(tch.studentSheet(d.stud));
+    if (d.tf) { S.tfilter = d.tf; render(); return document.querySelector(`[data-tf="${d.tf}"]`)?.focus(); }
+    if (d.off) { S.off = d.off; if (d.goto) { location.hash = d.goto; return; } render(); return document.querySelector(`[data-off="${CSS.escape(d.off)}"]`)?.focus(); }
+    if (d.mark || d.attall) {
+      const [lesson, group, course, student, mark] = (d.mark || d.attall).split('|');
+      let students = [student];
+      if (d.attall) { const j = S.data.journals[`${course}:${group}`]; const i = j.lessons.findIndex((x) => x.id === lesson); students = j.students.filter((s) => s.marks[i] === '-').map((s) => s.id); if (!students.length) return flash('Все студенты уже отмечены.'); }
+      const inSheet = sheet.open, focusKey = d.mark;
+      el.disabled = true;
+      return await mutate('teacher/attendance', {group, course, lesson_id: lesson, students, mark: d.attall ? 'p' : mark}, () => {
+        if (inSheet) { openSheet(tch.attSheet(lesson)); sheetBody.querySelector(`[data-mark^="${CSS.escape(lesson + '|' + group + '|' + course + '|' + student + '|')}"][aria-pressed="true"], [data-attall]`)?.focus(); }
+        else requestAnimationFrame(() => { const [l, g, c, s] = focusKey.split('|'); document.querySelector(`.jr [data-mark^="${CSS.escape(`${l}|${g}|${c}|${s}|`)}"]`)?.focus({preventScroll: true}); });
+      });
+    }
+    if (d.deltask) { if (!window.confirm('Удалить задание? Оценки по нему тоже удалятся.')) return; el.disabled = true; return await mutate('teacher/tasks/delete', {id: d.deltask}, () => { closeSheet(); flash('Задание удалено.'); }); }
     if (d.news) return openSheet(stu.newsSheet(d.news));
     if (d.task) return openSheet(stu.taskSheet(d.task));
     if (d.hwf) { S.hwFilter = d.hwf; render(); return document.querySelector(`[data-hwf="${d.hwf}"]`)?.focus(); }
@@ -190,7 +216,7 @@ document.addEventListener('click', async (event) => {
       const h = S.data.homework.find((x) => x.id === d.hw); if (!h) return;
       const done = h.status !== 'done'; el.disabled = true;
       const inSheet = sheet.open;
-      return await mutate('homework', {id: d.hw, done}, () => { if (inSheet) openSheet(stu.taskSheet(d.hw)); flash(done ? 'Задание отмечено сделанным.' : 'Отметка снята.'); });
+      return await mutate('homework', {id: d.hw, done}, () => { if (inSheet) openSheet(stu.taskSheet(d.hw)); flash(done ? 'Отмечено как сданное. Преподаватель это увидит.' : 'Отметка «Сдано» снята.'); });
     }
     if (d.ncat) { S.newsCat = d.ncat; render(); return document.querySelector(`[data-ncat="${d.ncat}"]`)?.focus(); }
     if (d.requestKind) return openSheet(stu.requestSheet(d.requestKind));
@@ -241,6 +267,20 @@ document.addEventListener('submit', async (event) => {
       return flash('Заявка отправлена. Статус отображается в истории заявок.');
     }
     if (form.id === 'announce-form') { await mutate('staff/announcements', fields); return flash('Объявление опубликовано.'); }
+    if (form.id === 'tannounce-form') { await mutate('teacher/announce', fields, closeSheet); return flash('Сообщение отправлено группе.'); }
+    if (form.id === 'task-form') {
+      const data = new FormData(form);
+      const body = {course: fields.course, groups: data.getAll('groups'), title: fields.title, text: fields.text || '', kind: fields.kind, points_max: Number(fields.points_max), due_mode: fields.due_mode, due_date: fields.due_date, due_time: fields.due_time || '23:59'};
+      if (!body.groups.length) throw new Error('Выберите хотя бы одну группу.');
+      await mutate('teacher/tasks', body, () => { closeSheet(); S.tfilter = 'active'; if (route() !== 'tasks') location.hash = 'tasks'; });
+      return flash('Задание выдано. Студенты уже видят его в разделе «Задания».');
+    }
+    if (form.classList.contains('grade-form')) {
+      const raw = String(fields.points ?? '').trim();
+      const body = {task_id: form.dataset.task, student_id: form.dataset.student, points: raw === '' ? null : Number(raw), comment: fields.comment || ''};
+      await mutate('teacher/grade', body, () => { openSheet(tch.reviewSheet(form.dataset.task)); sheetBody.querySelector(`.grade-form[data-student="${CSS.escape(body.student_id)}"] input`)?.focus(); });
+      return flash(body.points === null && !body.comment ? 'Оценка снята.' : 'Оценка сохранена.');
+    }
     if (form.id === 'room-form') {
       await mutate('staff/rooms', {building: form.dataset.building, room: form.dataset.room, pair: fields.scope === 'day' ? 0 : activePair(), state: fields.state, note: fields.note || ''});
       return flash('Отметка сохранена. Студенты уже видят её на схеме.');
@@ -248,7 +288,7 @@ document.addEventListener('submit', async (event) => {
     if (form.classList.contains('status-form')) { await mutate(`staff/requests/${form.dataset.request}`, fields); return flash('Статус обновлён. Студент увидит его в истории заявки.'); }
   } catch (e) {
     if (e.status === 401) { S.data = null; closeSheet(); return render(); }
-    const box = form.querySelector('.form-error'); if (box) box.textContent = e.message;
+    const box = form.querySelector('.form-error') || sheetBody.querySelector('.form-error'); if (box) box.textContent = e.message; else flash(e.message);
     if (button) button.disabled = false;
   }
 });

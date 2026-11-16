@@ -19,7 +19,7 @@ const APPEAL = 'Обращение в деканат';
 const APPEAL_STEP = {'Принята': 'Принято', 'В работе': 'На рассмотрении', 'Готова': 'Ответ готов', 'Выдана': 'Закрыто'};
 const APPEAL_HINT = {'Принята': 'Обращение получено деканатом.', 'В работе': 'Обращение рассматривается.', 'Готова': 'Ответ готов, он в комментарии ниже.', 'Выдана': 'Обращение закрыто.', 'Отклонена': 'Обращение отклонено. Причина указана в комментарии.'};
 const hintFor = (r) => (r.kind === APPEAL ? APPEAL_HINT : STATUS_HINT)[r.status] || '';
-const TAG_TONE = {'Расписание': 'marigold', 'Деканат': 'periwinkle', 'Дедлайн': 'papaya', 'Мероприятие': 'mint'};
+const TAG_TONE = {'Расписание': 'marigold', 'Деканат': 'periwinkle', 'Дедлайн': 'papaya', 'Мероприятие': 'mint', 'Преподаватель': 'sky', 'Оценка': 'mint', 'Задание': 'sky'};
 const TYPE_TONE = {'Лекция': 't-lec', 'Семинар': 't-sem', 'Практика': 't-prac', 'Лабораторная работа': 't-lab'};
 export const QUESTIONS = ['Какие пары сегодня?', 'Что завтра?', 'Есть ли изменения в расписании?', 'Когда сессия?', 'Как заказать справку?'];
 
@@ -105,7 +105,7 @@ function nowCard() {
 }
 
 /* ---------- Задания ---------- */
-const HW_LABEL = {todo: 'Нужно сделать', overdue: 'Просрочено', done: 'Сделано', graded: 'Проверено'};
+const HW_LABEL = {todo: 'Нужно сдать', overdue: 'Просрочено', done: 'Сдано', graded: 'Проверено'};
 export const activeHomework = () => (S.data.homework || []).filter((h) => h.status === 'todo' || h.status === 'overdue');
 function dueWhen(h) {
   const d = daysBetween(nowIso(), h.due_date);
@@ -125,12 +125,12 @@ function dueLine(h) {
 function hwBox(h) {
   if (h.status === 'graded') return `<span class="hw-score" title="Оценка преподавателя"><b>${h.points}</b><small>/${h.points_max}</small></span>`;
   const on = h.status === 'done';
-  return `<button class="hw-check" data-hw="${esc(h.id)}" aria-pressed="${on}" aria-label="${on ? 'Снять отметку' : 'Отметить сделанным'}: ${esc(h.title)}">${icon('check')}</button>`;
+  return `<button class="hw-check" data-hw="${esc(h.id)}" aria-pressed="${on}" aria-label="${on ? 'Снять отметку «Сдано»' : 'Отметить как сданное'}: ${esc(h.title)}">${icon('check')}</button>`;
 }
 export function hwRow(h, compact = false) {
   return `<article class="hw is-${h.status}">${hwBox(h)}<button class="hw-body" data-task="${esc(h.id)}">
     <span class="hw-top"><span class="hw-course">${esc(h.course_title)}</span><span class="hw-kind">${esc(h.kind)}</span></span>
-    <strong>${esc(h.title)}</strong>${compact ? '' : `<span class="hw-text">${esc(h.text)}</span>`}
+    <strong>${esc(h.title)}</strong>${compact ? '' : `<span class="hw-text">${esc(h.text)}</span>`}${h.comment ? `<span class="hw-comment">${face(h.teacher, 'xs')}<span>${esc(h.comment)}</span></span>` : ''}
     <span class="hw-foot">${dueLine(h)}${compact ? '' : `<span class="hw-who">${face(h.teacher, 'xs')}${esc(h.teacher.short)}</span>`}</span></button></article>`;
 }
 function dueStrip() {
@@ -157,13 +157,13 @@ export function viewTasks() {
   }
   const sum = graded.reduce((s, h) => s + h.points, 0), max = graded.reduce((s, h) => s + h.points_max, 0);
   const near = active.find((h) => h.status === 'todo');
-  return `<div class="page">${head(S.data.semester.term, 'Задания', 'Домашние задания и работы из LMS со сроками. Отметка «Сделано» нужна вам для порядка: преподаватель её не видит, работа сдаётся на занятии или в LMS.')}
+  return `<div class="page">${head(S.data.semester.term, 'Задания', 'Домашние задания и работы из LMS со сроками. Когда закончите, отметьте задание кружком: преподаватель увидит, что работа сдана. Оценки и комментарии приходят сюда же.')}
     <section class="stats" aria-label="Коротко">
       <div class="stat"><span class="num">${active.length}</span><span class="l">активных заданий</span></div>
       <div class="stat"><span class="num sm">${near ? esc(dueWhen(near).split(',')[0]) : '—'}</span><span class="l">${near ? `ближайший срок: ${esc(near.course_title)}` : 'ближайших сроков нет'}</span></div>
-      <div class="stat"><span class="num">${done.length}</span><span class="l">отмечено сделанными</span></div>
+      <div class="stat"><span class="num">${done.length}</span><span class="l">сдано, ждут проверки</span></div>
       <div class="stat"><span class="num">${max ? Math.round(sum / max * 100) : 0}<small>%</small></span><span class="l">баллов за проверенные работы</span></div></section>
-    <div class="cols tasks-cols"><div class="stack"><div class="chips" role="group" aria-label="Фильтр заданий">${chip('active', 'Активные', active.length)}${chip('done', 'Сделанные', done.length)}${chip('graded', 'Проверенные', graded.length)}</div>${body}</div>
+    <div class="cols tasks-cols"><div class="stack"><div class="chips" role="group" aria-label="Фильтр заданий">${chip('active', 'Активные', active.length)}${chip('done', 'Сданные', done.length)}${chip('graded', 'Проверенные', graded.length)}</div>${body}</div>
       <div class="stack tasks-side"><section class="card"><div class="stack"><p class="title">Сроки на две недели</p>${dueStrip()}<p class="cap">Точка — срок задания в этот день.</p></div></section>
         <section class="card"><div class="stack"><p class="title">Как сдавать</p><div class="list">${[['schedule', 'К занятию', 'Сдаётся на паре: распечатка, тетрадь или устный ответ.'], ['download', 'Загрузка в LMS', 'Файл или ссылка на странице дисциплины до 23:59 дня срока.'], ['check', 'Тест онлайн', 'Проходится в LMS, баллы приходят автоматически.']].map(([ico, ttl, sub]) => `<div class="how"><span class="ico">${icon(ico)}</span><span><strong>${ttl}</strong><span>${sub}</span></span></div>`).join('')}</div></div></section></div></div></div>`;
 }
@@ -173,10 +173,10 @@ export function taskSheet(id) {
   const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
   return `<div class="sheet-in"><div class="sheet-top"><div><p class="eyebrow">${esc(h.course_title)} · ${esc(h.kind)}</p><h2 id="sheet-title" class="title">${esc(h.title)}</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
     <div class="chips"><span class="tag ${h.status === 'overdue' ? 'papaya' : h.status === 'todo' ? 'marigold' : 'mint'}">${HW_LABEL[h.status]}</span>${dueLine(h)}</div>
-    <p>${esc(h.text)}</p>
+    ${h.text ? `<p>${esc(h.text)}</p>` : ''}${h.comment ? `<div class="quote"><b>${esc(h.teacher.short)}:</b> ${esc(h.comment)}</div>` : ''}
     <dl class="facts">${row('Срок', `${esc(cap(dueWhen(h)))}${h.lesson_id ? ', к началу занятия' : ', загрузка в LMS'}`)}${row('Баллы', h.status === 'graded' ? `${h.points} из ${h.points_max}` : `до ${h.points_max}`)}
       ${row('Преподаватель', `<span class="who-line">${face(h.teacher, 'sm')}<span>${esc(h.teacher.name)}<br><span class="muted">${esc(h.teacher.title)} · <a href="mailto:${esc(h.teacher.email)}">${esc(h.teacher.email)}</a></span></span></span>`)}${row('Консультации', esc(h.teacher.hours))}</dl>
-    <div class="chips">${h.status === 'graded' ? '' : `<button class="btn sm" data-hw="${esc(h.id)}" aria-pressed="${h.status === 'done'}">${icon('check')}${h.status === 'done' ? 'Снять отметку' : 'Отметить сделанным'}</button>`}${h.lesson_id ? `<button class="btn ghost sm" data-lesson="${esc(h.lesson_id)}">${icon('schedule')}Открыть занятие</button>` : ''}</div></div>`;
+    <div class="chips">${h.status === 'graded' ? '' : `<button class="btn sm" data-hw="${esc(h.id)}" aria-pressed="${h.status === 'done'}">${icon('check')}${h.status === 'done' ? 'Снять отметку «Сдано»' : 'Отметить как сданное'}</button>`}${h.lesson_id ? `<button class="btn ghost sm" data-lesson="${esc(h.lesson_id)}">${icon('schedule')}Открыть занятие</button>` : ''}</div></div>`;
 }
 
 /* ---------- Преподаватели: карусель ---------- */
@@ -346,11 +346,17 @@ export function viewStudy() {
     <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div class="ring-wrap sm">${ring(g.points, {size: 76, stroke: 9, tone: g.points < 60 ? 'papaya' : 'ink', label: `${g.points} баллов из 100`})}<span class="ring-num"><span data-count="${g.points}">${g.points}</span></span></div>
       <div class="course-info"><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span><span><span class="tag ${g.result === 'Нет допуска' ? 'papaya' : 'mint'}">${esc(g.result)}</span></span></div></div>
       <div class="spark-wrap">${sparkline(g.trend, {label: `Баллы по неделям: ${g.trend.join(', ')}`})}<div class="spark-axis"><span>1 нед.</span><span>порог 60</span><span>${g.trend.length} нед.</span></div></div>
-      <p class="small muted">${advice(g)}</p></article>`).join('')}</div>
+      <p class="small muted">${advice(g)}</p>${attLine(g.course)}</article>`).join('')}</div>
       <p class="cap">Кольцо — баллы из 100. График — накопление баллов по неделям, пунктир — порог допуска 60. Шкала перевода условная, данные демонстрационные.</p></section>
     ${teachersCarousel('Преподаватели семестра')}
     <section class="sec">${secHead('График сессии')}<div class="card">${d.grades.map((g) => `<div class="tl ${g.assessment === 'Экзамен' ? 'exam' : ''} ${g.date < t ? 'past' : ''}"><div class="tl-date"><b>${fmt(g.date, {day: 'numeric'})}</b><span>${fmt(g.date, {month: 'short'}).replace('.', '')}</span></div>
       <div><div class="row"><h3>${esc(g.title)}</h3><span class="tag ${g.assessment === 'Экзамен' ? 'marigold' : 'periwinkle'}">${esc(g.assessment)}</span></div><p>${g.start} · ${esc(g.place)} · ${esc(g.examiner)} · ${untilText(g.date, t)}${g.consultation ? `<br>Консультация: ${dayShort(g.consultation.date)}, ${g.consultation.start}, ${esc(g.consultation.place)}` : ''}</p></div></div>`).join('')}</div></section></div>`;
+}
+
+function attLine(course) {
+  const a = S.data.attendance?.[course];
+  if (!a || a.att === null) return '';
+  return `<p class="att-line ${a.att < 75 ? 'low' : ''}"><span>Посещаемость</span><b>${a.att}%</b><span>${a.absent ? `${a.absent} ${plural(a.absent, ['пропуск', 'пропуска', 'пропусков'])}` : 'без пропусков'}${a.late ? ` · ${a.late} ${plural(a.late, ['опоздание', 'опоздания', 'опозданий'])}` : ''}</span></p>`;
 }
 
 /* ---------- Заявки ---------- */
@@ -389,7 +395,7 @@ export function viewDoc(id) {
     : `<p>Настоящая справка подтверждает, что <b>${esc(p.name)}</b> обучается на ${p.year} курсе, группа ${esc(p.group_name)}. ${esc(p.faculty)}, направление «${esc(p.program)}». Уровень образования: ${esc((p.level || '').toLowerCase())}. Форма обучения: ${esc((p.form || '').toLowerCase())}.</p><p>Справка выдана для предъявления по месту требования.</p>`;
   return `<div class="page"><div class="row no-print"><a class="link" href="#requests">${icon('arrow')} К заявкам</a><div class="chips"><button class="btn sm" data-print>${icon('download')}Печать или PDF</button><button class="btn ghost sm" data-copy="${esc(url)}">Скопировать ссылку проверки</button></div></div>
     <article class="paper-doc"><p class="doc-note">Демонстрационный документ. Не имеет юридической силы.</p>
-      <div class="center"><p class="eyebrow">Кампус · концепт</p><h2>${esc(r.kind)}</h2><p class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · выдана ${dayMonth(r.document.issued)} ${r.document.issued.slice(0, 4)} г.</p></div>
+      <div class="center"><p class="eyebrow">Keystone · концепт</p><h2>${esc(r.kind)}</h2><p class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · выдана ${dayMonth(r.document.issued)} ${r.document.issued.slice(0, 4)} г.</p></div>
       <div class="body stack">${body}</div>
       <div class="doc-foot"><div class="stack"><p class="eyebrow">Проверка подлинности</p><p class="small">Наведите камеру на QR-код или откройте ссылку. Страница проверки покажет статус документа без входа в кабинет.</p><p class="small"><a href="${esc(url)}">${esc(url)}</a></p><p class="cap">Код: ${esc(r.document.code)}</p></div>${qrSvg(url)}</div></article></div>`;
 }
@@ -398,7 +404,7 @@ export function viewNotices() {
   const list = S.noticeFilter === 'unread' ? S.data.notices.filter((n) => !n.read) : S.data.notices, u = unreadCount();
   return `<div class="page">${head('Уведомления', 'Объявления и изменения', 'Объявления деканата, изменения расписания и сроки в одной ленте.')}
     <div class="chips"><button class="chip" data-nfilter="all" aria-pressed="${S.noticeFilter === 'all'}">Все · ${S.data.notices.length}</button><button class="chip" data-nfilter="unread" aria-pressed="${S.noticeFilter === 'unread'}">Непрочитанные · ${u}</button>${u ? `<button class="link" data-read-all>Отметить все прочитанными</button>` : ''}</div>
-    <section class="card">${list.length ? `<div class="list">${list.map((n) => `<article class="item"><span class="ico ${TAG_TONE[n.tag] || ''}">${icon(n.tag === 'Расписание' ? 'swap' : n.tag === 'Дедлайн' ? 'clock' : 'megaphone')}</span>
+    <section class="card">${list.length ? `<div class="list">${list.map((n) => `<article class="item"><span class="ico ${TAG_TONE[n.tag] || ''}">${icon({'Расписание': 'swap', 'Дедлайн': 'clock', 'Оценка': 'check', 'Задание': 'tasks'}[n.tag] || 'megaphone')}</span>
       <span><span class="chips"><span class="tag ${TAG_TONE[n.tag] || ''}">${esc(n.tag)}</span>${n.read ? '' : '<span class="dot" role="img" aria-label="Не прочитано"></span>'}<span class="cap">${dayShort(n.date)}</span></span><strong>${esc(n.title)}</strong><span class="sub">${esc(n.body)}</span>${n.read ? '' : `<button class="link" data-read="${esc(n.id)}">Отметить прочитанным</button>`}</span><span></span></article>`).join('')}</div>` : empty('bell', 'Нет уведомлений', 'Непрочитанных сообщений нет.')}</section></div>`;
 }
 

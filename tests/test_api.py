@@ -12,6 +12,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from datetime import timedelta
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -233,6 +234,72 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(next(h for h in after["homework"] if h["id"] == "hw-alg-4")["status"], "todo")
         mark_hw = {h["id"]: h for h in mark.call("/api/dashboard")[1]["homework"]}
         self.assertEqual(mark_hw["hw-phil-e"]["status"], "overdue")
+
+    def test_teacher_sees_only_own_groups(self):
+        teacher = self.client("vetrova")
+        data = teacher.call("/api/dashboard")[1]
+        self.assertEqual(data["role"], "teacher")
+        self.assertEqual({o["id"] for o in data["offerings"]}, {"mat:ПИ-241", "mat:ПИ-242"})
+        self.assertNotIn("МО-251", data["rosters"])
+        self.assertNotIn("password_hash", json.dumps(data))
+        lesson = data["journals"]["mat:ПИ-241"]["lessons"][0]["id"]
+        body = {"group": "МО-251", "course": "hist", "lesson_id": lesson, "students": ["mo251-01"], "mark": "a"}
+        self.assertEqual(teacher.call("/api/teacher/attendance", body)[0], 400)
+        future = {"group": "ПИ-241", "course": "mat", "lesson_id": "2099-01-01-1-mat", "students": ["pi241-01"], "mark": "p"}
+        self.assertEqual(teacher.call("/api/teacher/attendance", future)[0], 400)
+        self.assertEqual(teacher.call("/api/homework", {"id": "hw-mat-3", "done": True})[0], 403)
+        self.assertEqual(teacher.call("/api/staff/announcements", {"tag": "Деканат"})[0], 403)
+        self.assertEqual(self.client("alina").call("/api/teacher/grade", {})[0], 403)
+        self.assertEqual(self.client("dekanat").call("/api/teacher/tasks", {})[0], 403)
+
+    def test_teacher_attendance_reaches_student(self):
+        teacher, alina = self.client("vetrova"), self.client("alina")
+        before = alina.call("/api/dashboard")[1]["attendance"]["mat"]
+        journal = teacher.call("/api/dashboard")[1]["journals"]["mat:ПИ-241"]
+        lesson = journal["lessons"][0]["id"]
+        sid = next(s["id"] for s in journal["students"] if s["login"] == "alina")
+        status, data = teacher.call("/api/teacher/attendance", {"group": "ПИ-241", "course": "mat", "lesson_id": lesson,
+                                                                "students": [sid], "mark": "a"})
+        self.assertEqual(status, 200)
+        row = next(s for s in data["journals"]["mat:ПИ-241"]["students"] if s["id"] == sid)
+        self.assertEqual(row["marks"][0], "a")
+        after = alina.call("/api/dashboard")[1]["attendance"]["mat"]
+        self.assertEqual(after["absent"], before["absent"] + 1)
+        teacher.call("/api/teacher/attendance", {"group": "ПИ-241", "course": "mat", "lesson_id": lesson, "students": [sid], "mark": "p"})
+
+    def test_teacher_task_grade_and_announcement_flow(self):
+        teacher, alina, mark = self.client("vetrova"), self.client("alina"), self.client("mark")
+        body = {"course": "mat", "groups": ["ПИ-241"], "title": "Задачи на ряды Тейлора", "text": "№ 1–8",
+                "kind": "Загрузка в LMS", "points_max": 10, "due_mode": "date",
+                "due_date": (server.msk_today() + timedelta(days=3)).isoformat(), "due_time": "23:59"}
+        self.assertEqual(teacher.call("/api/teacher/tasks", {**body, "groups": ["МО-251"]})[0], 400)
+        self.assertEqual(teacher.call("/api/teacher/tasks", {**body, "points_max": 1000})[0], 400)
+        status, data = teacher.call("/api/teacher/tasks", body)
+        self.assertEqual(status, 201)
+        task = next(t for t in data["tasks"] if t["title"] == body["title"])
+        self.assertEqual((task["submitted"], task["total"]), (0, 16))
+        homework = {h["id"]: h for h in alina.call("/api/dashboard")[1]["homework"]}
+        self.assertEqual(homework[task["id"]]["status"], "todo")
+        self.assertNotIn(task["id"], {h["id"] for h in mark.call("/api/dashboard")[1]["homework"]})
+        self.assertEqual(alina.call("/api/homework", {"id": task["id"], "done": True})[0], 200)
+        sid = next(s["id"] for s in data["journals"]["mat:ПИ-241"]["students"] if s["login"] == "alina")
+        reviewed = next(t for t in teacher.call("/api/dashboard")[1]["tasks"] if t["id"] == task["id"])
+        self.assertTrue(next(s for s in reviewed["subs"] if s["id"] == sid)["submitted"])
+        grade = {"task_id": task["id"], "student_id": sid, "points": 9, "comment": "Хорошо, проверь № 6"}
+        self.assertEqual(teacher.call("/api/teacher/grade", {**grade, "points": 11})[0], 400)
+        self.assertEqual(teacher.call("/api/teacher/grade", {**grade, "student_id": "mo251-09"})[0], 400)
+        self.assertEqual(teacher.call("/api/teacher/grade", grade)[0], 200)
+        student = alina.call("/api/dashboard")[1]
+        graded = next(h for h in student["homework"] if h["id"] == task["id"])
+        self.assertEqual((graded["status"], graded["points"], graded["comment"]), ("graded", 9, "Хорошо, проверь № 6"))
+        self.assertTrue(any(n["id"] == f"grade-{task['id']}" for n in student["notices"]))
+        note = {"group": "ПИ-241", "title": "Консультация перенесена", "body": "Во вторник в 16:00, ауд. 318А."}
+        self.assertEqual(teacher.call("/api/teacher/announce", {**note, "group": "МО-251"})[0], 400)
+        self.assertEqual(teacher.call("/api/teacher/announce", note)[0], 201)
+        self.assertTrue(any(n["title"] == note["title"] for n in alina.call("/api/dashboard")[1]["notices"]))
+        self.assertFalse(any(n["title"] == note["title"] for n in mark.call("/api/dashboard")[1]["notices"]))
+        self.assertEqual(teacher.call("/api/teacher/tasks/delete", {"id": task["id"]})[0], 200)
+        self.assertNotIn(task["id"], {h["id"] for h in alina.call("/api/dashboard")[1]["homework"]})
 
     def test_mark_has_a_risk_course(self):
         grades = self.client("mark").call("/api/dashboard")[1]["grades"]

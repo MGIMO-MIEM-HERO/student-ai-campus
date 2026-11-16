@@ -310,7 +310,7 @@ def occupancy(day, marks=()):
     result = {str(pair): {} for pair in BELLS}
     if day.weekday() != 6:
         _, parity = week_info(day)
-        for slots in SLOTS.values():
+        for slots in [*SLOTS.values(), *(g["slots"] for g in EXTRA_GROUPS.values())]:
             for weekday, pair, _course, _kind, building, room, slot_parity, _sub, _fmt in slots:
                 if weekday == day.weekday() and slot_parity in (None, parity) and building:
                     result[str(pair)][room_key(building, room)] = {"by": "schedule", "note": "Занятие по расписанию"}
@@ -388,6 +388,7 @@ HOMEWORK = {
         ("hw-db-9", "db", "Практика 9: нормализация схемы", "Привести учебную схему «Библиотека» к третьей нормальной форме, нарисовать ER-диаграмму и описать ключи. Загрузить PDF.", ("days", 3), "Загрузка в LMS", 8, None),
         ("hw-eng-6", "eng", "Essay: Technology in Education", "250–300 слов, использовать лексику Unit 6. Принести распечатку на семинар.", ("lesson", 1), "К занятию", 5, None),
         ("hw-ux-2", "ux", "Прототип экрана расписания", "Собрать кликабельный прототип в Figma: три состояния экрана (обычный день, изменение, отмена). Ссылку на прототип отправить в LMS.", ("days", 6), "Загрузка в LMS", 15, None),
+        ("hw-mat-5", "mat", "Домашняя работа: несобственные интегралы", "Вычислить 8 интегралов из листка к семинару 9 или доказать их расходимость. Решения сфотографировать и загрузить одним PDF.", ("days", -2), "Загрузка в LMS", 10, None),
         ("hw-mat-k2", "mat", "Контрольная работа 2: пределы и непрерывность", "Аудиторная контрольная, 6 задач.", ("days", -6), "Контрольная", 20, 18),
         ("hw-db-8", "db", "Практика 8: SQL-запросы", "10 запросов к учебной базе: соединения, группировка, подзапросы.", ("days", -4), "Загрузка в LMS", 10, 9),
         ("hw-eng-5", "eng", "Vocabulary test, Unit 5", "Онлайн-тест в LMS, 20 вопросов.", ("days", -8), "Тест онлайн", 10, 10),
@@ -403,42 +404,6 @@ HOMEWORK = {
 }
 
 
-def build_homework(login, today, schedule, done, now_minutes):
-    """Задания студента со сроком, статусом и преподавателем. done: {id: время отметки}."""
-    items = []
-    for task_id, course, title, text, due, kind, points_max, graded in HOMEWORK.get(login, []):
-        course_title, teacher_key = COURSES[login][course][:2]
-        due_date, due_time, lesson_id = None, "23:59", None
-        if due[0] == "lesson":
-            found = [(d["date"], l) for d in schedule if d["date"] > today.isoformat()
-                     for l in d["lessons"] if l["course"] == course and not l["cancelled"]]
-            if len(found) >= due[1]:
-                due_date, lesson = found[due[1] - 1]
-                due_time, lesson_id = lesson["start"], lesson["id"]
-            else:
-                due_date = (today + timedelta(days=7)).isoformat()
-        else:
-            due_date = (today + timedelta(days=due[1])).isoformat()
-        h, m = map(int, due_time.split(":"))
-        past = due_date < today.isoformat() or (due_date == today.isoformat() and h * 60 + m <= now_minutes)
-        if graded is not None:
-            status = "graded"
-        elif task_id in done:
-            status = "done"
-        elif past:
-            status = "overdue"
-        else:
-            status = "todo"
-        items.append({"id": task_id, "course": course, "course_title": course_title, "teacher": teacher(teacher_key),
-                      "title": title, "text": text, "kind": kind, "due_date": due_date, "due_time": due_time,
-                      "lesson_id": lesson_id, "points_max": points_max, "points": graded, "status": status,
-                      "done_at": done.get(task_id)})
-    order = {"overdue": 0, "todo": 1, "done": 2}
-    active = sorted((x for x in items if x["status"] != "graded"), key=lambda x: (order[x["status"]], x["due_date"], x["due_time"]))
-    graded = sorted((x for x in items if x["status"] == "graded"), key=lambda x: x["due_date"], reverse=True)
-    return active + graded
-
-
 def teachers_for(login):
     """Преподаватели студента с дисциплинами, которые они ведут."""
     result = {}
@@ -450,3 +415,71 @@ def teachers_for(login):
         if spec["kind"] == "teacher" and spec["teacher"] not in result:
             result[spec["teacher"]] = {**teacher(spec["teacher"]), "courses": ["замена"]}
     return list(result.values())
+
+
+# ---------- Группы и составы ----------
+# Учебные группы демо-кампуса. У группы с логином дисциплины и расписание берутся из COURSES/SLOTS
+# студента; у группы без логина — из EXTRA_GROUPS. Составы вымышленные, отсортированы по фамилии.
+GROUP_LOGIN = {"ПИ-241": "alina", "МО-251": "mark", "ПИ-242": None}
+GROUP_CODE = {"ПИ-241": "pi241", "ПИ-242": "pi242", "МО-251": "mo251"}
+EXTRA_GROUPS = {
+    "ПИ-242": {
+        "courses": {"mat": ("Математический анализ", "vetrova", "Экзамен", 0, date(2027, 1, 15), 3, "А", "304")},
+        "slots": [
+            (0, 1, "mat", "Лекция", "А", "304", None, None, "Очно"),
+            (1, 1, "mat", "Семинар", "А", "306", None, None, "Очно"),
+            (3, 3, "mat", "Практика", "А", "306", None, None, "Очно"),
+        ],
+    },
+}
+ROSTER = {
+    "ПИ-241": ["Абрамов Кирилл", "Белякова Софья", "Воронин Глеб", "Гусева Полина", "Дронов Илья", "Ершова Ксения",
+               "Зуев Максим", "Игнатьева Вера", "Калинин Арсений", "Лапина Дарья", "Мельников Егор", "Новикова Ева",
+               "Орлов Тимур", "Павлова Ульяна", "Румянцев Лев", "Северова Алина"],
+    "ПИ-242": ["Агапов Даниил", "Буланова Мирослава", "Веселов Роман", "Голубева Алиса", "Денисов Матвей",
+               "Жукова Варвара", "Захаров Артём", "Исаева Таисия", "Кудрявцев Фёдор", "Ланская Милана", "Морозов Ян",
+               "Никитина Злата", "Осипов Савелий", "Пестова Арина", "Сафронов Марк"],
+    "МО-251": ["Аксёнова Василиса", "Бортников Святослав", "Верещагина Лада", "Громова Анастасия", "Данилевский Олег",
+               "Ефремова Майя", "Журавлёв Никита", "Кравец Эмилия", "Луговой Марк", "Миронова Яна", "Нестеров Богдан",
+               "Олейник Стефания", "Панин Георгий", "Ростова Мария"],
+}
+ROSTER_LOGINS = {("ПИ-241", "Северова Алина"): "alina", ("МО-251", "Луговой Марк"): "mark"}
+
+
+def group_courses(group):
+    login = GROUP_LOGIN.get(group)
+    return COURSES[login] if login else EXTRA_GROUPS[group]["courses"]
+
+
+def group_slots(group):
+    login = GROUP_LOGIN.get(group)
+    return SLOTS[login] if login else EXTRA_GROUPS[group]["slots"]
+
+
+def roster(group):
+    """Состав группы: id, ФИО, короткое имя, инициалы и логин, если у студента есть демо-аккаунт."""
+    people = []
+    for i, full in enumerate(ROSTER[group], 1):
+        last, first = full.split()
+        people.append({"id": f"{GROUP_CODE[group]}-{i:02d}", "name": f"{first} {last}", "short": f"{last} {first[0]}.",
+                       "initials": first[0] + last[0], "login": ROSTER_LOGINS.get((group, full))})
+    return people
+
+
+def student_id(login):
+    for group in ROSTER:
+        for person in roster(group):
+            if person["login"] == login:
+                return group, person["id"]
+    return None, None
+
+
+def teacher_offerings(teacher_key):
+    """Пары «дисциплина — группа», которые ведёт преподаватель."""
+    result = []
+    for group in ROSTER:
+        for course, values in group_courses(group).items():
+            if values[1] == teacher_key:
+                result.append({"id": f"{course}:{group}", "course": course, "group": group, "title": values[0],
+                               "assessment": values[2], "control": values[4].isoformat()})
+    return result

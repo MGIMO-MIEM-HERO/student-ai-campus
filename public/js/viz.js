@@ -48,7 +48,7 @@ export function weekGrid(week, todayIso, selected) {
   const lines = S.data.campus.bells.map((b) => `<i data-vars="--t:${pos(b.start)}"></i>`).join('');
   const cols = week.slice(0, 6).map((d) => {
     const events = d.lessons.map((l) => `<button class="wk-ev ${TYPE_TONE[l.type] || ''} ${l.cancelled ? 'cancel' : ''} ${l.change && !l.cancelled ? 'changed' : ''}" data-lesson="${esc(l.id)}" data-vars="--t:${pos(l.start)};--h:${pos(l.end) - pos(l.start)}">
-      <span class="wk-time">${l.start}–${l.end}${l.change ? '<i class="dot"></i>' : ''}</span><span class="wk-title">${esc(l.title)}</span><span class="wk-place">${l.building ? `${esc(l.building)}-${esc(l.room)}` : 'Онлайн'}</span></button>`).join('');
+      <span class="wk-time">${l.start}–${l.end}${l.change ? '<i class="dot"></i>' : ''}</span><span class="wk-title">${esc(l.title)}</span><span class="wk-place">${l.groups ? `${esc(l.groups.join(', '))} · ` : ''}${l.building ? `${esc(l.building)}-${esc(l.room)}` : 'Онлайн'}</span></button>`).join('');
     const nowLine = d.date === t.date && t.minutes >= DAY_START && t.minutes <= DAY_END ? `<span class="wk-now" data-vars="--t:${((t.minutes - DAY_START) / SPAN) * 100}"></span>` : '';
     return `<div class="wk-col ${d.date === todayIso ? 'today' : ''} ${d.date === selected ? 'sel' : ''}"><button class="wk-head" data-day="${d.date}"><small>${weekdayShort(d.date)}</small><b>${fmt(d.date, {day: 'numeric'})}</b></button><div class="wk-body">${lines}${events}${nowLine}</div></div>`;
   }).join('');

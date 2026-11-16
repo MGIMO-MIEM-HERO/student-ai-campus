@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import unquote, urlsplit
 
 import campus_data
+import teaching
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = (ROOT / "public").resolve()
@@ -40,7 +41,9 @@ KINDS = ("Справка об обучении", "Выписка об успев
 STATUSES = ("Принята", "В работе", "Готова", "Выдана", "Отклонена")
 CLOSED = ("Выдана", "Отклонена")
 TAGS = ("Деканат", "Расписание", "Дедлайн", "Мероприятие")
+TEACHER_TAGS = ("Преподаватель",)
 STAFF = ("dekanat", "Вера Деканова", "Деканат", "Учебный офис", "—", 0)
+TEACHER_ACCOUNTS = [("vetrova", "Ирина Ветрова", "Кафедра высшей математики", "доцент, канд. физ.-мат. наук", "—", 0)]
 LOGIN_LIMIT, LOGIN_WINDOW = 10, 300
 FAILED_LOGINS, FAILED_LOCK = {}, threading.Lock()
 STUDENTS = [
@@ -79,6 +82,14 @@ def initialize():
             CREATE TABLE IF NOT EXISTS documents (request_id TEXT PRIMARY KEY, code TEXT UNIQUE, issued TEXT);
             CREATE TABLE IF NOT EXISTS cards (login TEXT PRIMARY KEY, code TEXT UNIQUE);
             CREATE TABLE IF NOT EXISTS homework_done (login TEXT, task_id TEXT, at TEXT, PRIMARY KEY (login, task_id));
+            CREATE TABLE IF NOT EXISTS attendance (
+              lesson_id TEXT, student_id TEXT, mark TEXT, author TEXT, at TEXT, PRIMARY KEY (lesson_id, student_id));
+            CREATE TABLE IF NOT EXISTS tasks (
+              id TEXT PRIMARY KEY, group_name TEXT, course TEXT, title TEXT, text TEXT, kind TEXT, due_date TEXT,
+              due_time TEXT, lesson_id TEXT, points_max INTEGER, author TEXT, created TEXT);
+            CREATE TABLE IF NOT EXISTS grades (
+              task_id TEXT, student_id TEXT, points INTEGER, comment TEXT, author TEXT, at TEXT,
+              PRIMARY KEY (task_id, student_id));
             CREATE TABLE IF NOT EXISTS room_marks (
               day TEXT, pair INTEGER, building TEXT, room TEXT, state TEXT, note TEXT, author TEXT, at TEXT,
               PRIMARY KEY (day, pair, building, room));
@@ -89,7 +100,7 @@ def initialize():
         columns = {row["name"] for row in db.execute("PRAGMA table_info(users)")}
         if "role" not in columns:
             db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")
-        for person, role in [(s, "student") for s in STUDENTS] + [(STAFF, "staff")]:
+        for person, role in [(s, "student") for s in STUDENTS] + [(STAFF, "staff")] + [(p, "teacher") for p in TEACHER_ACCOUNTS]:
             if not db.execute("SELECT 1 FROM users WHERE login=?", (person[0],)).fetchone():
                 salt = secrets.token_bytes(16)
                 db.execute("INSERT INTO users (login,name,faculty,program,group_name,year,salt,password_hash,role) "
@@ -117,6 +128,9 @@ def initialize():
                                  STAFF[1], ready + "T15:10")):
                             db.execute("INSERT INTO request_events VALUES (?,?,?,?,?)", (ready_id, status, comment, author, at))
                         db.execute("INSERT INTO documents VALUES (?,?,?)", (ready_id, "d" + secrets.token_urlsafe(9), ready))
+        # демо: Алина вовремя сдала домашнюю работу, которую преподаватель ещё не проверил
+        db.execute("INSERT OR IGNORE INTO homework_done VALUES (?,?,?)",
+                   ("alina", "hw-mat-5", (msk_today() - timedelta(days=3)).isoformat() + "T20:15"))
         for row in db.execute("SELECT login FROM users WHERE role='student'").fetchall():
             db.execute("INSERT OR IGNORE INTO cards VALUES (?,?)", (row["login"], "s" + secrets.token_urlsafe(9)))
 
@@ -199,14 +213,23 @@ def student_data(user, db):
     published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
                   "date": a["created"][:10], "read": f"a{a['id']}" in read}
                  for a in announcements_for(db, user["group_name"])]
-    done = {row["task_id"]: row["at"] for row in db.execute("SELECT task_id, at FROM homework_done WHERE login=?", (login,))}
     clock = datetime.now(MSK)
-    homework = campus_data.build_homework(login, today, schedule, done, clock.hour * 60 + clock.minute)
+    homework = teaching.student_homework(db, login, today, schedule, clock.hour * 60 + clock.minute)
     notices = published + schedule_notices(schedule, read) + [
         {"id": "exam", "tag": "Деканат", "title": "Опубликовано расписание сессии",
          "body": "Экзаменационная сессия начинается 21 декабря. Даты, время и аудитории — в разделе «Учёба».",
          "date": (today - timedelta(days=3)).isoformat(), "read": "exam" in read},
     ]
+    for h in homework:
+        if h["status"] == "graded" and h["graded_at"]:
+            notices.append({"id": f"grade-{h['id']}", "tag": "Оценка", "title": f"Проверено: {h['title']}",
+                            "body": f"{h['course_title']}: {h['points']} из {h['points_max']}." + (f" Комментарий: {h['comment']}" if h["comment"] else ""),
+                            "date": h["graded_at"][:10], "read": f"grade-{h['id']}" in read})
+        elif h["source"] == "teacher" and h["status"] in ("todo", "overdue"):
+            notices.append({"id": f"task-{h['id']}", "tag": "Задание", "title": f"Новое задание: {h['title']}",
+                            "body": f"{h['course_title']} · {h['teacher']['short']} Срок: {h['due_date'][8:10]}.{h['due_date'][5:7]}, {h['due_time']}.",
+                            "date": h["created"][:10], "read": f"task-{h['id']}" in read})
+    notices.sort(key=lambda n: n["date"], reverse=True)
     upload = next((h for h in homework if h["status"] == "todo" and h["kind"] == "Загрузка в LMS"), None)
     if upload:
         due = date.fromisoformat(upload["due_date"])
@@ -222,9 +245,28 @@ def student_data(user, db):
     return {"role": "student", "today": today.isoformat(), "profile": profile,
             "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
             "notices": notices, "requests": requests, "news": campus_data.news(today),
-            "homework": homework, "teachers": campus_data.teachers_for(login), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "homework": homework, "teachers": campus_data.teachers_for(login),
+            "attendance": teaching.student_attendance(db, login, today), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
             "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
+
+
+def teacher_data(user, db):
+    today, clock = msk_today(), datetime.now(MSK)
+    key = user["login"]
+    offerings = campus_data.teacher_offerings(key)
+    groups = sorted({o["group"] for o in offerings})
+    mine = [dict(a) for a in db.execute("SELECT * FROM announcements WHERE author=? ORDER BY id DESC LIMIT 20", (user["name"],))]
+    return {"role": "teacher", "today": today.isoformat(),
+            "profile": {**campus_data.teacher(key), "login": key, "name": user["name"], "full_name": campus_data.teacher(key)["name"]},
+            "semester": campus_data.semester(today), "offerings": offerings,
+            "rosters": {g: campus_data.roster(g) for g in groups},
+            "schedule": teaching.teacher_schedule(key, today),
+            "journals": {o["id"]: teaching.journal(db, o["group"], o["course"], today) for o in offerings},
+            "tasks": teaching.teacher_tasks(db, key, today, clock.hour * 60 + clock.minute),
+            "kinds": teaching.KINDS, "announcements": mine,
+            "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "updated": now()}
 
 
 def staff_data(user, db):
@@ -391,6 +433,10 @@ class Handler(BaseHTTPRequestHandler):
                 if user["role"] != "staff":
                     return self.reply(403, {"error": "Раздел доступен только сотрудникам деканата."})
                 return self.staff_api(path, user, db)
+            if path.startswith("/api/teacher/"):
+                if user["role"] != "teacher":
+                    return self.reply(403, {"error": "Раздел доступен только преподавателям."})
+                return self.teacher_api(path, user, db)
             if user["role"] != "student":
                 return self.reply(403, {"error": "Этот раздел доступен только студентам."})
             if self.command == "GET" and path.startswith("/api/requests/"):
@@ -452,7 +498,49 @@ class Handler(BaseHTTPRequestHandler):
         return self.client_address[0]
 
     def dashboard(self, user, db):
-        return staff_data(user, db) if user["role"] == "staff" else student_data(user, db)
+        return {"staff": staff_data, "teacher": teacher_data}.get(user["role"], student_data)(user, db)
+
+    def teacher_api(self, path, user, db):
+        today, key = msk_today(), user["login"]
+        offerings = {(o["course"], o["group"]) for o in campus_data.teacher_offerings(key)}
+        if self.command == "POST" and path == "/api/teacher/attendance":
+            body = self.body()
+            group, course, lesson, mark = body.get("group"), body.get("course"), body.get("lesson_id"), body.get("mark")
+            students = body.get("students")
+            if (course, group) not in offerings or not isinstance(lesson, str) or not isinstance(students, list):
+                raise ValueError()
+            teaching.set_attendance(db, key, group, course, lesson, students, mark, today, now())
+            db.commit()
+            return self.reply(200, teacher_data(user, db))
+        if self.command == "POST" and path == "/api/teacher/tasks":
+            teaching.create_task(db, key, self.body(), today, now())
+            db.commit()
+            return self.reply(201, teacher_data(user, db))
+        if self.command == "POST" and path == "/api/teacher/tasks/delete":
+            task_id = self.body().get("id")
+            row = db.execute("SELECT id FROM tasks WHERE id=? AND author=?", (task_id, key)).fetchone() if isinstance(task_id, str) else None
+            if not row:
+                return self.reply(404, {"error": "Задание не найдено."})
+            db.execute("DELETE FROM tasks WHERE id=?", (task_id,))
+            db.execute("DELETE FROM grades WHERE task_id=?", (task_id,))
+            db.execute("DELETE FROM homework_done WHERE task_id=?", (task_id,))
+            db.commit()
+            return self.reply(200, teacher_data(user, db))
+        if self.command == "POST" and path == "/api/teacher/grade":
+            teaching.set_grade(db, key, self.body(), today, now())
+            db.commit()
+            return self.reply(200, teacher_data(user, db))
+        if self.command == "POST" and path == "/api/teacher/announce":
+            body = self.body()
+            group, title, text = body.get("group"), body.get("title"), body.get("body")
+            if (group not in {g for _, g in offerings} or not isinstance(title, str) or not 3 <= len(title.strip()) <= 120
+                    or not isinstance(text, str) or not 3 <= len(text.strip()) <= 1000):
+                raise ValueError()
+            db.execute("INSERT INTO announcements (tag,title,body,audience,author,created) VALUES (?,?,?,?,?,?)",
+                       (TEACHER_TAGS[0], title.strip(), text.strip(), group, user["name"], now()))
+            db.commit()
+            return self.reply(201, teacher_data(user, db))
+        return self.reply(404, {"error": "Страница не найдена."})
 
     def staff_api(self, path, user, db):
         if self.command == "POST" and path.startswith("/api/staff/requests/"):
