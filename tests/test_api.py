@@ -342,6 +342,38 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(alina.call("/api/consult", {**body, "cancel": True})[0], 200)
         self.assertFalse(any(s.get("login") == "alina" for d in teacher.call("/api/dashboard")[1]["consults"] for s in d["slots"]))
 
+    def test_teacher_changes_reach_journal_tasks_and_rooms(self):
+        teacher = self.client("vetrova")
+        data = teacher.call("/api/dashboard")[1]
+        upcoming = [dict(l, date=d["date"]) for d in data["schedule"] for l in d["lessons"] if d["date"] > data["today"]]
+        # отмена ближайшего занятия ПИ-242: задание «к ближайшему занятию» уходит на следующее
+        nxt = next(l for l in upcoming if l["groups"] == ["ПИ-242"])
+        self.assertEqual(teacher.call("/api/teacher/lesson", {"lesson_id": nxt["id"], "kind": "cancel", "reason": "Конференция"})[0], 200)
+        body = {"course": "mat", "groups": ["ПИ-242"], "title": "Проверка срока", "kind": "К занятию", "points_max": 5, "due_mode": "lesson"}
+        status, after = teacher.call("/api/teacher/tasks", body)
+        self.assertEqual(status, 201)
+        task = next(t for t in after["tasks"] if t["title"] == "Проверка срока")
+        self.assertNotEqual(task["lesson_id"], nxt["id"])
+        teacher.call("/api/teacher/tasks/delete", {"id": task["id"]})
+        teacher.call("/api/teacher/lesson", {"lesson_id": nxt["id"], "kind": "restore"})
+        # перенос в другую аудиторию в день плана корпусов освобождает исходную и занимает новую
+        rooms_day = data["campus"]["rooms_date"]
+        same_day = [dict(l, date=d["date"]) for d in data["schedule"] for l in d["lessons"] if d["date"] == rooms_day and d["date"] >= data["today"]]
+        if same_day:
+            lesson = same_day[0]
+            target = "Б-410" if f"{lesson['building']}-{lesson['room']}" != "Б-410" else "Б-414"
+            b, r = target.split("-")
+            teacher.call("/api/teacher/lesson", {"lesson_id": lesson["id"], "kind": "room", "building": b, "room": r, "reason": "Проектор"})
+            busy = teacher.call("/api/dashboard")[1]["campus"]["busy"][str(lesson["pair"])]
+            self.assertIn(target, busy)
+            self.assertNotIn(f"{lesson['building']}-{lesson['room']}", busy)
+            # отмена сегодняшнего занятия убирает его из журнала
+            teacher.call("/api/teacher/lesson", {"lesson_id": lesson["id"], "kind": "cancel", "reason": "Болезнь"})
+            journal = teacher.call("/api/dashboard")[1]["journals"]["mat:ПИ-241"]
+            if lesson["date"] == data["today"]:
+                self.assertNotIn(lesson["id"], {l["id"] for l in journal["lessons"]})
+            teacher.call("/api/teacher/lesson", {"lesson_id": lesson["id"], "kind": "restore"})
+
     def test_mark_has_a_risk_course(self):
         grades = self.client("mark").call("/api/dashboard")[1]["grades"]
         self.assertTrue(any(g["result"] == "Нет допуска" for g in grades))

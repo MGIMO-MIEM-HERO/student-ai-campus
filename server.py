@@ -148,6 +148,12 @@ def room_marks(db, day):
         "SELECT pair,building,room,state,note FROM room_marks WHERE day=? ORDER BY pair ASC", (day.isoformat(),))]
 
 
+def campus_dir(db):
+    """Справочник корпусов на день: расписание, изменения преподавателей, затем отметки деканата (они главнее)."""
+    day = rooms_day()
+    return campus_data.directory(day, room_marks(db, day), teaching.effective_rooms(db, day, msk_today()))
+
+
 def mask_name(name):
     parts = name.split()
     return f"{parts[0]} {parts[1][0]}." if len(parts) > 1 else parts[0]
@@ -255,7 +261,7 @@ def student_data(user, db):
             "notices": notices, "requests": requests, "news": campus_data.news(today),
             "homework": homework, "teachers": campus_data.teachers_for(login),
             "attendance": teaching.student_attendance(db, login, today),
-            "consults": teaching.student_consults(db, login, today, clock.hour * 60 + clock.minute), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "consults": teaching.student_consults(db, login, today, clock.hour * 60 + clock.minute), "campus": {**campus_dir(db), "rooms_date": rooms_day().isoformat()},
             "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
@@ -275,7 +281,7 @@ def teacher_data(user, db):
             "tasks": teaching.teacher_tasks(db, key, today, clock.hour * 60 + clock.minute),
             "kinds": teaching.KINDS, "announcements": mine,
             "consults": teaching.teacher_consults(db, key, today, clock.hour * 60 + clock.minute),
-            "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "campus": {**campus_dir(db), "rooms_date": rooms_day().isoformat()},
             "updated": now()}
 
 
@@ -288,7 +294,7 @@ def staff_data(user, db):
         "SELECT pair,building,room,state,note,author,at FROM room_marks WHERE day=? ORDER BY at DESC", (rooms_day().isoformat(),))]
     return {"role": "staff", "today": today.isoformat(), "profile": {k: user[k] for k in ("login", "name", "faculty", "program")},
             "requests": requests, "statuses": STATUSES, "tags": TAGS, "groups": groups, "updated": now(),
-            "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()}, "marks": marks,
+            "campus": {**campus_dir(db), "rooms_date": rooms_day().isoformat()}, "marks": marks,
             "semester": campus_data.semester(today),
             "announcements": [dict(r) for r in db.execute(
                 "SELECT id,tag,title,body,audience,author,created FROM announcements ORDER BY id DESC")]}

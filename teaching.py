@@ -49,6 +49,28 @@ def lesson_overrides(db, group):
     return result
 
 
+def apply_overrides(lessons, overrides):
+    """Изменения преподавателя для занятий без демо-аккаунта: отмена убирает занятие, перенос меняет время или место."""
+    out = []
+    for l in lessons:
+        spec = overrides.get(l["id"])
+        if spec and spec["kind"] == "cancel":
+            continue
+        if spec and spec["kind"] == "time":
+            l = dict(l, pair=spec["pair"], start=cd.BELLS[spec["pair"]][0], end=cd.BELLS[spec["pair"]][1])
+        elif spec and spec["kind"] == "room":
+            l = dict(l, building=spec["building"], room=spec["room"], floor=cd.floor_of(spec["room"]),
+                     place=cd.place(spec["building"], spec["room"]))
+        out.append(l)
+    return sorted(out, key=lambda l: (l["date"], l["pair"]))
+
+
+def held_lessons(db, group, course, start, end):
+    """Занятия, которые действительно проходят: без отменённых преподавателем."""
+    lessons = lessons_between(group, course, start, end)
+    return apply_overrides(lessons, lesson_overrides(db, group)) if db else lessons
+
+
 def upcoming_lessons(group, course, today, schedule=None, db=None):
     """Будущие занятия (после сегодняшнего дня) с учётом отмен и переносов, если они известны."""
     login = cd.GROUP_LOGIN.get(group)
@@ -56,7 +78,7 @@ def upcoming_lessons(group, course, today, schedule=None, db=None):
         schedule = schedule or cd.build_schedule(login, today, lesson_overrides(db, group) if db else None)
         return [dict(l, date=d["date"]) for d in schedule if d["date"] > today.isoformat()
                 for l in d["lessons"] if l["course"] == course and not l["cancelled"]]
-    return lessons_between(group, course, today + timedelta(days=1), today + timedelta(days=21))
+    return held_lessons(db, group, course, today + timedelta(days=1), today + timedelta(days=21))
 
 
 def window_start(today):
@@ -96,7 +118,7 @@ def base_points(group, course, person):
 
 
 def journal(db, group, course, today):
-    lessons = lessons_between(group, course, window_start(today), today)
+    lessons = held_lessons(db, group, course, window_start(today), today)
     people = cd.roster(group)
     overrides = attendance_overrides(db, [l["id"] for l in lessons])
     today_iso = today.isoformat()
@@ -117,7 +139,7 @@ def student_attendance(db, login, today):
     result = {}
     person = next(p for p in cd.roster(group) if p["id"] == sid)
     for course in cd.group_courses(group):
-        lessons = lessons_between(group, course, window_start(today), today)
+        lessons = held_lessons(db, group, course, window_start(today), today)
         overrides = attendance_overrides(db, [l["id"] for l in lessons])
         marks = "".join(overrides.get((l["id"], sid), seeded_mark(l["id"], l["date"], person, today.isoformat()))
                         for l in lessons)
@@ -126,7 +148,7 @@ def student_attendance(db, login, today):
 
 
 def set_attendance(db, author, group, course, lesson_id, student_ids, mark, today, at):
-    lesson = next((l for l in lessons_between(group, course, window_start(today), today) if l["id"] == lesson_id), None)
+    lesson = next((l for l in held_lessons(db, group, course, window_start(today), today) if l["id"] == lesson_id), None)
     known = {p["id"] for p in cd.roster(group)}
     if not lesson or mark not in (*MARKS, "-") or not student_ids or not set(student_ids) <= known:
         raise ValueError()
@@ -477,3 +499,20 @@ def teacher_consults(db, teacher_key, today, now_minutes):
     return [{"date": d["date"], "place": d["place"], "slots": [
         {"time": s, **(booked[(d["date"], s)] if (d["date"], s) in booked else {"name": None})} for s in d["slots"]]}
         for d in consult_days(teacher_key, today, now_minutes)]
+
+
+def effective_rooms(db, day, today):
+    """Фактические занятия всех демо-групп в этот день: (пара, корпус, аудитория).
+
+    Учитывает плановые изменения и изменения преподавателей; отменённые и онлайн-занятия аудиторию не занимают."""
+    out = []
+    for group, login in cd.GROUP_LOGIN.items():
+        overrides = lesson_overrides(db, group)
+        if login:
+            lessons = [l for d in cd.build_schedule(login, today, overrides) if d["date"] == day.isoformat()
+                       for l in d["lessons"] if not l["cancelled"]]
+        else:
+            lessons = [l for course in cd.group_courses(group)
+                       for l in apply_overrides(lessons_between(group, course, day, day), overrides)]
+        out += [(l["pair"], l["building"], l["room"]) for l in lessons if l["building"]]
+    return out

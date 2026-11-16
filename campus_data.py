@@ -307,26 +307,33 @@ def room_key(building, room):
     return f"{building}-{room}"
 
 
-def occupancy(day, marks=()):
+def occupancy(day, marks=(), lessons=None):
     """Занятость аудиторий по парам на день.
 
     Источники по приоритету: отметка деканата, занятия демо-групп, условная загрузка других потоков.
     marks: записи (pair, building, room, state, note); pair 0 означает весь день.
+    lessons: фактические занятия демо-групп на этот день (пара, корпус, аудитория) — с плановыми
+    изменениями и изменениями преподавателей; без них берётся сетка расписания.
     Возвращает {пара: {"А-304": {"by": "schedule" | "staff", "note": str}}} только для занятых.
     """
     result = {str(pair): {} for pair in BELLS}
     if day.weekday() != 6:
         _, parity = week_info(day)
-        for slots in [*SLOTS.values(), *(g["slots"] for g in EXTRA_GROUPS.values())]:
-            for weekday, pair, _course, _kind, building, room, slot_parity, _sub, _fmt in slots:
-                if weekday == day.weekday() and slot_parity in (None, parity) and building:
-                    result[str(pair)][room_key(building, room)] = {"by": "schedule", "note": "Занятие по расписанию"}
+        grid = [(pair, building, room)
+                for slots in [*SLOTS.values(), *(g["slots"] for g in EXTRA_GROUPS.values())]
+                for weekday, pair, _course, _kind, building, room, slot_parity, _sub, _fmt in slots
+                if weekday == day.weekday() and slot_parity in (None, parity) and building]
+        planned = {(str(p), room_key(b, r)) for p, b, r in grid}  # эти слоты условные «другие потоки» не занимают
+        if lessons is None:
+            lessons = grid
+        for pair, building, room in lessons:
+            result[str(pair)][room_key(building, room)] = {"by": "schedule", "note": "Занятие по расписанию"}
         for pair in BELLS:
             for (building, room), (_kind, seats, _hint) in ALL_ROOMS.items():
                 if not seats:
                     continue
                 noise = int(hashlib.md5(f"{day.isoformat()}-{pair}-{building}{room}".encode()).hexdigest(), 16) % 100
-                if noise < (20 if day.weekday() == 5 else 48):
+                if noise < (20 if day.weekday() == 5 else 48) and (str(pair), room_key(building, room)) not in planned:
                     result[str(pair)].setdefault(room_key(building, room), {"by": "schedule", "note": "Занятие по расписанию"})
     for pair, building, room, state, note in marks:
         for target in (BELLS if pair == 0 else (pair,)):
@@ -338,11 +345,11 @@ def occupancy(day, marks=()):
     return result
 
 
-def directory(day=None, marks=()):
+def directory(day=None, marks=(), lessons=None):
     return {
         "note": CAMPUS_NOTE,
         "bells": [{"pair": pair, "start": start, "end": end} for pair, (start, end) in BELLS.items()],
-        "busy": occupancy(day, marks) if day else {},
+        "busy": occupancy(day, marks, lessons) if day else {},
         "buildings": [{"id": key, **value} for key, value in BUILDINGS.items()],
         "rooms": [{"building": b, "room": r, "key": room_key(b, r), "kind": kind, "seats": seats, "hint": hint,
                    "floor": floor_of(r), "place": place(b, r), "named": (b, r) in ROOMS}
