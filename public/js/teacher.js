@@ -187,7 +187,7 @@ export function studentSheet(key) {
   const tasks = S.data.tasks.filter((x) => x.group === group).map((x) => ({x, sub: x.subs.find((y) => y.id === sid)}));
   return `<div class="sheet-in"><div class="sheet-top"><div class="who-line"><span class="face mono sm f${sid.charCodeAt(sid.length - 1) % 5}" aria-hidden="true">${esc(s.initials)}</span><div><p class="eyebrow">${esc(group)}</p><h2 id="sheet-title" class="title">${esc(s.name)}</h2></div></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
     ${offs.map((o) => { const x = S.data.journals[o.id].students.find((y) => y.id === sid); return `<dl class="facts"><div><dt>${esc(o.title)}</dt><dd>${x.points} баллов · ${x.points >= 60 ? 'допуск есть' : 'нет допуска'}</dd></div><div><dt>Посещаемость</dt><dd>${x.att === null ? 'нет отметок' : `${x.att}%`} · пропусков ${x.absent}, опозданий ${x.late}${x.excused ? `, по уважительной ${x.excused}` : ''}</dd></div></dl>`; }).join('')}
-    <div class="sheet-hw"><p class="eyebrow">Задания</p>${tasks.map(({x, sub}) => `<div class="mini-task"><span><strong>${esc(x.title)}</strong><span>${sub?.submitted ? `сдано${sub.at ? ` ${dayShort(sub.at.slice(0, 10))}` : ''}` : x.past ? 'не сдано' : 'ещё не сдано'}</span></span><b>${sub?.points ?? '—'}<small>/${x.points_max}</small></b></div>`).join('')}</div>
+    <div class="sheet-hw"><p class="eyebrow">Задания</p>${tasks.map(({x, sub}) => `<button class="mini-task" data-review="${esc(x.id)}"><span><strong>${esc(x.title)}</strong><span>${sub?.submitted ? `сдано${sub.at ? ` ${dayShort(sub.at.slice(0, 10))}` : ''}` : x.past ? 'не сдано' : 'ещё не сдано'}</span></span><b>${sub?.points ?? '—'}<small>/${x.points_max}</small></b></button>`).join('')}</div>
     ${s.login ? '<p class="cap">У студента есть личный кабинет: оценки, комментарии и посещаемость он видит сразу.</p>' : '<p class="cap">Демонстрационный студент без личного кабинета.</p>'}</div>`;
 }
 
@@ -292,4 +292,30 @@ export function changeSheet(id) {
       <div class="when-time"><label for="lf-pair">Новое время</label><select id="lf-pair" name="pair">${pairs}</select></div>
       <label for="lf-reason">Причина <span class="muted">(видна студентам)</span></label><input id="lf-reason" name="reason" required minlength="3" maxlength="200" placeholder="Например: нужен компьютерный класс">
       <p class="form-error" role="alert"></p><button class="btn block">Сохранить и уведомить студентов</button></form></div>`;
+}
+
+/* ---------- Поиск ---------- */
+export function searchSheet() {
+  return `<div class="sheet-in"><div class="sheet-top"><h2 id="sheet-title" class="title">Поиск</h2><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
+    <div class="search-box">${icon('search')}<input id="search-q" type="search" placeholder="Студент, задание, группа, аудитория" autocomplete="off" aria-label="Поиск по кабинету" enterkeyhint="search"></div>
+    <div id="search-results" class="results">${searchResults('')}</div></div>`;
+}
+export function searchResults(query) {
+  const q = query.trim().toLowerCase(), t = todayIso();
+  const res = (attrs, ico, title, sub) => `<${attrs.startsWith('href') ? 'a' : 'button'} class="res" ${attrs}><span class="ico">${icon(ico)}</span><span><strong>${title}</strong><span>${sub}</span></span></${attrs.startsWith('href') ? 'a' : 'button'}>`;
+  if (!q) {
+    const next = S.data.schedule.flatMap((d) => d.lessons.map((l) => ({...l, date: d.date}))).find((l) => l.date >= t && !l.cancelled);
+    return ['<p class="label">Частые действия</p>', res('data-newtask', 'tasks', 'Выдать задание', 'Одной или нескольким группам'), next ? res(`data-att="${esc(next.id)}"`, 'check', 'Отметить посещаемость', `${esc(cap(relativeDay(next.date, t)))}, ${next.start} · ${groupsLine(next)}`) : '', res('data-tannounce', 'megaphone', 'Сообщение группе', 'Попадёт в уведомления студентов'), res('href="#journal"', 'study', 'Журнал', 'Посещаемость и баллы')].join('');
+  }
+  const out = [];
+  const students = [];
+  for (const j of Object.values(S.data.journals)) for (const s of j.students) if (`${s.name} ${s.short} ${j.group}`.toLowerCase().includes(q) && !students.some((x) => x.s.id === s.id)) students.push({s, j});
+  const tasks = S.data.tasks.filter((x) => `${x.title} ${x.group} ${x.course_title}`.toLowerCase().includes(q));
+  const lessons = S.data.schedule.flatMap((d) => d.lessons.map((l) => ({...l, date: d.date}))).filter((l) => l.date >= t && `${l.title} ${l.place} ${l.groups.join(' ')} ${l.type}`.toLowerCase().includes(q));
+  const rooms = S.data.campus.rooms.filter((r) => `${r.building}${r.room} ${r.building}-${r.room} ${r.kind}`.toLowerCase().includes(q)).slice(0, 4);
+  if (students.length) out.push('<p class="label">Студенты</p>', ...students.slice(0, 6).map(({s, j}) => res(`data-stud="${esc(j.group)}|${esc(s.id)}"`, 'user', esc(s.name), `${esc(j.group)} · ${s.points} баллов · посещаемость ${s.att === null ? '—' : `${s.att}%`}`)));
+  if (tasks.length) out.push('<p class="label">Задания</p>', ...tasks.slice(0, 5).map((x) => res(`data-review="${esc(x.id)}"`, 'tasks', esc(x.title), `${esc(x.group)} · сдали ${x.submitted} из ${x.total} · проверено ${x.graded}`)));
+  if (lessons.length) out.push('<p class="label">Занятия</p>', ...lessons.slice(0, 4).map((l) => res(`data-lesson="${esc(l.id)}"`, 'schedule', esc(l.title), `${esc(cap(relativeDay(l.date, t)))}, ${l.start} · ${groupsLine(l)} · ${esc(l.place)}`)));
+  if (rooms.length) out.push('<p class="label">Аудитории</p>', ...rooms.map((r) => res(`data-goto-room="${esc(r.key)}"`, 'building', `Корпус ${esc(r.building)}, ауд. ${esc(r.room)}`, `${esc(r.kind)} · ${r.floor} этаж`)));
+  return out.length ? out.join('') : empty('search', 'Ничего не найдено', 'Попробуйте фамилию студента, название задания или номер аудитории.');
 }

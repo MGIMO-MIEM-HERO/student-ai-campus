@@ -44,7 +44,7 @@ function shell(content, key) {
       const b = badge(id);
       return `<li><a href="#${id}" ${id === navKey ? 'aria-current="page"' : ''}>${icon(ico)}<span>${label}</span>${b ? `<span class="badge" aria-label="${b} новых">${b}</span>` : ''}</a></li>`;
     }).join('')}</ul></nav><span class="grow"></span>
-    ${staff || isTeacher() ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button><a class="icon-btn" href="#notices" aria-label="Уведомления${stu.unreadCount() ? `, непрочитанных: ${stu.unreadCount()}` : ''}">${icon('bell')}${stu.unreadCount() ? `<span class="badge">${stu.unreadCount()}</span>` : ''}</a>`}
+    ${staff ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button>${isTeacher() ? '' : `<a class="icon-btn" href="#notices" aria-label="Уведомления${stu.unreadCount() ? `, непрочитанных: ${stu.unreadCount()}` : ''}">${icon('bell')}${stu.unreadCount() ? `<span class="badge">${stu.unreadCount()}</span>` : ''}</a>`}`}
     <a class="avatar" href="#profile" aria-label="Профиль: ${esc(name)}">${S.data.profile.photo ? `<img src="${esc(S.data.profile.photo)}" alt="" width="38" height="38">` : esc(name[0])}</a></div></header>
   <div class="wrap"><main id="main" tabindex="-1">${content}</main></div>${footer()}`;
 }
@@ -135,7 +135,7 @@ function openSheet(html) {
 }
 function closeSheet() { if (sheet.open) sheet.close(); }
 sheet.addEventListener('close', () => { sheetBody.innerHTML = ''; if (lastFocus?.isConnected) lastFocus.focus(); });
-function openSearch() { if (!S.data || isStaff() || isTeacher()) return; openSheet(stu.searchSheet()); document.querySelector('#search-q')?.focus(); }
+function openSearch() { if (!S.data || isStaff()) return; openSheet((isTeacher() ? tch : stu).searchSheet()); document.querySelector('#search-q')?.focus(); }
 
 function setData(next) { S.data = next; indexLessons(); }
 function resetUi() { Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
@@ -307,7 +307,7 @@ document.addEventListener('submit', async (event) => {
 });
 document.addEventListener('input', (event) => {
   if (event.target.id === 'room-q') { S.roomQuery = event.target.value; const box = document.querySelector('#rooms-list'); if (box) box.innerHTML = stu.roomsFiltered(); }
-  if (event.target.id === 'search-q') { const box = document.querySelector('#search-results'); if (box) box.innerHTML = stu.searchResults(event.target.value); }
+  if (event.target.id === 'search-q') { const box = document.querySelector('#search-results'); if (box) box.innerHTML = (isTeacher() ? tch : stu).searchResults(event.target.value); }
 });
 document.addEventListener('keydown', (event) => {
   const typing = event.target.matches?.('input,textarea,select');
