@@ -21,7 +21,7 @@ const APPEAL_HINT = {'Принята': 'Обращение получено де
 const hintFor = (r) => (r.kind === APPEAL ? APPEAL_HINT : STATUS_HINT)[r.status] || '';
 const TAG_TONE = {'Расписание': 'marigold', 'Деканат': 'periwinkle', 'Дедлайн': 'papaya', 'Мероприятие': 'mint', 'Преподаватель': 'sky', 'Оценка': 'mint', 'Задание': 'sky'};
 const TYPE_TONE = {'Лекция': 't-lec', 'Семинар': 't-sem', 'Практика': 't-prac', 'Лабораторная работа': 't-lab'};
-export const QUESTIONS = ['Какие пары сегодня?', 'Что завтра?', 'Есть ли изменения в расписании?', 'Когда сессия?', 'Как заказать справку?'];
+export const QUESTIONS = ['Какие пары сегодня?', 'Что завтра?', 'Какие задания на неделю?', 'Есть ли изменения в расписании?', 'Когда консультации?', 'Когда сессия?', 'Как заказать справку?'];
 
 export const nowIso = () => mskNow().date;
 const day = (iso) => S.data.schedule.find((d) => d.date === iso);
@@ -476,7 +476,7 @@ export function roomsFiltered() {
 
 /* ---------- Помощник, профиль ---------- */
 export function viewAssistant() {
-  return `<div class="page">${head('Помощник', 'Справочный помощник', 'Отвечает по вашему расписанию, срокам контроля и порядку оформления документов.')}
+  return `<div class="page">${head('Помощник', 'Справочный помощник', 'Отвечает по вашему расписанию, заданиям и срокам, консультациям, контролю и порядку оформления документов.')}
     <section class="card"><div class="stack"><div class="row"><p class="title">Беседа</p><span class="tag periwinkle">${S.data.ai_live ? 'ИИ подключён' : 'Справочный режим'}</span></div>
     <div class="messages" role="log" aria-label="Сообщения помощника" aria-live="polite" aria-busy="${S.busy}">${S.messages.length ? S.messages.map((m) => `<div class="msg ${m.from === 'user' ? 'me' : ''}"><small>${m.from === 'user' ? 'Вы' : 'Помощник'}</small>${esc(m.text)}</div>`).join('') : empty('chat', 'Задайте вопрос', 'Например: «Что завтра?» или «Есть ли изменения в расписании?»')}</div>
     <div class="chips">${QUESTIONS.map((q, i) => `<button class="chip" data-question="${i}" ${S.busy ? 'disabled' : ''}>${q}</button>`).join('')}</div>

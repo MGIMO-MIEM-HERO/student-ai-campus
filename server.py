@@ -342,6 +342,20 @@ def assistant_answer(question, data):
             rows.append(f"• {l['pair']} пара, {l['start']}–{l['end']}: {l['title']}, {l['type'].lower()}, {l['place']}{mark}{note}.")
         return "\n".join(rows)
 
+    if any(x in q for x in ("задани", "домашк", "дз", "сдать", "задал")):
+        active = [h for h in data.get("homework", []) if h["status"] in ("todo", "overdue")]
+        if not active:
+            return "Активных заданий нет. Проверенные работы с баллами — в разделе «Задания»."
+        return "Задания:\n" + "\n".join(
+            f"• {h['course_title']}: {h['title']} — {'просрочено' if h['status'] == 'overdue' else 'срок'} "
+            f"{h['due_date'][8:10]}.{h['due_date'][5:7]}, {h['due_time']}" for h in active[:6])
+    if "консультац" in q:
+        mine = [(t["short"], d["date"], s["time"], d["place"]) for t in data.get("teachers", [])
+                for d in data.get("consults", {}).get(t["key"], []) for s in d["slots"] if s["state"] == "mine"]
+        if mine:
+            return "Ваши записи:\n" + "\n".join(f"• {n}: {d[8:10]}.{d[5:7]}, {tm}, {p}" for n, d, tm, p in mine)
+        return "Записаться можно из карточки преподавателя: «Сегодня» или «Учёба» → «Консультация». Часы приёма:\n" + "\n".join(
+            f"• {t['short']}: {t['hours']}" for t in data.get("teachers", []))
     if any(x in q for x in ("справк", "заявк", "деканат")):
         return "Откройте раздел «Заявки», выберите тип документа и отправьте заявку. Статус и комментарии деканата будут в истории заявки."
     if any(x in q for x in ("сесси", "экзамен", "оцен", "балл", "зачёт", "зачет")):
@@ -355,7 +369,7 @@ def assistant_answer(question, data):
         return "Завтра:\n" + describe(days.get(tomorrow))
     if any(x in q for x in ("пар", "занят", "распис", "сегодня")):
         return "Сегодня:\n" + describe(days.get(today_iso))
-    return "Могу подсказать расписание на сегодня и завтра, изменения, даты контроля и порядок заказа справки."
+    return "Могу подсказать расписание на сегодня и завтра, задания и сроки, изменения, даты контроля, консультации и порядок заказа справки."
 
 
 class Handler(BaseHTTPRequestHandler):
