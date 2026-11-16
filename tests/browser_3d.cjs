@@ -11,7 +11,11 @@ async function ready(page, count) {
   if(count===2) {
     await page.locator('.floor-model').scrollIntoViewIfNeeded();
     await page.waitForSelector('.floor-model[data-ready="true"]');
-  } else await page.waitForSelector('[data-ready="true"]');
+  } else {
+    // On phones the sign-in form comes first; the lazy model starts when scrolled into view.
+    await page.locator('[data-scene="territory"]').scrollIntoViewIfNeeded();
+    await page.waitForSelector('[data-ready="true"]');
+  }
 }
 async function main() {
   const browser = await chromium.launch({executablePath, headless:true, args:['--no-sandbox','--enable-unsafe-swiftshader']});
@@ -124,6 +128,7 @@ async function main() {
   try {
     const page=await fallbackBrowser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce'});
     await page.goto(base);
+    await page.locator('[data-scene="territory"]').scrollIntoViewIfNeeded();
     await page.waitForSelector('.scene-unavailable');
     assert.ok(await page.locator('.territory-fallback').isVisible());
     await page.locator('[data-demo="alina"]').click();await page.waitForSelector('.topbar');

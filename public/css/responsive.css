@@ -1,0 +1,175 @@
+/* Shared responsive rules, loaded after component styles. Keep wide content in its own scroller. */
+:root{--page-gutter:clamp(16px,4vw,40px)}
+body,.login,.about{min-height:100svh}
+.wrap,.foot,.about-main{padding-inline:max(var(--page-gutter),env(safe-area-inset-left)) max(var(--page-gutter),env(safe-area-inset-right))}
+.topbar-in{padding-left:max(var(--page-gutter),env(safe-area-inset-left));padding-right:max(var(--page-gutter),env(safe-area-inset-right))}
+.topbar{padding-top:env(safe-area-inset-top)}
+.page,.sec,.sheet-in{grid-template-columns:minmax(0,1fr)}
+.page-head-copy,.sheet-top>div,.tcard,.tcard-body,.course-info,form,.form-row>div,.checks{min-width:0}
+input,select,textarea{min-width:0;max-width:100%}
+.page-head h1,.sheet-top,.profile dd,.req,.quote,.news,.tfacts,.navigation-context,.navigation-map-caption{overflow-wrap:anywhere}
+.cap a{overflow-wrap:anywhere}
+.form-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+.carousel{min-width:0;scroll-padding-inline:2px}
+.tcard>.chips{flex-wrap:wrap}
+.tcard>.chips .btn{flex:1 1 130px;max-width:100%;white-space:normal}
+.jr-scroll,.strip,.plan-scroll{min-width:0;max-width:100%;overscroll-behavior-x:contain}
+.login-mobile-brand{display:none}
+dialog.sheet{max-height:calc(var(--viewport-height,100dvh) - 24px);overscroll-behavior:contain;scroll-padding-block:96px 24px}
+.sheet-close{width:44px;height:44px}
+.sheet-top{position:sticky;top:0;z-index:3;background:var(--surface);padding-bottom:12px}
+html:has(dialog[open]),html:has(.lib-dialog-open){overflow:hidden}
+.lib-sheet{top:var(--viewport-top,0px);bottom:var(--viewport-bottom,0px)}
+@media(min-width:960px){.login-side{order:-1}}
+@media(pointer:coarse){
+  .btn,.btn.sm,.chip,.link,.icon-btn,.hw-check,.att-seg button,.grade-form .btn,.grade-form input,.lib-tabs button,.lib-line button,.check,.slot,.model-controls button,.model-modes button,.model-tour{min-height:44px}
+  .btn,.chip,.link,.att-seg button{min-width:44px}
+  .icon-btn,.hw-check,.grade-form .btn{width:44px}
+  .avatar,.wing-list button,.territory-compact .wing-list button{width:44px;height:44px}
+  .jr button.jm{width:44px;height:44px}
+  .lib-caption>button{flex-basis:44px;width:44px;height:44px}
+  input,select,textarea,.grade-form input{font-size:16px}
+}
+
+/* Phones and portrait tablets: a compact header and persistent, safe-area-aware tabs. */
+@media(max-width:959px){
+  html{scroll-padding-top:calc(80px + env(safe-area-inset-top))}
+  .topbar-in{gap:6px;min-height:64px}
+  .topbar .brand{min-width:0;gap:8px}
+  .topbar .brand b{font-size:23px}
+  .topbar .brand img{width:34px;height:34px}
+  .topbar .grow{min-width:0}
+  .icon-btn{width:44px;height:44px}
+  .nav{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}
+  .nav ul{grid-auto-columns:minmax(0,1fr)}
+  .nav li,.nav a{min-width:0}
+  .nav a{min-height:60px;gap:4px;padding:9px 1px;font-size:11px;letter-spacing:0}
+  .nav-label{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  [data-keyboard-open] .nav{display:none}
+  .wrap{padding-top:28px;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .page{gap:40px}
+  .cols,.stack.lg{gap:32px}
+  .login-main{padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-left)) 32px max(20px,env(safe-area-inset-right));gap:24px;align-content:start}
+  .login-mobile-brand{display:block;width:100%;max-width:420px}
+  .login-side.sky{margin-top:0;min-height:0}
+  .login-side .territory-compact{align-self:start}
+  .login-main .disclaimer{max-width:420px}
+  #campus-map,.navigation-panel{scroll-margin-top:calc(80px + env(safe-area-inset-top))}
+  .about-hero{padding-top:max(28px,env(safe-area-inset-top))}
+  .lib-tabs button{min-height:44px}
+  .lib-caption>button{flex-basis:44px;width:44px;height:44px}
+  .lib-sheet{padding: max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+  .lib-line{overflow-wrap:anywhere}
+}
+
+/* Avoid squeezing the full desktop navigation and search into a tablet header. */
+@media(min-width:960px) and (max-width:1399px){
+  .topbar-in{flex-wrap:wrap;gap:8px 16px;padding-top:10px}
+  .topbar-in>.nav{order:1;width:100%}
+  .nav ul{justify-content:center;flex-wrap:wrap}
+  .topbar .brand small{display:none}
+  .topbar .brand b{font-size:24px}
+  html{scroll-padding-top:136px}
+  .tasks-side{top:136px}
+  #campus-map,.navigation-panel{scroll-margin-top:136px}
+}
+
+@media(max-width:599px){
+  .card{padding:20px}
+  .card.flush{padding:0}
+  .card.wk-card{padding:16px}
+  .sec{gap:18px}
+  .sec-head h2{font-size:26px}
+  .btn,.btn.sm,.chip,.link,.hw-check,.att-seg button,.grade-form .btn,.grade-form input{min-height:44px}
+  .hw-check{width:44px}
+  input,select,textarea,.grade-form input{font-size:16px}
+  .btn{max-width:100%;white-space:normal;text-align:center}
+  .tag{max-width:100%;white-space:normal}
+  .now{padding:22px}
+  .now-time{font-size:clamp(30px,9vw,46px)}
+  .now-meta>span{max-width:100%;overflow-wrap:anywhere}
+  .now-meta svg{flex:none}
+  .mini-l{grid-template-columns:48px minmax(0,1fr) auto;gap:10px;padding:12px}
+  .mini-l .face{width:24px;height:24px}
+  .lesson{grid-template-columns:54px minmax(0,1fr) 14px;gap:10px;padding:18px 14px}
+  .l-time b{font-size:23px}
+  .l-title{font-size:16px}
+  .days{gap:4px}
+  .day{min-height:68px}
+  .day .chg{top:5px;right:4px}
+  .stat,.stat:nth-child(n){padding:18px 16px;gap:10px}
+  .num{font-size:40px}
+  .course-head{gap:12px}
+  .form-row{grid-template-columns:minmax(0,1fr)}
+  .sheet-in{padding:0 20px max(24px,env(safe-area-inset-bottom));gap:16px}
+  .sheet-top{position:sticky;top:0;z-index:3;background:var(--surface);padding-block:18px 12px;align-items:flex-start}
+  .sheet-top .title{font-size:23px}
+  .sheet-top .face{display:none}
+  .sheet-top .who-line{gap:0}
+  .grade-form{flex-wrap:wrap}
+  .grade-form input[name="comment"]{flex-basis:calc(100% - 54px);order:1}
+  .grade-form .btn{order:2;width:44px;flex:none}
+  .grade-form input[name="points"]{width:76px}
+  .jr .jr-name{min-width:112px;max-width:140px}
+  .jr-stud{min-height:44px;white-space:normal;overflow-wrap:anywhere}
+  .jr button.jm{width:44px;height:44px}
+  .cs-list li{grid-template-columns:44px minmax(0,1fr);gap:8px}
+  .cs-list li>.tag{grid-column:2;justify-self:start}
+  .ask{grid-template-columns:minmax(0,1fr)}
+  .ask .btn{justify-self:end}
+  .messages{max-height:min(460px,55svh)}
+  .idcard{padding:22px}
+  .idcard .grid{grid-template-columns:minmax(0,1fr);gap:20px}
+  .facts>div{grid-template-columns:minmax(0,1fr);gap:4px}
+  .paper-doc{padding:32px 20px}
+  .lib-tabs{width:calc(100% - 24px);max-width:none;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .lib-tabs button{flex:1 0 auto;padding:10px 12px;font-size:12px;white-space:nowrap}
+  .lib-caption{gap:8px}
+  .lib-sheet{grid-template-columns:minmax(0,1fr)}
+  .lib-sheet-copy{align-self:start}
+  .lib-line [data-lib-line]:has(button){display:flex;flex-wrap:wrap;gap:8px}
+  .lib-line button{min-height:44px;max-width:100%}
+}
+
+@media(max-width:699px), (max-height:500px){
+  dialog.sheet{inset-block:calc(var(--viewport-top,0px) + env(safe-area-inset-top) + 8px) var(--viewport-bottom,0px);margin:auto auto 0;max-height:calc(var(--viewport-height,100dvh) - env(safe-area-inset-top) - 16px);max-width:600px;width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right))}
+}
+
+/* Narrow phones and split-screen windows retain every action without page-level scrolling. */
+@media(max-width:359px){
+  .topbar-in{padding-inline:max(10px,env(safe-area-inset-left)) max(10px,env(safe-area-inset-right));gap:2px}
+  .topbar .brand b{font-size:21px}
+  .topbar .brand img{width:30px;height:30px}
+  .topbar .brand{gap:6px}
+  .nav a{font-size:10px}
+  .card,.campus-card{padding:16px}
+  .card.flush{padding:0}
+  .now{padding:20px}
+  .carousel{grid-auto-columns:92%}
+  .tcard{padding-inline:18px}
+  .course-head{grid-template-columns:minmax(0,1fr)}
+  .course-head .ring-wrap{justify-self:start}
+  .att-seg{flex-wrap:wrap}
+  .att-seg button{flex:1 1 80px}
+}
+
+@media(max-width:599px){
+  .model-controls{left:12px;right:12px;max-width:none;justify-content:center;flex-wrap:wrap}
+  .model-controls button{min-width:44px;min-height:44px;padding-inline:8px}
+  .wing-list{flex-wrap:wrap}
+  .wing-list button,.territory-compact .wing-list button{width:44px;height:44px}
+}
+.model-view{container-type:inline-size}
+@container(max-width:340px){
+  .model-controls{gap:2px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .model-controls button{min-width:0;min-height:44px}
+  .model-controls button:last-child{grid-column:span 2}
+  .model-tour{bottom:126px}
+}
+@media(max-height:500px) and (max-width:959px){
+  .topbar{position:relative}
+  .topbar-in{min-height:52px}
+  .nav a{min-height:52px;padding-block:5px}
+  .wrap{padding-top:20px}
+  .sheet-in{padding-bottom:max(16px,env(safe-area-inset-bottom))}
+}
