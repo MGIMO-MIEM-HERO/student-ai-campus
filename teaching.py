@@ -35,11 +35,24 @@ def lessons_between(group, course, start, end):
     return out
 
 
-def upcoming_lessons(group, course, today, schedule=None):
+def lesson_overrides(db, group):
+    """Изменения занятий группы, внесённые преподавателем: {id занятия: изменение}."""
+    result = {}
+    for r in db.execute("SELECT * FROM lesson_changes WHERE group_name=?", (group,)):
+        spec = {"kind": r["kind"], "reason": r["reason"], "at": r["at"]}
+        if r["kind"] == "room":
+            spec.update(building=r["building"], room=r["room"])
+        elif r["kind"] == "time":
+            spec["pair"] = r["pair"]
+        result[r["lesson_id"]] = spec
+    return result
+
+
+def upcoming_lessons(group, course, today, schedule=None, db=None):
     """Будущие занятия (после сегодняшнего дня) с учётом отмен и переносов, если они известны."""
     login = cd.GROUP_LOGIN.get(group)
     if login:
-        schedule = schedule or cd.build_schedule(login, today)
+        schedule = schedule or cd.build_schedule(login, today, lesson_overrides(db, group) if db else None)
         return [dict(l, date=d["date"]) for d in schedule if d["date"] > today.isoformat()
                 for l in d["lessons"] if l["course"] == course and not l["cancelled"]]
     return lessons_between(group, course, today + timedelta(days=1), today + timedelta(days=21))
@@ -138,7 +151,7 @@ def group_tasks(db, group, today, schedule=None):
     for task_id, course, title, text, due, kind, points_max, graded in _seeded_tasks(group):
         lesson_id, due_time = None, "23:59"
         if due[0] == "lesson":
-            found = upcoming_lessons(group, course, today, schedule)
+            found = upcoming_lessons(group, course, today, schedule, db)
             if len(found) >= due[1]:
                 lesson = found[due[1] - 1]
                 due_date, due_time, lesson_id = lesson["date"], lesson["start"], lesson["id"]
@@ -247,7 +260,7 @@ def create_task(db, teacher_key, body, today, at):
     for group in groups:
         lesson_id, due_time = None, "23:59"
         if due_mode == "lesson":
-            found = upcoming_lessons(group, course, today)
+            found = upcoming_lessons(group, course, today, None, db)
             if not found:
                 raise ValueError()
             due_date, due_time, lesson_id = found[0]["date"], found[0]["start"], found[0]["id"]
@@ -291,21 +304,26 @@ def set_grade(db, teacher_key, body, today, at):
 
 
 # ---------- кабинет преподавателя ----------
-def teacher_schedule(teacher_key, today):
+def teacher_schedule(teacher_key, today, db=None):
     """Две недели занятий преподавателя; лекции потока объединены в одну строку с несколькими группами."""
     monday = today - timedelta(days=today.weekday())
     merged = {}
     for offering in cd.teacher_offerings(teacher_key):
         group, course = offering["group"], offering["course"]
         login = cd.GROUP_LOGIN.get(group)
+        overrides = lesson_overrides(db, group) if db else {}
         if login:
-            days = cd.build_schedule(login, today)
+            days = cd.build_schedule(login, today, overrides)
             lessons = [dict(l, date=d["date"]) for d in days for l in d["lessons"] if l["course"] == course]
         else:
-            lessons = [dict(l, course=course, title=offering["title"], cancelled=False, change=None)
+            lessons = [dict(l, course=course, title=offering["title"], cancelled=False, change=None,
+                            teacher=cd.teacher(teacher_key))
                        for l in lessons_between(group, course, monday, monday + timedelta(days=13))]
+            for l in lessons:
+                if l["id"] in overrides:
+                    cd._apply_change(l, overrides[l["id"]], None, today)
         for l in lessons:
-            key = (l["date"], l["pair"], course, l.get("building"), l.get("room"))
+            key = (l["date"], l["id"], course)
             entry = merged.setdefault(key, {k: l.get(k) for k in ("id", "course", "title", "type", "pair", "start", "end",
                                                                    "building", "room", "floor", "place", "format",
                                                                    "cancelled", "change")} | {"date": l["date"], "groups": []})
@@ -335,3 +353,30 @@ def teacher_tasks(db, teacher_key, today, now_minutes):
                 "past": _past(task, today.isoformat(), now_minutes)})
     out.sort(key=lambda t: (t["past"] and t["graded"] >= t["submitted"], t["due_date"], t["due_time"]))
     return out
+
+
+def change_lesson(db, teacher_key, body, today, at):
+    """Перенос в другую аудиторию, на другую пару, отмена или возврат к расписанию для всех групп занятия."""
+    lesson_id, kind, reason = body.get("lesson_id"), body.get("kind"), body.get("reason", "")
+    lesson = next((l for d in teacher_schedule(teacher_key, today, db) for l in d["lessons"] if l["id"] == lesson_id), None)
+    if not lesson or lesson["date"] < today.isoformat() or kind not in ("room", "time", "cancel", "restore"):
+        raise ValueError()
+    if kind == "restore":
+        for group in lesson["groups"]:
+            db.execute("DELETE FROM lesson_changes WHERE lesson_id=? AND group_name=?", (lesson_id, group))
+        return
+    if not isinstance(reason, str) or not 3 <= len(reason.strip()) <= 200:
+        raise ValueError()
+    pair, building, room = None, None, None
+    if kind == "room":
+        building, room = body.get("building"), body.get("room")
+        info = cd.ALL_ROOMS.get((building, room))
+        if not info or not info[1]:
+            raise ValueError()
+    elif kind == "time":
+        pair = body.get("pair")
+        if pair not in cd.BELLS or isinstance(pair, bool):
+            raise ValueError()
+    for group in lesson["groups"]:
+        db.execute("INSERT OR REPLACE INTO lesson_changes VALUES (?,?,?,?,?,?,?,?,?)",
+                   (lesson_id, group, kind, pair, building, room, reason.strip(), teacher_key, at))

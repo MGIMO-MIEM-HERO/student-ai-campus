@@ -174,7 +174,7 @@ function showRoom(key) {
 }
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf]';
+const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -190,6 +190,8 @@ document.addEventListener('click', async (event) => {
     if (d.copy) { try { await navigator.clipboard.writeText(d.copy); flash('Ссылка проверки скопирована.'); } catch { flash('Не удалось скопировать. Выделите ссылку вручную.'); } return; }
     if (d.lesson) return openSheet(isTeacher() ? tch.lessonSheet(d.lesson) : stu.lessonSheet(d.lesson));
     if (d.att) return openSheet(tch.attSheet(d.att));
+    if (d.chg) return openSheet(tch.changeSheet(d.chg));
+    if (d.restore) { el.disabled = true; return await mutate('teacher/lesson', {lesson_id: d.restore, kind: 'restore'}, () => { openSheet(tch.lessonSheet(d.restore)); flash('Занятие вернулось в расписание как было. Студенты увидят это сразу.'); }); }
     if (d.review) return openSheet(tch.reviewSheet(d.review));
     if (d.newtask !== undefined) return openSheet(tch.taskFormSheet(d.newtask));
     if (d.tannounce !== undefined) return openSheet(tch.announceSheet());
@@ -267,6 +269,12 @@ document.addEventListener('submit', async (event) => {
       return flash('Заявка отправлена. Статус отображается в истории заявок.');
     }
     if (form.id === 'announce-form') { await mutate('staff/announcements', fields); return flash('Объявление опубликовано.'); }
+    if (form.id === 'lesson-form') {
+      const [building, room] = String(fields.room || '|').split('|');
+      const body = {lesson_id: form.dataset.lid, kind: fields.kind, reason: fields.reason || '', building, room, pair: Number(fields.pair)};
+      await mutate('teacher/lesson', body, () => openSheet(tch.lessonSheet(form.dataset.lid)));
+      return flash(fields.kind === 'cancel' ? 'Занятие отменено. Студенты получили уведомление.' : 'Изменение сохранено. Студенты получили уведомление.');
+    }
     if (form.id === 'tannounce-form') { await mutate('teacher/announce', fields, closeSheet); return flash('Сообщение отправлено группе.'); }
     if (form.id === 'task-form') {
       const data = new FormData(form);
@@ -277,8 +285,8 @@ document.addEventListener('submit', async (event) => {
     }
     if (form.classList.contains('grade-form')) {
       const raw = String(fields.points ?? '').trim();
-      const body = {task_id: form.dataset.task, student_id: form.dataset.student, points: raw === '' ? null : Number(raw), comment: fields.comment || ''};
-      await mutate('teacher/grade', body, () => { openSheet(tch.reviewSheet(form.dataset.task)); sheetBody.querySelector(`.grade-form[data-student="${CSS.escape(body.student_id)}"] input`)?.focus(); });
+      const body = {task_id: form.dataset.gtask, student_id: form.dataset.student, points: raw === '' ? null : Number(raw), comment: fields.comment || ''};
+      await mutate('teacher/grade', body, () => { openSheet(tch.reviewSheet(form.dataset.gtask)); sheetBody.querySelector(`.grade-form[data-student="${CSS.escape(body.student_id)}"] input`)?.focus(); });
       return flash(body.points === null && !body.comment ? 'Оценка снята.' : 'Оценка сохранена.');
     }
     if (form.id === 'room-form') {

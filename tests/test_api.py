@@ -301,6 +301,25 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(teacher.call("/api/teacher/tasks/delete", {"id": task["id"]})[0], 200)
         self.assertNotIn(task["id"], {h["id"] for h in alina.call("/api/dashboard")[1]["homework"]})
 
+    def test_teacher_lesson_change_reaches_students(self):
+        teacher, alina, mark = self.client("vetrova"), self.client("alina"), self.client("mark")
+        data = teacher.call("/api/dashboard")[1]
+        today = data["today"]
+        lesson = next(l for d in data["schedule"] if d["date"] > today for l in d["lessons"] if "ПИ-241" in l["groups"])
+        body = {"lesson_id": lesson["id"], "kind": "room", "building": "Б", "room": "410", "reason": "Нужен проектор"}
+        self.assertEqual(teacher.call("/api/teacher/lesson", {**body, "room": "999"})[0], 400)
+        self.assertEqual(teacher.call("/api/teacher/lesson", {**body, "reason": ""})[0], 400)
+        self.assertEqual(mark.call("/api/teacher/lesson", body)[0], 403)
+        self.assertEqual(teacher.call("/api/teacher/lesson", body)[0], 200)
+        student = alina.call("/api/dashboard")[1]
+        moved = next(l for d in student["schedule"] for l in d["lessons"] if l["id"] == lesson["id"])
+        self.assertEqual((moved["building"], moved["room"], moved["change"]["label"]), ("Б", "410", "Новая аудитория"))
+        self.assertTrue(any(n["tag"] == "Расписание" and "Нужен проектор" in n["body"] for n in student["notices"]))
+        self.assertNotIn(lesson["id"], {l["id"] for d in mark.call("/api/dashboard")[1]["schedule"] for l in d["lessons"]})
+        self.assertEqual(teacher.call("/api/teacher/lesson", {"lesson_id": lesson["id"], "kind": "restore"})[0], 200)
+        restored = next(l for d in alina.call("/api/dashboard")[1]["schedule"] for l in d["lessons"] if l["id"] == lesson["id"])
+        self.assertIsNone(restored["change"])
+
     def test_mark_has_a_risk_course(self):
         grades = self.client("mark").call("/api/dashboard")[1]["grades"]
         self.assertTrue(any(g["result"] == "Нет допуска" for g in grades))

@@ -1019,3 +1019,7 @@ i.jm.m-p::after{width:6px;height:6px}
 .sky .now-meta span,.sky .now-who{color:var(--ink)}
 @media (min-width:960px){.login-side{grid-template-rows:auto auto 1fr}.login-side .hero-ui{align-self:end;margin-top:0}}
 @media (max-width:700px){.jr .jr-name{min-width:128px;padding-right:6px}.jr-stud .face{display:none}.jm{width:24px;height:24px}}
+#lesson-form:not(:has(input[value="room"]:checked)) .when-room,#lesson-form:not(:has(input[value="time"]:checked)) .when-time{display:none}
+.when-room,.when-time{display:grid;gap:6px}
+.mini-l em{font-style:normal;font-weight:600}
+.mini-l em.chg-warn{color:var(--warn)}.mini-l em.chg-bad{color:var(--bad)}

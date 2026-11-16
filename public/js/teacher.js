@@ -3,6 +3,7 @@ import {S} from './state.js';
 import {icon} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, weekdayShort, cap, count, plural, duration, relativeDay, daysBetween, fmt, stamp} from './util.js';
 import {weekGrid} from './viz.js';
+import {roomState, roomByKey} from './campus.js';
 import {head, secHead, empty, face, clockText} from './student.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['journal', 'Журнал', 'study'], ['tasks', 'Задания', 'tasks'], ['rooms', 'Аудитории', 'building']];
@@ -72,7 +73,7 @@ function nowCard() {
 }
 function miniLesson(l, iso) {
   const t = mskNow(), tally = iso <= t.date ? lessonTally(l) : null;
-  return `<button class="mini-l ${l.cancelled ? 'is-cancelled' : ''} ${isNow(l, iso, t) ? 'is-now' : ''}" data-lesson="${esc(l.id)}"><b>${l.start}</b><span><strong>${esc(l.title)}</strong><span>${esc(l.type)} · ${groupsLine(l)} · ${where(l)}</span></span>${tally ? `<span class="tally sm ${tally.marked ? 'ok' : ''}" title="Посещаемость">${tally.marked ? `${tally.present}/${tally.total}` : '—'}</span>` : ''}</button>`;
+  return `<button class="mini-l ${l.cancelled ? 'is-cancelled' : ''} ${isNow(l, iso, t) ? 'is-now' : ''}" data-lesson="${esc(l.id)}"><b>${l.start}</b><span><strong>${esc(l.title)}</strong><span>${l.change ? `<em class="chg-${l.cancelled ? 'bad' : 'warn'}">${esc(l.change.label)}</em> · ` : ''}${esc(l.type)} · ${groupsLine(l)} · ${where(l)}</span></span>${tally ? `<span class="tally sm ${tally.marked ? 'ok' : ''}" title="Посещаемость">${tally.marked ? `${tally.present}/${tally.total}` : '—'}</span>` : ''}</button>`;
 }
 export function viewToday() {
   const t = todayIso(), s = S.data.semester, today = day(t)?.lessons || [];
@@ -148,10 +149,11 @@ export function lessonSheet(id) {
   const row = (k, v) => (v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : '');
   return `<div class="sheet-in"><div class="sheet-top"><div><p class="eyebrow">${esc(cap(dayLong(l.date)))} · ${l.start}–${l.end}</p><h2 id="sheet-title" class="title">${esc(l.title)}</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
     <div class="chips"><span class="tag">${esc(l.type)}</span>${groupPills(l.groups)}${l.cancelled ? '<span class="tag papaya">Отменено</span>' : ''}</div>
+    ${l.change ? `<div class="l-diff ${l.cancelled ? 'cancel' : ''}"><b>${esc(l.change.label)}.</b> ${l.cancelled ? '' : `Было: ${esc(l.change.was)}. Стало: ${esc(l.change.now)}. `}${esc(l.change.reason)}. Студенты получили уведомление.</div>` : ''}
     <dl class="facts">${row('Время', `${l.start}–${l.end}, ${l.pair} пара`)}${row('Место', where(l))}${row('Группы', `${groupsLine(l)}, ${count(l.students, ['студент', 'студента', 'студентов'])}`)}
       ${row('Посещаемость', tally ? (tally.marked ? `присутствовало ${tally.present} из ${tally.total}` : 'ещё не отмечена') : 'отмечается в день занятия')}</dl>
     ${tasks.length ? `<div class="sheet-hw"><p class="eyebrow">Задания к этому занятию</p>${tasks.map(taskCard).join('')}</div>` : ''}
-    <div class="chips">${tally ? `<button class="btn sm" data-att="${esc(l.id)}">${icon('check')}Посещаемость</button>` : ''}<button class="btn ghost sm" data-newtask="${esc(l.course)}:${esc(l.groups[0])}">${icon('tasks')}Задание</button>${l.building ? `<button class="btn ghost sm" data-goto-room="${esc(l.building)}-${esc(l.room)}">${icon('building')}На схеме</button>` : ''}</div></div>`;
+    <div class="chips">${tally ? `<button class="btn sm" data-att="${esc(l.id)}">${icon('check')}Посещаемость</button>` : ''}<button class="btn ghost sm" data-newtask="${esc(l.course)}:${esc(l.groups[0])}">${icon('tasks')}Задание</button>${l.date >= t ? (l.change ? `<button class="btn ghost sm" data-restore="${esc(l.id)}">${icon('swap')}Вернуть как было</button>` : `<button class="btn ghost sm" data-chg="${esc(l.id)}">${icon('swap')}Изменить занятие</button>`) : ''}${l.building ? `<button class="btn ghost sm" data-goto-room="${esc(l.building)}-${esc(l.room)}">${icon('building')}На схеме</button>` : ''}</div></div>`;
 }
 
 /* ---------- Журнал ---------- */
@@ -219,7 +221,7 @@ export function reviewSheet(id) {
   const rows = roster.map((p) => {
     const sub = x.subs.find((y) => y.id === p.id) || {};
     return `<li class="${sub.submitted ? 'is-sub' : ''}"><span class="face mono sm f${p.id.charCodeAt(p.id.length - 1) % 5}" aria-hidden="true">${esc(p.initials)}</span><span class="att-name"><strong>${esc(p.name)}</strong><span>${sub.submitted ? `сдано${sub.at ? ` ${esc(stamp(sub.at))}` : ''}` : x.past ? 'не сдано' : 'ещё не сдано'}</span></span>
-      <form class="grade-form" data-task="${esc(x.id)}" data-student="${esc(p.id)}"><input name="points" type="number" inputmode="numeric" min="0" max="${x.points_max}" value="${sub.points ?? ''}" placeholder="—" aria-label="Баллы: ${esc(p.name)}, из ${x.points_max}"><span class="of">/${x.points_max}</span>
+      <form class="grade-form" data-gtask="${esc(x.id)}" data-student="${esc(p.id)}"><input name="points" type="number" inputmode="numeric" min="0" max="${x.points_max}" value="${sub.points ?? ''}" placeholder="—" aria-label="Баллы: ${esc(p.name)}, из ${x.points_max}"><span class="of">/${x.points_max}</span>
         <input name="comment" maxlength="600" value="${esc(sub.comment || '')}" placeholder="Комментарий" aria-label="Комментарий: ${esc(p.name)}"><button class="btn sm" aria-label="Сохранить оценку: ${esc(p.name)}">${icon('check')}</button></form></li>`;
   }).join('');
   return `<div class="sheet-in wide"><div class="sheet-top"><div><p class="eyebrow">${esc(x.course_title)} · ${esc(x.group)} · ${esc(x.kind)}</p><h2 id="sheet-title" class="title">${esc(x.title)}</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
@@ -266,4 +268,26 @@ export function viewProfile() {
         <div class="chips">${S.data.offerings.map((o) => `<span class="tag">${esc(o.title)} · ${esc(o.group)}</span>`).join('')}</div></div></section>
       <section class="card profile"><div class="stack"><p class="title">Контакты и приём</p><dl><div><dt>Консультации</dt><dd>${esc(p.hours)}</dd></div><div><dt>Почта</dt><dd><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></dd></div><div><dt>Логин</dt><dd>${esc(p.login)}</dd></div></dl>
         <p class="cap">Учётная запись демонстрационная, сведения вымышлены.</p><button class="btn ghost" data-logout>${icon('logout')}Выйти из кабинета</button></div></section></div></div>`;
+}
+
+/* ---------- Изменение занятия ---------- */
+export function changeSheet(id) {
+  const l = lessonById(id);
+  if (!l) return '';
+  const sameDay = (day(l.date)?.lessons || []).filter((x) => x.id !== l.id && !x.cancelled).map((x) => x.pair);
+  const checkFree = l.date === S.data.campus.rooms_date;
+  const rooms = S.data.campus.rooms.filter((r) => r.seats >= Math.min(l.students, 60) && !(r.building === l.building && r.room === l.room))
+    .map((r) => ({r, free: checkFree ? roomState(r.key, l.pair).cls === 'free' : null}))
+    .sort((a, b) => (b.free === true) - (a.free === true) || a.r.key.localeCompare(b.r.key));
+  const roomOpt = ({r, free}) => `<option value="${esc(r.building)}|${esc(r.room)}">${esc(r.building)}-${esc(r.room)} · ${esc(r.kind.toLowerCase())}, ${r.seats} мест${free === true ? ' · свободна' : free === false ? ' · занята' : ''}</option>`;
+  const pairs = S.data.campus.bells.filter((b) => b.pair !== l.pair).map((b) => `<option value="${b.pair}" ${sameDay.includes(b.pair) ? 'disabled' : ''}>${b.pair} пара, ${b.start}–${b.end}${sameDay.includes(b.pair) ? ' · у вас занятие' : ''}</option>`).join('');
+  const cur = l.building ? roomByKey(`${l.building}-${l.room}`) : null;
+  return `<div class="sheet-in"><div class="sheet-top"><div><p class="eyebrow">${esc(cap(dayLong(l.date)))} · ${l.start}–${l.end} · ${groupsLine(l)}</p><h2 id="sheet-title" class="title">Изменить занятие</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
+    <p class="small">${esc(l.title)}, ${esc(l.type.toLowerCase())}. Сейчас: ${where(l)}${cur ? `, ${cur.seats} мест` : ''}. Изменение сразу появится в расписании ${l.groups.length > 1 ? 'групп' : 'группы'} ${groupsLine(l)}, студенты получат уведомление.</p>
+    <form id="lesson-form" data-lid="${esc(l.id)}">
+      <fieldset class="checks"><legend>Что меняется</legend><label class="check"><input type="radio" name="kind" value="room" checked><span>Аудитория</span></label><label class="check"><input type="radio" name="kind" value="time"><span>Время</span></label><label class="check"><input type="radio" name="kind" value="cancel"><span>Отменить занятие</span></label></fieldset>
+      <div class="when-room"><label for="lf-room">Новая аудитория${checkFree ? ` <span class="muted">(свободные на ${l.pair} паре — сверху)</span>` : ''}</label><select id="lf-room" name="room">${rooms.map(roomOpt).join('')}</select></div>
+      <div class="when-time"><label for="lf-pair">Новое время</label><select id="lf-pair" name="pair">${pairs}</select></div>
+      <label for="lf-reason">Причина <span class="muted">(видна студентам)</span></label><input id="lf-reason" name="reason" required minlength="3" maxlength="200" placeholder="Например: нужен компьютерный класс">
+      <p class="form-error" role="alert"></p><button class="btn block">Сохранить и уведомить студентов</button></form></div>`;
 }

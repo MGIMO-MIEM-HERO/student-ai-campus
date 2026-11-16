@@ -87,6 +87,9 @@ def initialize():
             CREATE TABLE IF NOT EXISTS tasks (
               id TEXT PRIMARY KEY, group_name TEXT, course TEXT, title TEXT, text TEXT, kind TEXT, due_date TEXT,
               due_time TEXT, lesson_id TEXT, points_max INTEGER, author TEXT, created TEXT);
+            CREATE TABLE IF NOT EXISTS lesson_changes (
+              lesson_id TEXT, group_name TEXT, kind TEXT, pair INTEGER, building TEXT, room TEXT, reason TEXT,
+              author TEXT, at TEXT, PRIMARY KEY (lesson_id, group_name));
             CREATE TABLE IF NOT EXISTS grades (
               task_id TEXT, student_id TEXT, points INTEGER, comment TEXT, author TEXT, at TEXT,
               PRIMARY KEY (task_id, student_id));
@@ -193,7 +196,7 @@ def schedule_notices(schedule, read):
             change = lesson["change"]
             if not change:
                 continue
-            notice_id = f"chg-{lesson['id']}"
+            notice_id = f"chg-{lesson['id']}-{change['kind']}-{change['at'][-5:]}"
             when = f"{day['date'][8:10]}.{day['date'][5:7]}, {day['weekday']}"
             if change["kind"] == "cancel":
                 body = f"{lesson['title']}, {when}, {change['was']}. {change['reason']}."
@@ -207,7 +210,7 @@ def schedule_notices(schedule, read):
 def student_data(user, db):
     today = msk_today()
     login = user["login"]
-    schedule = campus_data.build_schedule(login, today)
+    schedule = campus_data.build_schedule(login, today, teaching.lesson_overrides(db, user["group_name"]))
     grades = campus_data.build_session(login, today)
     read = {row["notice_id"] for row in db.execute("SELECT notice_id FROM notice_reads WHERE login=?", (login,))}
     published = [{"id": f"a{a['id']}", "tag": a["tag"], "title": a["title"], "body": a["body"],
@@ -261,7 +264,7 @@ def teacher_data(user, db):
             "profile": {**campus_data.teacher(key), "login": key, "name": user["name"], "full_name": campus_data.teacher(key)["name"]},
             "semester": campus_data.semester(today), "offerings": offerings,
             "rosters": {g: campus_data.roster(g) for g in groups},
-            "schedule": teaching.teacher_schedule(key, today),
+            "schedule": teaching.teacher_schedule(key, today, db),
             "journals": {o["id"]: teaching.journal(db, o["group"], o["course"], today) for o in offerings},
             "tasks": teaching.teacher_tasks(db, key, today, clock.hour * 60 + clock.minute),
             "kinds": teaching.KINDS, "announcements": mine,
@@ -524,6 +527,10 @@ class Handler(BaseHTTPRequestHandler):
             db.execute("DELETE FROM tasks WHERE id=?", (task_id,))
             db.execute("DELETE FROM grades WHERE task_id=?", (task_id,))
             db.execute("DELETE FROM homework_done WHERE task_id=?", (task_id,))
+            db.commit()
+            return self.reply(200, teacher_data(user, db))
+        if self.command == "POST" and path == "/api/teacher/lesson":
+            teaching.change_lesson(db, key, self.body(), today, now())
             db.commit()
             return self.reply(200, teacher_data(user, db))
         if self.command == "POST" and path == "/api/teacher/grade":

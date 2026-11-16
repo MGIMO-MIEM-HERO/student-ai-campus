@@ -188,7 +188,7 @@ def _lesson(login, day, slot):
 
 
 def _apply_change(lesson, spec, login, today):
-    published = (today - timedelta(days=1)).isoformat() + "T18:20"
+    published = spec.get("at") or (today - timedelta(days=1)).isoformat() + "T18:20"
     change = {"kind": spec["kind"], "reason": spec["reason"], "at": published}
     if spec["kind"] == "room":
         change.update(label="Новая аудитория", was=lesson["place"], now=place(spec["building"], spec["room"]))
@@ -209,8 +209,10 @@ def _apply_change(lesson, spec, login, today):
     lesson["change"] = change
 
 
-def build_schedule(login, today):
-    """Две недели с понедельника текущей недели: текущая и следующая."""
+def build_schedule(login, today, overrides=None):
+    """Две недели с понедельника текущей недели: текущая и следующая.
+
+    overrides: {id занятия: изменение}, внесённые преподавателем; применяются поверх плановых изменений."""
     monday = today - timedelta(days=today.weekday())
     days = []
     for offset in range(14):
@@ -231,6 +233,11 @@ def build_schedule(login, today):
                 _apply_change(target, spec, login, today)
                 day["lessons"].sort(key=lambda lesson: (lesson["pair"], lesson["course"]))
                 break
+    for day in days:
+        for lesson in day["lessons"]:
+            if lesson["id"] in (overrides or {}):
+                _apply_change(lesson, overrides[lesson["id"]], login, today)
+        day["lessons"].sort(key=lambda lesson: (lesson["pair"], lesson["course"]))
     return days
 
 
