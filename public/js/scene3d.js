@@ -43,6 +43,36 @@ export function mountScene(host) {
   const cube=new T.BoxGeometry(1,1,1),picks=[];
   const floorGroup=new T.Group(),buildingGroup=new T.Group();
   if(!territory){model.add(floorGroup,buildingGroup);kit.setGroup(floorGroup);}
+  const walkers=[];
+  const isVisible=(object)=>{
+    for(let o=object;o;o=o.parent)if(!o.visible)return false;
+    return true;
+  };
+  function addWalker(path,group,radius) {
+    if(!path.curves.length||path.getLength()<=.001)return;
+    const marker=new T.Group();
+    const material=(color,opacity=1)=>new T.MeshBasicMaterial({color,transparent:true,opacity,depthTest:false,depthWrite:false,toneMapped:false,side:T.DoubleSide});
+    const sphere=new T.Mesh(new T.SphereGeometry(radius,16,12),material(0xe4ffff));
+    sphere.position.y=radius*1.6;marker.add(sphere);
+    // Overlapping translucent rings soften the halo without textures or shaders.
+    for(let i=0;i<4;i++) {
+      const halo=new T.Mesh(new T.RingGeometry(radius*.65,radius*(1.6+i*.35),32),material(0x65e4ff,.12-i*.025));
+      halo.rotation.x=-Math.PI/2;halo.position.y=.025;marker.add(halo);
+    }
+    marker.traverse((o)=>{o.raycast=()=>{};o.castShadow=false;o.renderOrder=40;});
+    group.add(marker);
+    marker.position.copy(path.getPoint(reduced.matches?1:0));
+    walkers.push({path,marker,elapsed:0});
+  }
+  const hasAnimation=()=>walkers.some(({marker})=>isVisible(marker));
+  const animate=(dt)=>{
+    for(const walker of walkers) {
+      if(!isVisible(walker.marker))continue;
+      walker.elapsed=(walker.elapsed+dt)%6.8;
+      // CurvePath.getPoint uses segment lengths, keeping speed constant at corners.
+      walker.marker.position.copy(walker.path.getPoint(reduced.matches?1:Math.min(walker.elapsed/6,1)));
+    }
+  };
   let buildingHeight=0,xray=null;
   const ghosts=new Map();
   // Рентген корпуса: фасад полупрозрачный, внутри — путь от входа к лифту, подъём и коридор до двери аудитории.
@@ -87,6 +117,7 @@ export function mountScene(host) {
       const lift=route.segments[0].points.at(-1),shaft=new T.Mesh(cube,new T.MeshBasicMaterial({color:0x279197,transparent:true,opacity:.22,depthWrite:false,toneMapped:false}));
       const y0=level(Math.min(start,end)),y1=level(Math.max(start,end))+1;shaft.scale.set(.9,y1-y0,.9);shaft.position.set((lift[0]-300)/20,(y0+y1)/2,(lift[1]-H/2)/20);buildingGroup.add(shaft);
     }
+    addWalker(path,buildingGroup,.16);
     const target=clean.at(-1),pin=new T.Mesh(new T.ConeGeometry(.22,.6,12),new T.MeshBasicMaterial({color:0x166b91,toneMapped:false,depthTest:false}));
     pin.rotation.z=Math.PI;pin.position.copy(target).add(new T.Vector3(0,.55,0));pin.renderOrder=33;buildingGroup.add(pin);
     host.dataset.xray=`${start}-${end}`;
@@ -103,6 +134,7 @@ export function mountScene(host) {
         const line=new T.Mesh(new T.TubeGeometry(path,points.length*24,radius,8,false),new T.MeshBasicMaterial({color,depthTest:false,depthWrite:false,toneMapped:false}));
         line.renderOrder=order;model.add(line);
       }
+      addWalker(path,model,.2);
       // Стрелки-шевроны вдоль пути показывают направление.
       const chevron=new T.Shape([[0,.22],[.2,-.08],[.09,-.08],[0,.06],[-.09,-.08],[-.2,-.08]].map(([x,y])=>new T.Vector2(x,y)));
       const chevGeo=new T.ShapeGeometry(chevron),chevMat=new T.MeshBasicMaterial({color:0xffffff,depthTest:false,depthWrite:false,toneMapped:false,side:T.DoubleSide});
@@ -188,6 +220,7 @@ export function mountScene(host) {
       }
       const pin=new T.Mesh(new T.ConeGeometry(.17,.45,8),new T.MeshBasicMaterial({color:0x166b91,toneMapped:false}));
       pin.rotation.z=Math.PI;pin.position.copy(points.at(-1)).add(new T.Vector3(0,.45,0));floorGroup.add(pin);
+      addWalker(path,floorGroup,.14);
       host.dataset.routePoints=JSON.stringify(route.points);host.dataset.routeLevel=String(floor);
     }
     // Central stair and lift core; repeated treads remain individually visible.
@@ -229,7 +262,7 @@ export function mountScene(host) {
   const environment=studioEnvironment();scene.environment=environment;scene.environmentIntensity=.62;
   const ground=new T.Mesh(new T.PlaneGeometry(180,160),new T.ShadowMaterial({opacity:.26}));
   ground.rotation.x=-Math.PI/2;ground.position.y=territory?-.77:-.4;ground.receiveShadow=true;scene.add(ground);
-  const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced});
+  const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced,animate,hasAnimation});
   const modeButton=host.querySelector('[data-scene-mode]');
   const applyMode=(draw=true)=>{
     const evening=sceneMode==='evening';

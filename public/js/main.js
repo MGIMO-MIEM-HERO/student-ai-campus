@@ -92,6 +92,14 @@ async function verifyScreen(code) {
 
 function decorate(root) {
   if (root === app) syncScenes(root);
+  // План шире экрана телефона: показываем выбранную аудиторию и подсказку «листайте», пока не дошли до края.
+  root.querySelectorAll('.plan-scroll').forEach((box) => {
+    const mark = () => { box.dataset.more = String(box.scrollWidth - box.clientWidth - box.scrollLeft > 8); };
+    const sel = box.querySelector('.sel,[aria-pressed="true"]');
+    if (sel && box.scrollWidth > box.clientWidth) { const b = box.getBoundingClientRect(), r = sel.getBoundingClientRect(); box.scrollLeft += r.left + r.width / 2 - (b.left + b.width / 2); }
+    mark(); box.addEventListener('scroll', mark, {passive: true});
+    if (window.ResizeObserver) new ResizeObserver(mark).observe(box);
+  });
   root.querySelectorAll('[data-pct]').forEach((el) => el.style.setProperty('--pct', el.dataset.pct));
   root.querySelectorAll('[data-vars]').forEach((el) => el.dataset.vars.split(';').forEach((pair) => {
     const i = pair.indexOf(':');

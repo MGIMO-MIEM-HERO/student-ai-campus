@@ -112,3 +112,7 @@
 
 .model-view.scene-evening{background:radial-gradient(ellipse at 50% 40%,#b1bdce,#899aae);color:#243b43}
 @media(max-width:599px){.floor-model .model-modes button{padding-inline:10px}}
+
+/* Подсказка для плана, который шире экрана: мягкий край и надпись, пока справа есть продолжение. */
+.plan-scroll[data-more="true"]{-webkit-mask-image:linear-gradient(to right,#000 82%,transparent);mask-image:linear-gradient(to right,#000 82%,transparent)}
+.plan-side:has(.plan-scroll[data-more="true"])::after{content:"План шире экрана — листайте вбок →";display:block;margin-top:6px;font-size:12px;color:#5d6f73}

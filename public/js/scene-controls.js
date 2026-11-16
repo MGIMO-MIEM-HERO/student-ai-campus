@@ -4,7 +4,7 @@ import {S} from './state.js';
 // Keep a chosen close-up when room selection or dashboard refresh replaces DOM.
 const views=new Map();
 
-export function mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced}) {
+export function mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced,animate,hasAnimation}) {
   const canvas=renderer.domElement;
   canvas.tabIndex=0;canvas.setAttribute('role','img');
   canvas.setAttribute('aria-label',territory?'Объёмная схема территории. Стрелки — вращение, плюс и минус — масштаб.':'Модель корпуса и этажа. Стрелки — вращение, плюс и минус — масштаб. Аудитории доступны на схеме рядом.');
@@ -37,8 +37,9 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
   setMode(mode);
   function tick(time) {
     frame=0;if(disposed||!visible||document.hidden)return;
-    // 30 renders/s on a small device while moving; a crisp final frame at rest.
-    if(mobile&&lastDraw&&time-lastDraw<30){request();return;}
+    const animatingRoute=!reduced.matches&&hasAnimation();
+    // Route animation is capped at 30 fps on desktop as well as mobile.
+    if((mobile||animatingRoute)&&lastDraw&&time-lastDraw<(animatingRoute?1000/30:30)){request();return;}
     const dt=Math.min((time-(lastTime||time-16))/1000,.05);lastTime=time;lastDraw=time;
     if(tourUntil) {
       if(reduced.matches)setTour(false);
@@ -70,12 +71,13 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     });
     // The world and sun stay still when the camera moves: shadows need one bake.
     renderer.shadowMap.needsUpdate=dirtyShadow;
+    animate(dt);
     const started=performance.now();renderer.render(scene,camera);const cpu=performance.now()-started;
     if(moving&&cpu>22)slowFrames++;
     dirtyShadow=false;frameCount++;
-    Object.assign(host.dataset,{ready:'true',animating:String(moving),frames:String(frameCount),drawCalls:String(renderer.info.render.calls),triangles:String(renderer.info.render.triangles),textures:String(renderer.info.memory.textures),geometries:String(renderer.info.memory.geometries),pixelRatio:ratio.toFixed(2),viewZoom:current.z.toFixed(3),renderCpuMs:cpu.toFixed(2),quality:mobile?'mobile':'desktop'});
+    Object.assign(host.dataset,{ready:'true',animating:String(moving||animatingRoute),frames:String(frameCount),drawCalls:String(renderer.info.render.calls),triangles:String(renderer.info.render.triangles),textures:String(renderer.info.memory.textures),geometries:String(renderer.info.memory.geometries),pixelRatio:ratio.toFixed(2),viewZoom:current.z.toFixed(3),renderCpuMs:cpu.toFixed(2),quality:mobile?'mobile':'desktop'});
     host.querySelector('[data-scene-status]').textContent='';
-    if(moving)request();else {lastTime=0;saveRotation();views.set(viewKey(),{...target});}
+    if(moving||animatingRoute)request();else {lastTime=0;saveRotation();views.set(viewKey(),{...target});}
   }
   const resize=new ResizeObserver(()=>{lastTime=0;request();});resize.observe(host);
   const intersection=new IntersectionObserver(([entry])=>{
