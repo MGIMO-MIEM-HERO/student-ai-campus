@@ -8,7 +8,7 @@ function surfaceTexture(kind) {
   for(let y=0;y<128;y++)for(let x=0;x<128;x++) {
     seed=(Math.imul(seed,1664525)+1013904223)>>>0;
     const noise=(seed>>>24)/255;
-    const grain=kind==='wood'?Math.sin(y*.72+Math.sin(x*.12)*.7)*9:0;
+    const grain=kind==='wood'?Math.sin(y*.72+Math.sin(x*.12)*.7)*9:kind==='grass'?(noise-.5)*26:0;
     const joint=(kind==='stone'&&(y%32===0||x%64===((y>>5)%2)*32))||(kind==='roof'&&(y%64===0||x%64===0))?-11:0;
     const v=224+noise*13+grain+joint,i=(y*128+x)*4;
     image.data[i]=image.data[i+1]=image.data[i+2]=v;image.data[i+3]=255;
@@ -31,14 +31,14 @@ export function createArchitectureKit(root) {
     return materials.get(name);
   }
   const m={
-    stone:material('stone',0xd9d4c8,.88,0,'stone'),trim:material('trim',0xf0eee6,.7),
-    concrete:material('concrete',0xa9aaa4,.92),plinth:material('plinth',0x8c8f89,.86),
-    roof:material('roof',0x797f7d,.94,0,'roof'),wood:material('wood',0xc09564,.57,0,'wood'),
+    stone:material('stone',0xe9e1d2,.86,0,'stone'),trim:material('trim',0xf6f3ec,.62),
+    concrete:material('concrete',0x9c9d97,.92),plinth:material('plinth',0x7d817d,.82),
+    roof:material('roof',0x8d9392,.9,0,'roof'),wood:material('wood',0xc09564,.57,0,'wood'),
     metal:material('metal',0x66767b,.4,.5),blue:material('blue',0x477184,.57),
-    glass:material('glass',0x608b9e,.2,.3),glassLight:material('glass-light',0xacc6cd,.28,.18),
-    reveal:material('reveal',0x34434a,.83),green:material('green',0x55724f,.9),
-    leafLight:material('leaf-light',0x758e5b,.9),bark:material('bark',0x726047,.94),
-    lawn:material('lawn',0x859576,.95),paving:material('paving',0xd7d5cd,.94,0,'stone'),
+    glass:material('glass',0x4d7891,.1,.62),glassLight:material('glass-light',0x9dbfd0,.14,.48),
+    reveal:material('reveal',0x34434a,.83),green:material('green',0x4b7442,.88),
+    leafLight:material('leaf-light',0x76a056,.86),leafWarm:material('leaf-warm',0x9aa857,.86),bark:material('bark',0x726047,.94),
+    lawn:material('lawn',0x8eab72,.97,0,'grass'),paving:material('paving',0xd9d3c7,.92,0,'stone'),
     soil:material('soil',0x4c4537,.95),pot:material('pot',0xb6ab94,.85),
   };
   const windowCanvas=document.createElement('canvas');windowCanvas.width=windowCanvas.height=128;
@@ -49,7 +49,7 @@ export function createArchitectureKit(root) {
   wc.fillStyle='#ecebe0';for(const [x,y,w,h] of [[10,9,5,104],[113,9,5,104],[10,9,108,5],[10,110,108,6],[61,11,4,103],[12,40,104,3]])wc.fillRect(x,y,w,h);
   wc.fillStyle='#f3f1e9';wc.fillRect(4,116,120,6);wc.fillStyle='#8d948f';wc.fillRect(4,122,120,4);
   const windowMap=new T.CanvasTexture(windowCanvas);windowMap.colorSpace=T.SRGBColorSpace;windowMap.anisotropy=4;
-  m.windowFlat=new T.MeshStandardMaterial({map:windowMap,roughness:.48,metalness:.08});
+  m.windowFlat=new T.MeshStandardMaterial({map:windowMap,roughness:.24,metalness:.32});
   function instance(geometry,mat,x,y,z,w,h,d,rotation=0,detail=0) {
     if(w<=0||h<=0||d<=0)return;
     let list=batches.get(target);if(!list){list=[];batches.set(target,list);}
@@ -73,7 +73,8 @@ export function createArchitectureKit(root) {
     if(!outdoor){instance(geometries.trunk,m.pot,x,y+.16*scale,z,.22*scale,.32*scale,.22*scale);box(x,y+.33*scale,z,.31*scale,.025,.31*scale,m.soil);}
     instance(geometries.trunk,m.bark,x,y+.5*scale,z,.045*scale,scale,.045*scale);
     const lobes=outdoor?[[0,1.35,0,.45],[-.25,1.1,.08,.33],[.22,1.13,.18,.34],[.12,1.05,-.24,.35],[0,1.65,.05,.27]]:[[0,.68,0,.27],[-.14,.58,.06,.21],[.12,.59,-.1,.23]];
-    lobes.forEach(([dx,dy,dz,r],i)=>instance(geometries.crown,i%2?m.leafLight:m.green,x+dx*scale,y+dy*scale,z+dz*scale,r*scale,r*scale*1.12,r*scale,i*.9));
+    const tone=Math.abs(Math.round(x*7.3+z*3.1))%5,leaves=tone===4?[m.leafWarm,m.leafLight]:tone>1?[m.green,m.leafLight]:[m.leafLight,m.green];
+    lobes.forEach(([dx,dy,dz,r],i)=>instance(geometries.crown,leaves[i%2],x+dx*scale,y+dy*scale,z+dz*scale,r*scale,r*scale*1.12,r*scale,i*.9));
   }
   function bench(x,z,y=0,rotation=0) {
     const part=(dx,dy,dz,w,h,d,mat)=>box(x+dx*Math.cos(rotation)+dz*Math.sin(rotation),y+dy,z-dx*Math.sin(rotation)+dz*Math.cos(rotation),w,h,d,mat,rotation);

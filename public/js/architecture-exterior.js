@@ -26,7 +26,12 @@ function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHe
 export function buildTerritory(kit,picks) {
   const {box,prism,text,plant,bench,m}=kit;
   box(0,-.46,0,47,.5,27,m.concrete);
-  box(0,-.18,0,46.9,.1,26.9,m.paving);
+  box(0,-.18,0,46.9,.1,26.9,m.lawn);
+  // Дорожки: кольцо по периметру, аллея от главного входа и площадка перед ним.
+  for(const sign of [-1,1]){box(0,-.125,sign*11.6,44.6,.03,1.05,m.paving);box(sign*21.7,-.125,0,1.05,.03,24.2,m.paving);}
+  box(2.25,-.12,8.6,2.6,.03,6.2,m.paving);
+  box(2.25,-.118,5.6,7.5,.03,2.4,m.paving);
+  for(const sign of [-1,1])box(sign*9,-.12,8.9,15.5,.03,.75,m.paving);
   // A dark bevel and a thin light edge make the base read as a physical model.
   for(const sign of [-1,1]){box(0,-.31,sign*13.45,46.9,.035,.03,m.trim);box(sign*23.45,-.31,0,.03,.035,26.9,m.trim);}
   for(const [x,z,w,d] of [[397,100,11,88],[416,145,40,9],[742,134,10,44],[132,282,42,9],[450,253,31,9]]) {
@@ -34,7 +39,7 @@ export function buildTerritory(kit,picks) {
   }
   for(const wing of WINGS) {
     const outline=wing.pts.map(world),holes=(wing.holes||[]).map((loop)=>loop.map(world));
-    const cap=m.roof.clone();cap.color.set(0x9b9f98);
+    const cap=m.roof.clone();cap.color.set(0x80878a);
     const mesh=prism(outline,holes,wing.height,0,cap,m.stone);
     mesh.userData.wing=wing;if(wing.id)picks.push(mesh);
     facade(kit,outline,wing.height,{floors:Math.max(2,Math.round(wing.height/.78))});
@@ -45,6 +50,12 @@ export function buildTerritory(kit,picks) {
     const [x,z]=world([px,pz]);box(x,-.045,z,2,.1,1.9,m.lawn);plant(x-.45,z,0,.9,true);bench(x+.7,z+.5);
   }
   for(let i=0;i<5;i++){const [x,z]=world([430+i*35,350]);plant(x,z,-.1,1,true);}
+  // Аллеи: деревья вдоль дорожек, размер слегка меняется, как у настоящих посадок.
+  const size=(i)=>.78+((i*37)%9)/22;
+  let k=0;
+  for(let x=-21.2;x<=21.2;x+=1.75){for(const z of [-12.55,12.55])plant(x,z,-.12,size(k++),true);}
+  for(let z=-10.6;z<=10.6;z+=1.75){for(const x of [-22.75,22.75])plant(x,z,-.12,size(k++),true);}
+  for(const x of [-.6,5.1])for(let z=6.6;z<=10.6;z+=1.4)plant(x,z,-.12,size(k++)*.85,true);
   const [ex,ez]=world([455,278]);
   for(let i=0;i<5;i++)box(ex,.08-i*.035,ez+.5+i*.19,2.7,.2-i*.035,.22,m.trim);
   box(ex,1.05,ez-.08,2.5,2.1,.14,m.glass);
@@ -60,7 +71,14 @@ export function buildBuilding(kit,layout,floors=6) {
   const outline=[[12,12],[588,12],[588,H-12],[12,H-12]].map(([x,z])=>[X(x),Z(z)]);
   const hole=H===400?[[86,94],[264,94],[264,158],[336,158],[336,94],[514,94],[514,286],[336,286],[336,220],[264,220],[264,286],[86,286]].map(([x,z])=>[X(x),Z(z)]).reverse():null;
   box(0,-.38,0,33,.4,H/20+3.4,m.concrete);
-  box(0,-.14,0,32.9,.1,H/20+3.3,m.paving);
+  box(0,-.14,0,32.9,.1,H/20+3.3,m.lawn);
+  // Мощёная отмостка вокруг здания и площадь перед входом; по краям газона — деревья.
+  box(0,-.085,0,30.6,.03,H/20-.2,m.paving);
+  box(0,-.08,H/40+.9,8.5,.03,2.2,m.paving);
+  const D=H/20+3.3,size=(i)=>.72+((i*29)%7)/20;
+  let k=0;
+  for(let x=-15.2;x<=15.2;x+=1.9){if(Math.abs(x)>4.6)plant(x,D/2-.75,-.1,size(k++),true);plant(x,-D/2+.75,-.1,size(k++),true);}
+  for(let z=-D/2+2.4;z<=D/2-2.4;z+=1.9)for(const x of [-15.7,15.7])plant(x,z,-.1,size(k++),true);
   prism(outline,hole?[hole]:[],height,.01,m.roof,m.stone);
   facade(kit,outline,height,{floors,spacing:.82,windowWidth:.48,windowHeight:.71,base:.28});
   if(hole)facade(kit,hole,height,{floors,spacing:.88,windowWidth:.46,windowHeight:.68,base:.28});

@@ -14,23 +14,23 @@ export function mountScene(host) {
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   renderer.setPixelRatio(1);
   renderer.toneMapping = T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.02;
+  renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = T.PCFShadowMap;
+  renderer.shadowMap.type = T.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate = false;
   const scene = new T.Scene();
   const model = new T.Group();
   scene.add(model);
   const camera = new T.OrthographicCamera(-25,25,17,-17,.1,200);
-  const hemi = new T.HemisphereLight(0xe9f1f5,0x8d897b,1.5);
+  const hemi = new T.HemisphereLight(0xdde9f3,0x7f8c6c,1.25);
   scene.add(hemi);
-  const sun = new T.DirectionalLight(0xfff4e5,2.65);
-  sun.position.set(-20,35,-10); sun.castShadow=true;
+  const sun = new T.DirectionalLight(0xffe7c7,3.1);
+  sun.position.set(-26,27,-16); sun.castShadow=true;
   sun.shadow.mapSize.set(mobile?1024:2048,mobile?1024:2048);
   Object.assign(sun.shadow.camera,{left:territory?-27:-21,right:territory?27:21,top:territory?27:23,bottom:territory?-27:-23,near:1,far:100});
-  sun.shadow.bias=-.0003; sun.shadow.normalBias=.035;
+  sun.shadow.bias=-.0003; sun.shadow.normalBias=.035; sun.shadow.radius=3;
   scene.add(sun);
-  const fill = new T.DirectionalLight(0xc6dce8,.8);
+  const fill = new T.DirectionalLight(0xa9c6e0,.6);
   fill.position.set(15,15,22); scene.add(fill);
   const kit=createArchitectureKit(model);
   const {box,text,plant,bench,windowBay,material,m}=kit;
@@ -154,8 +154,8 @@ export function mountScene(host) {
     buildingHeight=buildBuilding(kit,floorLayout(host.dataset.building,Number(host.dataset.floorNumber)),building.floors).height;
   }
   kit.flush();
-  const environment=studioEnvironment();scene.environment=environment;scene.environmentIntensity=.38;
-  const ground=new T.Mesh(new T.PlaneGeometry(180,160),new T.ShadowMaterial({opacity:.22}));
+  const environment=studioEnvironment();scene.environment=environment;scene.environmentIntensity=.62;
+  const ground=new T.Mesh(new T.PlaneGeometry(180,160),new T.ShadowMaterial({opacity:.26}));
   ground.rotation.x=-Math.PI/2;ground.position.y=territory?-.77:-.4;ground.receiveShadow=true;scene.add(ground);
   const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced});
   return ()=>{
