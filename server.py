@@ -87,6 +87,8 @@ def initialize():
             CREATE TABLE IF NOT EXISTS tasks (
               id TEXT PRIMARY KEY, group_name TEXT, course TEXT, title TEXT, text TEXT, kind TEXT, due_date TEXT,
               due_time TEXT, lesson_id TEXT, points_max INTEGER, author TEXT, created TEXT);
+            CREATE TABLE IF NOT EXISTS consults (
+              teacher TEXT, date TEXT, time TEXT, login TEXT, topic TEXT, at TEXT, PRIMARY KEY (teacher, date, time));
             CREATE TABLE IF NOT EXISTS lesson_changes (
               lesson_id TEXT, group_name TEXT, kind TEXT, pair INTEGER, building TEXT, room TEXT, reason TEXT,
               author TEXT, at TEXT, PRIMARY KEY (lesson_id, group_name));
@@ -252,7 +254,8 @@ def student_data(user, db):
             "semester": campus_data.semester(today), "schedule": schedule, "grades": grades,
             "notices": notices, "requests": requests, "news": campus_data.news(today),
             "homework": homework, "teachers": campus_data.teachers_for(login),
-            "attendance": teaching.student_attendance(db, login, today), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
+            "attendance": teaching.student_attendance(db, login, today),
+            "consults": teaching.student_consults(db, login, today, clock.hour * 60 + clock.minute), "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
             "updated": now(),
             "ai_live": bool(os.environ.get("CAMPUS_AI_KEY") and os.environ.get("CAMPUS_AI_URL") and os.environ.get("CAMPUS_AI_MODEL"))}
 
@@ -271,6 +274,7 @@ def teacher_data(user, db):
             "journals": {o["id"]: teaching.journal(db, o["group"], o["course"], today) for o in offerings},
             "tasks": teaching.teacher_tasks(db, key, today, clock.hour * 60 + clock.minute),
             "kinds": teaching.KINDS, "announcements": mine,
+            "consults": teaching.teacher_consults(db, key, today, clock.hour * 60 + clock.minute),
             "campus": {**campus_data.directory(rooms_day(), room_marks(db, rooms_day())), "rooms_date": rooms_day().isoformat()},
             "updated": now()}
 
@@ -486,6 +490,11 @@ class Handler(BaseHTTPRequestHandler):
                                (user["login"], task, now(), note.strip()))
                 else:
                     db.execute("DELETE FROM homework_done WHERE login=? AND task_id=?", (user["login"], task))
+                db.commit()
+                return self.reply(200, student_data(user, db))
+            if self.command == "POST" and path == "/api/consult":
+                clock = datetime.now(MSK)
+                teaching.book_consult(db, user["login"], self.body(), msk_today(), clock.hour * 60 + clock.minute, now())
                 db.commit()
                 return self.reply(200, student_data(user, db))
             if self.command == "POST" and path == "/api/assistant":

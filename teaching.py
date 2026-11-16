@@ -5,6 +5,7 @@
 хранится в SQLite и перекрывает демо-историю.
 """
 import hashlib
+import re
 import secrets
 from datetime import date, timedelta
 
@@ -382,3 +383,97 @@ def change_lesson(db, teacher_key, body, today, at):
     for group in lesson["groups"]:
         db.execute("INSERT OR REPLACE INTO lesson_changes VALUES (?,?,?,?,?,?,?,?,?)",
                    (lesson_id, group, kind, pair, building, room, reason.strip(), teacher_key, at))
+
+
+# ---------- консультации ----------
+WEEKDAY_ABBR = {"пн": 0, "вт": 1, "ср": 2, "чт": 3, "пт": 4, "сб": 5}
+CONSULT_TOPICS = ("Разбор контрольной", "Вопросы по типовому расчёту", "Пропущенная тема", "Подготовка к экзамену",
+                  "Пересдача теста", "Вопрос по оформлению работы")
+SLOT = 15
+
+
+def consult_days(teacher_key, today, now_minutes):
+    """Ближайшие два дня консультаций преподавателя со слотами по 15 минут."""
+    hours = cd.TEACHERS[teacher_key][3]
+    m = re.match(r"(пн|вт|ср|чт|пт|сб) (\d\d):(\d\d)–(\d\d):(\d\d)(?:, (.+))?$", hours)
+    if not m:
+        return []
+    weekday, start = WEEKDAY_ABBR[m.group(1)], int(m.group(2)) * 60 + int(m.group(3))
+    end, place = int(m.group(4)) * 60 + int(m.group(5)), m.group(6) or ""
+    days, day = [], today
+    while len(days) < 2 and (day - today).days <= 14:
+        if day.weekday() == weekday and (day > today or now_minutes < end - SLOT):
+            slots = [t for t in range(start, end, SLOT) if day > today or t > now_minutes]
+            days.append({"date": day.isoformat(), "place": place,
+                         "slots": [f"{t // 60:02d}:{t % 60:02d}" for t in slots]})
+        day += timedelta(days=1)
+    return days
+
+
+def _seeded_consult(teacher_key, date_iso, time):
+    """Часть слотов заранее занята вымышленными студентами — так выглядит живая запись."""
+    v = _h("consult", teacher_key, date_iso, time) % 100
+    if v >= 34:
+        return None
+    groups = [o["group"] for o in cd.teacher_offerings(teacher_key)] or ["ПИ-241"]
+    group = groups[v % len(groups)]
+    people = [p for p in cd.roster(group) if not p["login"]]
+    person = people[v % len(people)]
+    return {"name": person["name"], "group": group, "topic": CONSULT_TOPICS[v % len(CONSULT_TOPICS)], "login": None}
+
+
+def consult_bookings(db, teacher_key, today, now_minutes):
+    """Все записи на ближайшие консультации: время → запись."""
+    out = {}
+    db_rows = {(r["date"], r["time"]): r for r in db.execute("SELECT * FROM consults WHERE teacher=?", (teacher_key,))}
+    for day in consult_days(teacher_key, today, now_minutes):
+        for time in day["slots"]:
+            row = db_rows.get((day["date"], time))
+            if row:
+                group, sid = cd.student_id(row["login"])
+                person = next((p for p in cd.roster(group) if p["id"] == sid), None) if group else None
+                out[(day["date"], time)] = {"name": person["name"] if person else row["login"], "group": group or "",
+                                            "topic": row["topic"], "login": row["login"]}
+            else:
+                seeded = _seeded_consult(teacher_key, day["date"], time)
+                if seeded:
+                    out[(day["date"], time)] = seeded
+    return out
+
+
+def student_consults(db, login, today, now_minutes):
+    """Для каждого преподавателя студента: дни, слоты (свободен, занят, ваш) и место."""
+    result = {}
+    for t in cd.teachers_for(login):
+        days = consult_days(t["key"], today, now_minutes)
+        if not days:
+            continue
+        booked = consult_bookings(db, t["key"], today, now_minutes)
+        result[t["key"]] = [{"date": d["date"], "place": d["place"], "slots": [
+            {"time": s, "state": "mine" if (b := booked.get((d["date"], s))) and b["login"] == login
+             else "taken" if b else "free", "topic": b["topic"] if b and b["login"] == login else ""}
+            for s in d["slots"]]} for d in days]
+    return result
+
+
+def book_consult(db, login, body, today, now_minutes, at):
+    teacher_key, day, time = body.get("teacher"), body.get("date"), body.get("time")
+    topic, cancel = body.get("topic", ""), body.get("cancel", False)
+    if teacher_key not in {t["key"] for t in cd.teachers_for(login)} or not isinstance(topic, str) or len(topic) > 200:
+        raise ValueError()
+    if cancel is True:
+        db.execute("DELETE FROM consults WHERE teacher=? AND date=? AND time=? AND login=?", (teacher_key, day, time, login))
+        return
+    slots = {(d["date"], s) for d in consult_days(teacher_key, today, now_minutes) for s in d["slots"]}
+    booked = consult_bookings(db, teacher_key, today, now_minutes)
+    if (day, time) not in slots or (day, time) in booked or not topic.strip():
+        raise ValueError()
+    db.execute("DELETE FROM consults WHERE teacher=? AND login=? AND date>=?", (teacher_key, login, today.isoformat()))
+    db.execute("INSERT INTO consults VALUES (?,?,?,?,?,?)", (teacher_key, day, time, login, topic.strip(), at))
+
+
+def teacher_consults(db, teacher_key, today, now_minutes):
+    booked = consult_bookings(db, teacher_key, today, now_minutes)
+    return [{"date": d["date"], "place": d["place"], "slots": [
+        {"time": s, **(booked[(d["date"], s)] if (d["date"], s) in booked else {"name": None})} for s in d["slots"]]}
+        for d in consult_days(teacher_key, today, now_minutes)]

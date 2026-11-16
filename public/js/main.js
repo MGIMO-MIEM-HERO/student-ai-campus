@@ -174,7 +174,7 @@ function showRoom(key) {
 }
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore]';
+const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -190,6 +190,9 @@ document.addEventListener('click', async (event) => {
     if (d.copy) { try { await navigator.clipboard.writeText(d.copy); flash('Ссылка проверки скопирована.'); } catch { flash('Не удалось скопировать. Выделите ссылку вручную.'); } return; }
     if (d.lesson) return openSheet(isTeacher() ? tch.lessonSheet(d.lesson) : stu.lessonSheet(d.lesson));
     if (d.att) return openSheet(tch.attSheet(d.att));
+    if (d.consult) { S.cslot = ''; openSheet(stu.consultSheet(d.consult)); return; }
+    if (d.slot) { S.cslot = d.slot; const key = d.slot.split('|')[0]; openSheet(stu.consultSheet(key)); sheetBody.querySelector('#cf-topic')?.focus(); return; }
+    if (d.ccancel) { const [teacher, date, time] = d.ccancel.split('|'); el.disabled = true; return await mutate('consult', {teacher, date, time, cancel: true}, () => { S.cslot = ''; openSheet(stu.consultSheet(teacher)); flash('Запись отменена.'); }); }
     if (d.chg) return openSheet(tch.changeSheet(d.chg));
     if (d.restore) { el.disabled = true; return await mutate('teacher/lesson', {lesson_id: d.restore, kind: 'restore'}, () => { openSheet(tch.lessonSheet(d.restore)); flash('Занятие вернулось в расписание как было. Студенты увидят это сразу.'); }); }
     if (d.review) return openSheet(tch.reviewSheet(d.review));
@@ -269,6 +272,11 @@ document.addEventListener('submit', async (event) => {
       return flash('Заявка отправлена. Статус отображается в истории заявок.');
     }
     if (form.id === 'announce-form') { await mutate('staff/announcements', fields); return flash('Объявление опубликовано.'); }
+    if (form.id === 'consult-form') {
+      const {ckey: teacher, cdate: date, ctime: time} = form.dataset;
+      await mutate('consult', {teacher, date, time, topic: fields.topic || ''}, () => { S.cslot = ''; openSheet(stu.consultSheet(teacher)); });
+      return flash('Вы записаны. Преподаватель увидит запись и ваш вопрос.');
+    }
     if (form.id === 'submit-form') {
       const id = form.dataset.hwid;
       await mutate('homework', {id, done: true, note: fields.note || ''}, () => openSheet(stu.taskSheet(id)));

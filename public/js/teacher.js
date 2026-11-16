@@ -94,7 +94,17 @@ export function viewToday() {
     <div class="cols"><section class="sec">${secHead('Нужно проверить', go('tasks', 'Все задания'))}${review.length ? `<div class="hw-list">${review.slice(0, 4).map(taskCard).join('')}</div>` : empty('check', 'Всё проверено', 'Новых сданных работ нет.')}</section>
       <section class="sec">${secHead('Зона риска', go('journal', 'Журнал'))}${risk.length ? `<div class="card flush"><div class="risk">${risk.slice(0, 6).map(({j, s, why}) => `<button class="risk-row" data-stud="${esc(j.group)}|${esc(s.id)}"><span class="face mono sm f${s.id.length % 5}" aria-hidden="true">${esc(s.initials)}</span><span><strong>${esc(s.name)}</strong><span>${esc(j.group)} · ${why.map(esc).join(' · ')}</span></span>${icon('chevron')}</button>`).join('')}</div></div>` : empty('check', 'Рисков нет', 'Все студенты набирают баллы и ходят на занятия.')}
         <p class="cap">Зона риска: меньше 60 баллов текущего контроля или посещаемость ниже 75%.</p></section></div>
+    ${consultSection()}
     ${groupsSection()}</div>`;
+}
+function consultSection() {
+  const days = S.data.consults || [];
+  if (!days.length) return '';
+  return `<section class="sec">${secHead('Консультации', `<span class="small muted">${esc(S.data.profile.hours)}</span>`)}<div class="cs-grid">${days.map((d) => {
+    const booked = d.slots.filter((s) => s.name);
+    return `<article class="card"><div class="stack"><div class="row"><p class="title">${esc(cap(dayLong(d.date)))}</p><span class="tag">${count(booked.length, ['запись', 'записи', 'записей'])} из ${d.slots.length}</span></div>
+      <ul class="cs-list">${d.slots.map((s) => `<li class="${s.name ? '' : 'free'}"><b>${s.time}</b>${s.name ? `<span><strong>${esc(s.name)}</strong><span>${esc(s.group)} · ${esc(s.topic)}</span></span>${s.login ? '<span class="tag sky">из кабинета</span>' : ''}` : '<span class="muted">свободно</span>'}</li>`).join('')}</ul></div></article>`;
+  }).join('')}</div><p class="cap">Студенты записываются сами из карточки преподавателя; запись на 15 минут.</p></section>`;
 }
 function groupsSection() {
   return `<section class="sec">${secHead('Мои группы')}<div class="groups">${S.data.offerings.map((o) => {

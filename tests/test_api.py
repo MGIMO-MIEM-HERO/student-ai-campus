@@ -322,6 +322,26 @@ class ApiTest(unittest.TestCase):
         restored = next(l for d in alina.call("/api/dashboard")[1]["schedule"] for l in d["lessons"] if l["id"] == lesson["id"])
         self.assertIsNone(restored["change"])
 
+    def test_consultation_booking(self):
+        alina, mark, teacher = self.client("alina"), self.client("mark"), self.client("vetrova")
+        days = alina.call("/api/dashboard")[1]["consults"]["vetrova"]
+        free = next((d["date"], s["time"]) for d in days for s in d["slots"] if s["state"] == "free")
+        taken = next(((d["date"], s["time"]) for d in days for s in d["slots"] if s["state"] == "taken"), None)
+        body = {"teacher": "vetrova", "date": free[0], "time": free[1], "topic": "Ряды: признак Даламбера"}
+        self.assertEqual(mark.call("/api/consult", body)[0], 400)
+        if taken:
+            self.assertEqual(alina.call("/api/consult", {**body, "date": taken[0], "time": taken[1]})[0], 400)
+        self.assertEqual(alina.call("/api/consult", {**body, "topic": " "})[0], 400)
+        status, data = alina.call("/api/consult", body)
+        self.assertEqual(status, 200)
+        mine = [s for d in data["consults"]["vetrova"] for s in d["slots"] if s["state"] == "mine"]
+        self.assertEqual(len(mine), 1)
+        slots = [s for d in teacher.call("/api/dashboard")[1]["consults"] for s in d["slots"]]
+        booked = next(s for s in slots if s["time"] == free[1] and s.get("login") == "alina")
+        self.assertEqual((booked["name"], booked["topic"]), ("Алина Северова", "Ряды: признак Даламбера"))
+        self.assertEqual(alina.call("/api/consult", {**body, "cancel": True})[0], 200)
+        self.assertFalse(any(s.get("login") == "alina" for d in teacher.call("/api/dashboard")[1]["consults"] for s in d["slots"]))
+
     def test_mark_has_a_risk_course(self):
         grades = self.client("mark").call("/api/dashboard")[1]["grades"]
         self.assertTrue(any(g["result"] == "Нет допуска" for g in grades))

@@ -198,7 +198,25 @@ export function teachersCarousel(title = 'Преподаватели') {
       <div class="tcard-body"><h3>${esc(t.name)}</h3><p class="small muted">${esc(cap(t.title))}<br>${esc(t.dept)}</p>
       <div class="chips">${t.courses.map((c) => `<span class="tag">${esc(c)}</span>`).join('')}</div>
       <dl class="tfacts"><div><dt>Консультации</dt><dd>${esc(t.hours)}</dd></div>${next(t) ? `<div><dt>Ближайшее занятие</dt><dd>${next(t)}</dd></div>` : ''}</dl></div>
-      <a class="btn ghost sm" href="mailto:${esc(t.email)}">${icon('chat')}Написать</a></article>`).join('')}</div></section>`;
+      <div class="chips">${S.data.consults?.[t.key] ? `<button class="btn sm" data-consult="${esc(t.key)}">${icon('clock')}${myConsult(t.key) ? 'Ваша запись' : 'Консультация'}</button>` : ''}<a class="btn ghost sm" href="mailto:${esc(t.email)}">${icon('chat')}Написать</a></div></article>`).join('')}</div></section>`;
+}
+
+/* ---------- Консультации ---------- */
+export function myConsult(key) {
+  for (const d of S.data.consults?.[key] || []) { const s = d.slots.find((x) => x.state === 'mine'); if (s) return {...s, date: d.date, place: d.place}; }
+  return null;
+}
+export function consultSheet(key) {
+  const t = (S.data.teachers || []).find((x) => x.key === key), days = S.data.consults?.[key] || [];
+  if (!t) return '';
+  const mine = myConsult(key), pick = S.cslot && S.cslot.startsWith(key + '|') ? S.cslot.split('|') : null;
+  const dayBlock = (d) => `<section class="cs-day"><p class="title">${esc(cap(dayLong(d.date)))}</p><p class="small muted">${esc(d.place || t.hours)} · по 15 минут</p>
+    <div class="slots">${d.slots.map((s) => s.state === 'free' ? `<button class="slot ${pick && pick[1] === d.date && pick[2] === s.time ? 'on' : ''}" data-slot="${esc(key)}|${esc(d.date)}|${esc(s.time)}" aria-pressed="${!!(pick && pick[1] === d.date && pick[2] === s.time)}">${s.time}</button>`
+      : `<span class="slot ${s.state}">${s.time}<small>${s.state === 'mine' ? 'вы' : 'занято'}</small></span>`).join('')}</div></section>`;
+  return `<div class="sheet-in"><div class="sheet-top"><div class="who-line">${face(t, 'sm')}<div><p class="eyebrow">Запись на консультацию</p><h2 id="sheet-title" class="title">${esc(t.name)}</h2></div></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
+    ${mine ? `<div class="done-box"><p><b>Вы записаны:</b> ${esc(dayLong(mine.date))}, ${mine.time}, ${esc(mine.place)}.</p><p class="quote">${esc(mine.topic)}</p><div class="chips"><button class="btn ghost sm" data-ccancel="${esc(key)}|${esc(mine.date)}|${esc(mine.time)}">Отменить запись</button></div></div>` : ''}
+    ${days.length ? days.map(dayBlock).join('') : '<p class="muted">Ближайших консультаций нет.</p>'}
+    ${pick ? `<form id="consult-form" class="stack" data-ckey="${esc(key)}" data-cdate="${esc(pick[1])}" data-ctime="${esc(pick[2])}"><label for="cf-topic">С каким вопросом придёте</label><input id="cf-topic" name="topic" required maxlength="200" placeholder="Например: разобрать задачу 7 из типового расчёта"><p class="form-error" role="alert"></p><button class="btn block">${mine ? 'Перенести запись' : 'Записаться'} на ${esc(dayShort(pick[1]))}, ${esc(pick[2])}</button></form>` : `<p class="cap">${mine ? 'Чтобы перенести запись, выберите другое время.' : 'Выберите свободное время. Преподаватель увидит вашу запись и вопрос.'}</p>`}</div>`;
 }
 
 /* ---------- Сегодня ---------- */
@@ -223,6 +241,8 @@ export function viewToday() {
     notes.push(`<a class="change" href="#notices"><span class="change-kind">${esc(n.tag)}</span><span class="change-body"><strong>${esc(n.title)}</strong><span class="change-diff">${esc(n.body)}</span></span>${icon('chevron')}</a>`);
   }
   const ready = d.requests.filter((x) => x.status === 'Готова').map((r) => item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `Документ готов: ${esc(r.kind.toLowerCase())}`, sub: 'Электронная версия в кабинете, оригинал в ауд. А-112.'}));
+  const consults = (d.teachers || []).map((x) => ({x, c: myConsult(x.key)})).filter((y) => y.c).map(({x, c}) => item({data: `data-consult="${esc(x.key)}"`, ico: 'clock', tone: 'sky', title: `Консультация: ${esc(x.short)}`, sub: `${esc(cap(relativeDay(c.date, t)))}, ${c.time}, ${esc(c.place)} · ${esc(c.topic)}`}));
+  ready.push(...consults);
   const risk = st.risk.map((g) => item({href: 'study', ico: 'alert', tone: 'papaya', title: `Нет допуска: ${esc(g.title)}`, sub: `До порога не хватает ${60 - g.points} ${60 - g.points === 1 ? 'балла' : 'баллов'}.`}));
   const active = activeHomework(), week = active.filter((h) => daysBetween(t, h.due_date) <= 7);
   const toSession = Math.max(0, daysBetween(t, s.session_starts));
