@@ -24,7 +24,7 @@ function flash(message) {
   toastTimer = setTimeout(() => { toast.textContent = ''; }, 5000);
 }
 const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.svg" alt=""><span class="brand-text"><b>Кампус</b><small>${isStaff() ? 'кабинет сотрудника · концепт' : 'кабинет студента · концепт'}</small></span></a>`;
-const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>Кампус — концепт-прототип личного кабинета студента для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
+const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.svg" alt="" width="28" height="28"><p>Кампус — концепт-прототип личного кабинета студента для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены, портреты преподавателей сгенерированы нейросетью. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -49,7 +49,7 @@ function loginScreen(error = '', login = '') {
   app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
       <div class="login-copy"><h1>Личный кабинет студента</h1><p class="lede">Расписание с заменами и аудиториями, домашние задания со сроками, баллы и допуск, справки со статусом. С телефона и с компьютера.</p></div>
       <div class="hero-ui" aria-hidden="true">
-        <div class="ui-card ui-a"><span class="pill dark">Следующая пара · через 25 мин</span><b>Базы данных</b><span>10:40–12:10 · Корпус Б, ауд. 512</span><span class="ui-who"><i>МГ</i>Гранов М. А. · практика</span></div>
+        <div class="ui-card ui-a"><span class="pill dark">Следующая пара · через 25 мин</span><b>Базы данных</b><span>10:40–12:10 · Корпус Б, ауд. 512</span><span class="ui-who"><img src="/assets/people/granov.webp" alt="" width="28" height="28">Гранов М. А. · практика</span></div>
         <div class="ui-card ui-b"><span class="ui-row"><i class="ui-check"></i><span><b>Лабораторная работа 4</b><span>Алгоритмы · до четверга, 23:59</span></span></span><span class="ui-row"><i class="ui-check on">${icon('check')}</i><span><b>Типовой расчёт № 3</b><span>Математический анализ · сделано</span></span></span></div>
         <div class="ui-card ui-c"><span class="ui-label">Замена аудитории</span><span><s>А-305</s> → <b>Б-512</b></span></div>
       </div></section>

@@ -884,3 +884,8 @@ text.no,text.seats{paint-order:stroke;stroke-width:5px;stroke-linejoin:round}
 .rm.free text{stroke:#dff0e5}.rm.busy text{stroke:#ebebee}.rm.staff text{stroke:#f8dfd9}.rm.mine text{stroke:var(--ink)}.rm.off text{stroke:#fafafa}
 .campus-card .legend{display:flex;flex-wrap:wrap;gap:8px 22px}
 .campus-card .legend span{flex-wrap:nowrap}
+.ui-who img{width:28px;height:28px;border-radius:50%;object-fit:cover}
+.face.lg{background:#e6e6e8}
+.tcard{display:flex;flex-direction:column;align-items:center}
+.tcard .btn{margin-top:auto}
+.tcard .tcard-body{margin-bottom:16px}
