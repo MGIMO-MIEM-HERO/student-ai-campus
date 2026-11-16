@@ -1,8 +1,11 @@
 import {S, lessonIndex} from './state.js';
 import {icon} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, dayMonth, weekdayShort, stamp, count, plural, duration, daysBetween, relativeDay, untilText, cap, fmt, qrSvg, verifyUrl} from './util.js';
-import {building3d, legend3d, pairChips, buildingSeg, activePair, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday, defaultPair} from './campus.js';
+import {building3d, legend3d, pairChips, buildingSeg, activePair, activeFloor, roomByKey, roomState, freeRooms, roomsDayNote, roomsIsToday, defaultPair, mapDate} from './campus.js';
 import {ring, sparkline, dayTimeline, weekGrid} from './viz.js';
+import {territoryScene} from './scene-host.js';
+import {navigationPanel,navigationCaption} from './navigation-ui.js';
+import {scheduleEntries} from './schedule-navigation.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['tasks', 'Задания', 'tasks'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Корпуса', 'building']];
 export const ROUTES = ['today', 'schedule', 'tasks', 'study', 'requests', 'rooms', 'news', 'notices', 'assistant', 'profile', 'doc'];
@@ -93,7 +96,7 @@ function nowCard() {
   const card = (label, extra, l, body = '') => `<section class="now sky" aria-label="${esc(label)}"><div class="now-top"><span class="pill">${label}</span><span class="now-extra">${extra}</span></div>
     <p class="now-time">${l.start}<span>–${l.end}</span></p><p class="now-title">${esc(l.title)}</p>
     <div class="now-meta"><span>${icon('pin')}${where(l)}</span><span>${icon('clock')}${l.pair} пара</span></div>${body}
-    <div class="now-foot">${who(l)}<button class="btn light sm" data-lesson="${esc(l.id)}">Подробнее</button></div>${hw(l)}</section>`;
+    <div class="now-foot">${who(l)}${l.building && !l.cancelled && l.format!=='Онлайн'?`<button class="btn light sm" data-nav-lesson="${esc(l.id)}">Как пройти</button>`:''}<button class="btn light sm" data-lesson="${esc(l.id)}">Подробнее</button></div>${hw(l)}</section>`;
   if (cur) {
     const total = toMin(cur.end) - toMin(cur.start), left = toMin(cur.end) - t.minutes;
     return card('Идёт сейчас', `осталось ${duration(left)}`, cur, `<div class="bar light" data-pct="${Math.round((total - left) / total * 100)}"></div>${next ? `<p class="now-next">Далее в ${next.start}: ${esc(next.title)}, ${esc(next.place)}</p>` : ''}`);
@@ -340,7 +343,7 @@ export function lessonSheet(id) {
       ${row('Корпус', b ? `${esc(b.name)}, открыт ${esc(b.hours)}<br><span class="muted">${esc(b.hint)}</span>` : '')}
       ${row('Преподаватель', `<span class="who-line">${face(l.teacher, 'sm')}<span>${esc(l.teacher.name)}<br><span class="muted">${esc(l.teacher.title)}</span></span></span>`)}${row('Кафедра', esc(l.teacher.dept))}${row('Консультации', esc(l.teacher.hours))}
       ${row('Неделя', `${d.week}-я, ${d.parity === 'odd' ? 'нечётная' : 'чётная'}${l.parity ? `. Занятие проходит только по ${l.parity === 'odd' ? 'нечётным' : 'чётным'} неделям` : ''}`)}
-    </dl><div class="chips">${l.cancelled ? '' : `<button class="btn sm" data-ics-lesson="${esc(l.id)}">${icon('download')}В календарь</button>`}${r ? `<button class="btn ghost sm" data-goto-room="${esc(r.key)}">${icon('building')}Показать на схеме</button>` : ''}${S.data.consults?.[l.teacher.key] ? `<button class="btn ghost sm" data-consult="${esc(l.teacher.key)}">${icon('clock')}Консультация</button>` : ''}</div></div>`;
+    </dl><div class="chips">${l.cancelled ? '' : `<button class="btn sm" data-ics-lesson="${esc(l.id)}">${icon('download')}В календарь</button>`}${r && !l.cancelled && l.format !== 'Онлайн' ? `<button class="btn ghost sm" data-nav-lesson="${esc(l.id)}">${icon('building')}Как пройти на пару</button>` : ''}${S.data.consults?.[l.teacher.key] ? `<button class="btn ghost sm" data-consult="${esc(l.teacher.key)}">${icon('clock')}Консультация</button>` : ''}</div></div>`;
 }
 
 /* ---------- Учёба ---------- */
@@ -431,39 +434,36 @@ export function viewNotices() {
 
 /* ---------- Корпуса и аудитории ---------- */
 function myRoomsAt(pair) {
-  const t = S.data.campus.rooms_date;
+  const t = mapDate();
   return new Set((day(t)?.lessons || []).filter((l) => l.pair === pair && !l.cancelled && l.building).map((l) => `${l.building}-${l.room}`));
 }
 function nextLessonIn(key) {
-  const t = nowIso();
-  for (const dd of S.data.schedule) {
-    if (dd.date < t) continue;
-    const l = dd.lessons.find((x) => `${x.building}-${x.room}` === key && !x.cancelled);
-    if (l) return `${cap(relativeDay(dd.date, t))}, ${l.start} — ${l.title}`;
-  }
+  const t=mskNow(),entry=scheduleEntries(S.data).find(({lesson:l,date})=>!l.cancelled&&l.format!=='Онлайн'&&`${l.building}-${l.room}`===key&&(date>t.date||date===t.date&&toMin(l.end)>t.minutes));
+  if(entry)return `${cap(relativeDay(entry.date,t.date))}, ${entry.lesson.start}–${entry.lesson.end} — ${entry.lesson.title} · ${entry.lesson.teacher?.short||S.data.profile.name}`;
   return '';
 }
 export function roomCard(key, pair) {
   const r = roomByKey(key);
   if (!r) return `<section class="card"><div class="stack"><p class="title">Выберите аудиторию</p><p class="small muted">Нажмите на аудиторию на плане этажа или на номер в списке свободных, чтобы увидеть занятость по парам и как пройти.</p></div></section>`;
-  const st = roomState(key, pair), next = nextLessonIn(key), cur = defaultPair();
-  return `<section class="card"><div class="stack"><div class="row"><div><p class="eyebrow">Корпус ${esc(r.building)} · ${r.floor} этаж</p><p class="title">Аудитория ${esc(r.room)}</p></div><span class="tag ${st.cls === 'free' ? 'mint' : st.cls === 'staff' ? 'papaya' : ''}">${st.cls === 'free' ? 'Свободна' : st.cls === 'off' ? 'Служебное' : 'Занята'} · ${pair} пара</span></div>
+  const st = roomState(key, pair), next = nextLessonIn(key), cur = roomsIsToday()?defaultPair():0;
+  return `<section class="card"><div class="stack"><div class="row"><div><p class="eyebrow">Корпус ${esc(r.building)} · ${r.floor} этаж</p><p class="title">Аудитория ${esc(r.room)}</p></div><span class="tag ${st.cls === 'free' ? 'mint' : st.cls === 'staff' ? 'papaya' : ''}">${st.cls === 'free' ? 'Свободна' : st.cls === 'off' ? 'Служебное' : st.cls==='unknown'?'Нет данных':'Занята'} · ${pair} пара</span></div>
     <p>${esc(r.kind)}${r.seats ? `, ${r.seats} мест` : ''}. ${esc(r.hint)}.</p>${st.cls === 'staff' ? `<p class="small">${esc(st.text)}</p>` : ''}
-    ${r.seats ? `<div><p class="cap">Занятость сегодня по парам</p><div class="pairs-row">${S.data.campus.bells.map((b) => { const x = roomState(key, b.pair); return `<span class="${x.cls === 'free' ? '' : x.cls} ${b.pair === cur ? 'cur' : ''}" title="${esc(x.text)}"><b>${b.pair}</b>${x.cls === 'free' ? 'своб.' : 'занята'}</span>`; }).join('')}</div></div>` : ''}
+    ${r.seats ? `<div><p class="cap">Занятость ${esc(dayShort(mapDate()))} по парам</p><div class="pairs-row">${S.data.campus.bells.map((b) => { const x = roomState(key, b.pair); return `<span class="${x.cls === 'free' ? '' : x.cls} ${b.pair === cur ? 'cur' : ''}" title="${esc(x.text)}"><b>${b.pair}</b>${x.cls === 'free' ? 'своб.' : x.cls==='unknown'?'нет данных':'занята'}</span>`; }).join('')}</div></div>` : ''}
     ${next ? `<p class="small"><span class="tag marigold">Ваше занятие</span> ${esc(next)}</p>` : ''}</div></section>`;
 }
 const freeChip = (r) => `<button class="chip" data-room3="${esc(r.key)}" aria-pressed="${S.room === r.key}">${esc(r.room)} · ${r.seats} мест</button>`;
 export function viewRooms() {
   const pair = activePair(), mine = myRoomsAt(pair);
-  const free = freeRooms(pair, S.bld), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.seats).length;
+  const floor = activeFloor(S.bld, mine);
+  const free = freeRooms(pair, S.bld).filter((r) => r.floor === floor), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.floor === floor && r.seats).length;
   const b = building(S.bld);
-  return `<div class="page">${head('Корпуса', 'Корпуса и аудитории', `Планы этажей на выбранную пару: свободные аудитории выделены цветом. Нажмите на аудиторию, чтобы увидеть занятость и как пройти. ${esc(S.data.campus.note)}`)}
-    <div class="stack">${roomsDayNote()}${buildingSeg()}${pairChips(pair)}</div>
-    <section class="card campus-card"><div class="row"><div><p class="eyebrow">${esc(b.name)} · открыт ${esc(b.hours)}</p><p class="title">${pair} пара: свободно ${free.length} из ${total}</p></div>
+  return `<div class="page campus-page">${territoryScene()}${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
+    ${navigationPanel()}<div class="stack">${mapDate()===S.data.campus.rooms_date?roomsDayNote():''}${buildingSeg()}${pairChips(pair)}</div>
+    <section class="card campus-card" id="campus-map"><div class="row"><div><p class="eyebrow">${esc(b.name)} · открыт ${esc(b.hours)}</p><p class="title">${floor} этаж · ${mapDate()===S.data.campus.rooms_date?`свободно ${free.length} из ${total}`:esc(dayShort(mapDate()))}</p></div>
         <div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть корпус влево">${icon('arrow')}</button><button class="icon-btn" data-rot="15" aria-label="Повернуть корпус вправо">${icon('arrow')}</button></div></div>
-      ${building3d(S.bld, pair, {mine, selected: S.room})}${legend3d()}</section>
+      ${navigationCaption()}${building3d(S.bld, pair, {mine, selected: S.room})}${legend3d()}</section>
     <div class="cols"><div class="stack"><div id="room-card">${roomCard(S.room, pair)}</div>
-        <section class="card"><div class="stack"><p class="title">Свободны на ${pair} паре</p>${free.length ? `<div class="free-list">${free.slice(0, 9).map(freeChip).join('')}</div>${free.length > 9 ? `<details class="more" ${free.slice(9).some((r) => r.key === S.room) ? 'open' : ''}><summary>Показать ещё ${free.length - 9}</summary><div class="free-list">${free.slice(9).map(freeChip).join('')}</div></details>` : ''}` : '<p class="muted">В этом корпусе свободных аудиторий на выбранной паре нет.</p>'}<p class="cap">${esc(b.hint)}</p></div></section></div>
+        <section class="card"><div class="stack"><p class="title">Свободны на ${pair} паре</p>${free.length ? `<div class="free-list">${free.slice(0, 9).map(freeChip).join('')}</div>${free.length > 9 ? `<details class="more" ${free.slice(9).some((r) => r.key === S.room) ? 'open' : ''}><summary>Показать ещё ${free.length - 9}</summary><div class="free-list">${free.slice(9).map(freeChip).join('')}</div></details>` : ''}` : `<p class="muted">${mapDate()===S.data.campus.rooms_date?'На выбранном этаже нет свободных аудиторий на этой паре.':'Общая занятость на этот день неизвестна. На карте отмечены только ваши занятия.'}</p>`}<p class="cap">${esc(b.hint)}</p></div></section></div>
       <section class="card"><div class="stack"><label for="room-q" class="title">Найти аудиторию</label><input id="room-q" type="search" placeholder="Номер, например 512, или «деканат»" value="${esc(S.roomQuery)}" autocomplete="off" enterkeyhint="search"><div id="rooms-list">${roomsFiltered()}</div></div></section></div></div>`;
 }
 export function roomsFiltered() {

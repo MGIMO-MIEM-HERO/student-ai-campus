@@ -7,6 +7,8 @@ import * as stu from './student.js';
 import * as stf from './staff.js';
 import * as tch from './teacher.js';
 import {aboutScreen} from './about.js';
+import {findNavigationLesson,nextPhysicalLesson,syncNavigation} from './schedule-navigation.js';
+import {syncScenes, territoryScene} from './scene-host.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -55,11 +57,7 @@ function loginScreen(error = '', login = '') {
   lastKey = '';
   app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
       <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Студенту — расписание с заменами, задания со сроками, баллы и справки. Преподавателю — журнал, посещаемость и проверка работ. С телефона и с компьютера.</p></div>
-      <div class="hero-ui" aria-hidden="true">
-        <div class="ui-card ui-a"><span class="pill dark">Следующая пара · через 25 мин</span><b>Базы данных</b><span>10:40–12:10 · Корпус Б, ауд. 512</span><span class="ui-who"><img src="/assets/people/granov.webp" alt="" width="28" height="28">Гранов М. А. · практика</span></div>
-        <div class="ui-card ui-b"><span class="ui-row"><i class="ui-check"></i><span><b>Лабораторная работа 4</b><span>Алгоритмы · до четверга, 23:59</span></span></span><span class="ui-row"><i class="ui-check on">${icon('check')}</i><span><b>Типовой расчёт № 3</b><span>Математический анализ · сделано</span></span></span></div>
-        <div class="ui-card ui-c"><span class="ui-label">Замена аудитории</span><span><s>А-305</s> → <b>Б-512</b></span></div>
-      </div></section>
+      ${territoryScene(true)}</section>
     <main class="login-main" id="main" tabindex="-1"><div class="login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
@@ -92,6 +90,7 @@ async function verifyScreen(code) {
 }
 
 function decorate(root) {
+  if (root === app) syncScenes(root);
   root.querySelectorAll('[data-pct]').forEach((el) => el.style.setProperty('--pct', el.dataset.pct));
   root.querySelectorAll('[data-vars]').forEach((el) => el.dataset.vars.split(';').forEach((pair) => {
     const i = pair.indexOf(':');
@@ -125,6 +124,7 @@ function render() {
   lastKey = key;
   app.innerHTML = shell(views[key](), key);
   decorate(app);
+  if(S.focusMap){S.focusMap=false;requestAnimationFrame(()=>document.querySelector('#campus-map')?.scrollIntoView({block:'start'}));}
   if (entering) { const main = app.querySelector('#main'); main.classList.add('enter'); countUp(main); }
   app.setAttribute('aria-busy', 'false');
 }
@@ -139,8 +139,8 @@ function closeSheet() { if (sheet.open) sheet.close(); }
 sheet.addEventListener('close', () => { sheetBody.innerHTML = ''; if (lastFocus?.isConnected) lastFocus.focus(); });
 function openSearch() { if (!S.data || isStaff()) return; openSheet((isTeacher() ? tch : stu).searchSheet()); document.querySelector('#search-q')?.focus(); }
 
-function setData(next) { S.data = next; indexLessons(); }
-function resetUi() { Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
+function setData(next) { S.data = next; indexLessons(); syncNavigation(S,next); }
+function resetUi() { Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', mapDate:null,routeEnabled:false,routeLesson:null,routeBlocked:false,routeNotice:'',routeOrigin:'entry',bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
 async function doLogin(login, password) {
   try {
     setData(await api('login', {login, password}));
@@ -167,16 +167,24 @@ async function mutate(path, body, after) {
   if (version !== S.version) return;
   setData(updated); after?.(); render();
 }
-function showRoom(key) {
+function showRoom(key,fromLesson=false) {
   const r = roomByKey(key);
   if (!r) return;
-  S.bld = r.building; S.room = key; S.floor = r.floor;
+  S.bld = r.building; S.room = key; S.floor = r.floor; S.modelMode = 'floor';
+  S.routeEnabled=true;S.focusMap=true;
+  if(!fromLesson){S.routeLesson=null;S.routeBlocked=false;S.routeNotice='';}
   closeSheet();
   if (route() !== 'rooms') location.hash = 'rooms'; else render();
 }
+function navigateLesson(id) {
+  const entry=findNavigationLesson(S.data,id);if(!entry)return;
+  S.routeLesson=id;S.room='';S.routeOrigin='entry';S.routeEnabled=true;syncNavigation(S,S.data);
+  if(S.routeBlocked){render();flash(S.routeNotice);return;}
+  showRoom(S.room,true);
+}
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel],[data-csv]';
+const ACTIONS = '[data-route-summary],[data-nav-lesson],[data-route-next],[data-route-floor],[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel],[data-csv]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -184,6 +192,10 @@ document.addEventListener('click', async (event) => {
   const d = el.dataset;
   try {
     if (d.retry !== undefined) return location.reload();
+    if(d.routeSummary!==undefined){document.querySelector('#navigation')?.scrollIntoView({block:'start'});return;}
+    if(d.navLesson)return navigateLesson(d.navLesson);
+    if(d.routeNext!==undefined){const next=nextPhysicalLesson(S.data);if(next)navigateLesson(next.lesson.id);return;}
+    if(d.routeFloor){S.floor=Number(d.routeFloor);S.modelMode='floor';render();requestAnimationFrame(()=>document.querySelector('#campus-map')?.scrollIntoView({block:'start'}));return;}
     if (d.rot) { setRotation(S.rz + Number(d.rot)); return; }
     if (d.demo) return doLogin(d.demo, DEMO_PASSWORD);
     if (d.close !== undefined) return closeSheet();
@@ -229,10 +241,10 @@ document.addEventListener('click', async (event) => {
     if (d.ncat) { S.newsCat = d.ncat; render(); return document.querySelector(`[data-ncat="${d.ncat}"]`)?.focus(); }
     if (d.requestKind) return openSheet(stu.requestSheet(d.requestKind));
     if (d.gotoRoom) return showRoom(d.gotoRoom);
-    if (d.room3) { const r = roomByKey(d.room3); S.room = d.room3; if (r) { S.bld = r.building; S.floor = r.floor; } render(); return document.querySelector(`.plan [data-room3="${CSS.escape(d.room3)}"]`)?.focus({preventScroll: true}); }
-    if (d.floor) { S.floor = Number(d.floor); render(); return document.querySelector(`.floor-chips [data-floor="${d.floor}"]`)?.focus({preventScroll: true}); }
-    if (d.pair) { S.pair = Number(d.pair); render(); return document.querySelector(`[data-pair="${d.pair}"]`)?.focus({preventScroll: true}); }
-    if (d.bld) { S.bld = d.bld; S.room = ''; S.floor = null; render(); return document.querySelector(`[data-bld="${CSS.escape(d.bld)}"]`)?.focus({preventScroll: true}); }
+    if (d.room3) { const r = roomByKey(d.room3); S.room = d.room3; S.modelMode = 'floor'; S.routeEnabled=true;S.routeLesson=null;S.routeBlocked=false;S.routeNotice='';S.focusMap=true; if (r) { S.bld = r.building; S.floor = r.floor; } render(); return document.querySelector(`.plan [data-room3="${CSS.escape(d.room3)}"]`)?.focus({preventScroll: true}); }
+    if (d.floor) { S.floor = Number(d.floor); S.modelMode = 'floor'; render(); return document.querySelector(`.floor-chips [data-floor="${d.floor}"]`)?.focus({preventScroll: true}); }
+    if (d.pair) { S.routeLesson=null;S.routeBlocked=false;S.routeNotice=''; S.pair = Number(d.pair); render(); return document.querySelector(`[data-pair="${d.pair}"]`)?.focus({preventScroll: true}); }
+    if (d.bld) { S.bld = d.bld; S.room = '';S.routeEnabled=false;S.routeLesson=null;S.routeBlocked=false;S.routeNotice='';S.routeOrigin='entry'; S.floor = null; render(); return document.querySelector(`[data-bld="${CSS.escape(d.bld)}"]`)?.focus({preventScroll: true}); }
     if (d.day) { S.day = d.day; render(); return document.querySelector(`[data-day="${d.day}"]`)?.focus({preventScroll: true}); }
     if (d.week !== undefined) { S.week = Number(d.week); S.day = S.week === 0 ? (S.data.schedule.slice(0, 7).find((x) => x.date === stu.nowIso()) || S.data.schedule[0]).date : S.data.schedule[7].date; render(); return document.querySelector(`[data-week="${S.week}"]`)?.focus({preventScroll: true}); }
     if (d.nfilter) { S.noticeFilter = d.nfilter; render(); return document.querySelector(`[data-nfilter="${d.nfilter}"]`)?.focus(); }
@@ -316,11 +328,18 @@ document.addEventListener('submit', async (event) => {
     if (button) button.disabled = false;
   }
 });
+document.addEventListener('change',(event)=>{
+  if(event.target.id==='route-origin'){S.routeOrigin=event.target.value;S.modelMode='floor';S.focusMap=true;render();}
+  if(event.target.id==='map-date'){S.mapDate=event.target.value;S.routeLesson=null;S.routeBlocked=false;S.routeNotice='';S.pair=null;render();}
+});
 document.addEventListener('input', (event) => {
   if (event.target.id === 'room-q') { S.roomQuery = event.target.value; const box = document.querySelector('#rooms-list'); if (box) box.innerHTML = stu.roomsFiltered(); }
   if (event.target.id === 'search-q') { const box = document.querySelector('#search-results'); if (box) box.innerHTML = (isTeacher() ? tch : stu).searchResults(event.target.value); }
 });
 document.addEventListener('keydown', (event) => {
+  if ((event.key === 'Enter' || event.key === ' ') && event.target.matches?.('[data-room3][role="button"]')) {
+    event.preventDefault(); event.target.dispatchEvent(new MouseEvent('click', {bubbles: true})); return;
+  }
   const typing = event.target.matches?.('input,textarea,select');
   if ((event.key === '/' && !typing) || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) { event.preventDefault(); return openSearch(); }
   if (event.key === 'Enter' && event.target.id === 'search-q') { event.preventDefault(); document.querySelector('#search-results .res')?.click(); }
@@ -332,8 +351,9 @@ window.addEventListener('hashchange', () => {
 
 /* вращение 3D-схемы */
 function setRotation(value) {
-  S.rz = Math.max(-80, Math.min(40, Math.round(value)));
+  S.rz = Math.round(value);
   document.querySelectorAll('.b3d-stage,.stage3d').forEach((el) => el.style.setProperty('--rz', `${S.rz}deg`));
+  document.dispatchEvent(new CustomEvent('campus-rotation', {detail: S.rz}));
 }
 document.addEventListener('pointerdown', (event) => {
   const el = event.target.closest('[data-drag3d]');
@@ -354,7 +374,7 @@ document.addEventListener('pointercancel', () => { drag = null; });
 setInterval(() => { document.querySelectorAll('[data-clock]').forEach((el) => { el.textContent = stu.clockText(); }); }, 15000);
 
 /* актуальность данных */
-const busyUi = () => sheet.open || document.activeElement?.matches?.('input,textarea,select') || S.busy;
+const busyUi = () => sheet.open || document.activeElement?.matches?.('input,textarea,select') || S.busy || !!document.querySelector('[data-scene][data-animating="true"]');
 async function refresh() {
   if (!S.data || busyUi() || document.hidden || hashParts()[0] === 'verify') return;
   const version = S.version;

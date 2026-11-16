@@ -1,7 +1,11 @@
 import {S} from './state.js';
 import {esc, mskNow, toMin} from './util.js';
+import {interiorLayout, interiorSvg} from './interior-layout.js';
+import {buildRoute,routeSvg} from './wayfinding.js';
+import {scheduleEntries,roomKey} from './schedule-navigation.js';
 
-export const roomsIsToday = () => S.data.campus.rooms_date === mskNow().date;
+export const mapDate = () => S.mapDate || S.data.campus.rooms_date;
+export const roomsIsToday = () => mapDate() === mskNow().date;
 export function defaultPair() {
   const t = mskNow(), bells = S.data.campus.bells;
   if (!roomsIsToday()) return bells[0].pair;
@@ -13,9 +17,14 @@ export function roomsDayNote() {
 }
 export const activePair = () => S.pair || defaultPair();
 export const roomByKey = (key) => S.data.campus.rooms.find((r) => r.key === key);
+let occupancyData,personalOccupancy;
 export function roomState(key, pair) {
   const room = roomByKey(key);
   if (!room?.seats) return {cls: 'off', text: 'Служебное помещение'};
+  if(occupancyData!==S.data){occupancyData=S.data;personalOccupancy=new Map(scheduleEntries(S.data).filter(({lesson:l})=>!l.cancelled&&l.format!=='Онлайн').map(({lesson:l,date})=>[`${date}/${l.pair}/${roomKey(l)}`,l]));}
+  const mine=personalOccupancy.get(`${mapDate()}/${pair}/${key}`);
+  if(mine)return {cls:'busy',text:`Ваше занятие: ${mine.title}`};
+  if(mapDate()!==S.data.campus.rooms_date)return {cls:'unknown',text:'Нет данных об общей занятости на этот день'};
   const mark = (S.data.campus.busy[String(pair)] || {})[key];
   if (!mark) return {cls: 'free', text: 'Свободна'};
   return mark.by === 'staff' ? {cls: 'staff', text: `Занята: ${mark.note}`} : {cls: 'busy', text: mark.note};
@@ -38,6 +47,7 @@ function spread(rooms, x0, x1, y0, y1, side) {
 }
 export function floorLayout(buildingId, floor) {
   const rooms = S.data.campus.rooms.filter((r) => r.building === buildingId && r.floor === floor).sort((a, b) => a.room.localeCompare(b.room));
+  if (buildingId === 'А') return interiorLayout(rooms);
   const north = rooms.slice(0, Math.ceil(rooms.length / 2)), south = rooms.slice(Math.ceil(rooms.length / 2)).reverse();
   const row = (list, y0, y1, side) => {
     const left = list.slice(0, Math.ceil(list.length / 2)), right = list.slice(Math.ceil(list.length / 2));
@@ -50,6 +60,14 @@ export function floorLayout(buildingId, floor) {
     if (!list.length) voids.push({x: PM, y: y0, w: CORE0 - PM, h: y1 - y0});
   }
   return {boxes, voids};
+}
+export function currentRoute() {
+  if(!S.routeEnabled||!S.room||S.routeBlocked)return null;
+  const target=roomByKey(S.room);if(!target)return null;
+  return buildRoute({target,origin:S.routeOrigin||'entry',rooms:S.data.campus.rooms,layoutFor:(floor)=>floorLayout(target.building,floor)});
+}
+export function routeForFloor(building,floor) {
+  const route=currentRoute();return route?.target.building===building?route.segments.find((s)=>s.floor===floor):null;
 }
 function furniture(b) {
   const {x, y, w, h, side, r} = b, out = [];
@@ -85,7 +103,7 @@ function furniture(b) {
   return `<g class="fur">${out.join('')}</g>`;
 }
 function door(b) {
-  const hinge = b.x + Math.min(12, b.w * .2), leaf = 14, yy = b.side === 'n' ? CY0 : CY1, s = b.side === 'n' ? -1 : 1;
+  const hinge = b.x + 6, leaf = 14, yy = b.side === 'n' ? CY0 : CY1, s = b.side === 'n' ? -1 : 1;
   return `<path class="gap" d="M${n1(hinge)} ${yy}H${n1(hinge + leaf)}"/><path class="leaf" d="M${n1(hinge)} ${yy}V${n1(yy + s * leaf)}A${leaf} ${leaf} 0 0 ${b.side === 'n' ? 1 : 0} ${n1(hinge + leaf)} ${yy}"/>`;
 }
 function core(floor, buildingId) {
@@ -99,6 +117,7 @@ function core(floor, buildingId) {
     ${floor === 2 && buildingId === 'А' ? `<g class="entry"><path d="M${PW - PM} ${CY0 + 8}V${CY1 - 8}"/><text class="tiny strong" x="${PW - PM - 62}" y="${CY0 + 22}">Переход в Б</text></g>` : ''}`;
 }
 export function floorSvg(buildingId, floor, pair, {mine = new Set(), selected = '', mini = false} = {}) {
+  if (buildingId === 'А') return interiorSvg(floorLayout(buildingId, floor), pair, {mine, selected, mini,route:routeForFloor(buildingId,floor)}, roomState);
   const {boxes, voids} = floorLayout(buildingId, floor);
   const rooms = boxes.map((b) => {
     const st = roomState(b.r.key, pair), cls = mine.has(b.r.key) ? 'mine' : st.cls, sel = selected === b.r.key;
@@ -111,7 +130,7 @@ export function floorSvg(buildingId, floor, pair, {mine = new Set(), selected = 
   const holes = voids.map((v) => `<rect class="void" x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}"/>${mini ? '' : `<text class="tiny" x="${v.x + v.w / 2}" y="${v.y + v.h / 2 + 4}">холл</text>`}`).join('');
   return `<svg class="${mini ? 'plan-mini' : 'plan'}" viewBox="0 0 ${PW} ${PH}" ${mini ? 'aria-hidden="true" focusable="false"' : `role="group" aria-label="План: корпус ${esc(buildingId)}, ${floor} этаж"`}>
     <rect class="shell" x="${PM}" y="${PM}" width="${PW - 2 * PM}" height="${PH - 2 * PM}"/><rect class="corridor" x="${PM}" y="${CY0}" width="${PW - 2 * PM}" height="${CY1 - CY0}"/>
-    ${mini ? '' : `<text class="tiny corr" x="${PM + 120}" y="${CY0 + 22}">коридор</text>`}${holes}${rooms}${core(floor, buildingId)}</svg>`;
+    ${mini ? '' : `<text class="tiny corr" x="${PM + 120}" y="${CY0 + 22}">коридор</text>`}${holes}${rooms}${core(floor, buildingId)}${mini?'':routeSvg(routeForFloor(buildingId,floor))}</svg>`;
 }
 export function activeFloor(buildingId, mine = new Set()) {
   const b = S.data.campus.buildings.find((x) => x.id === buildingId);
@@ -121,19 +140,14 @@ export function activeFloor(buildingId, mine = new Set()) {
   const my = [...mine].map(roomByKey).find((r) => r && r.building === buildingId);
   return my ? my.floor : 1;
 }
-/** Корпус целиком: этажи стопкой в 3D (выбор этажа) и крупный план выбранного этажа. */
+/** Shared floor selector with a WebGL cutaway and accessible SVG plan. */
 export function building3d(buildingId, pair, {mine = new Set(), selected = ''} = {}) {
   const b = S.data.campus.buildings.find((x) => x.id === buildingId), cur = activeFloor(buildingId, mine);
-  const floors = [];
-  for (let f = 1; f <= b.floors; f++) {
-    const free = S.data.campus.rooms.filter((r) => r.building === buildingId && r.floor === f && roomState(r.key, pair).cls === 'free').length;
-    floors.push(`<button class="fl ${f === cur ? 'on' : ''} ${f > cur ? 'above' : ''}" data-floor="${f}" data-vars="--f:${f - 1}" aria-pressed="${f === cur}" aria-label="${f} этаж, свободно ${free}"><span class="fl-tag">${f}</span>${floorSvg(buildingId, f, pair, {mine, selected, mini: true})}</button>`);
-  }
   const chips = Array.from({length: b.floors}, (_, i) => `<button class="chip" data-floor="${i + 1}" aria-pressed="${i + 1 === cur}">${i + 1} этаж</button>`).join('');
-  return `<div class="campus-plan"><div class="b3d n${b.floors}" data-drag3d><div class="b3d-stage" data-vars="--rz:${S.rz}deg">${floors.join('')}</div></div>
+  return `<div class="campus-plan"><div class="model-view floor-model" data-scene="floor" data-building="${esc(buildingId)}" data-floor-number="${cur}" data-pair-number="${pair}" data-selected-room="${esc(selected)}" data-mine="${esc([...mine].join(','))}"><div class="model-modes" role="group" aria-label="Представление модели"><button data-model-mode="building" aria-pressed="${S.modelMode !== 'floor'}">Корпус</button><button data-model-mode="floor" aria-pressed="${S.modelMode === 'floor'}">Этаж</button></div><button class="model-tour" data-model-action="tour" aria-pressed="false">Облёт</button><div class="model-stamp"><span>${cur} этаж</span><small>Учебная демо-модель</small></div><div class="scene-status" data-scene-status role="status">Собираем этаж…</div><div class="model-controls" role="group" aria-label="Вид этажа"><button data-model-action="left" aria-label="Повернуть этаж влево">↶</button><button data-model-action="reset" aria-label="Вернуть исходный вид">↺</button><button data-model-action="zoom-in" aria-label="Приблизить этаж">+</button><button data-model-action="zoom-out" aria-label="Отдалить этаж">−</button><button data-model-action="top" aria-label="Посмотреть этаж сверху">Вид сверху</button></div></div>
     <div class="plan-side"><div class="chips floor-chips" role="group" aria-label="Этаж">${chips}</div><div class="plan-scroll">${floorSvg(buildingId, cur, pair, {mine, selected})}</div></div></div>`;
 }
-export const legend3d = (staff = false) => `<div class="legend"><span><i class="sw sw-free"></i>свободна</span><span><i class="sw sw-busy"></i>занята по расписанию</span><span><i class="sw sw-staff"></i>отмечено деканатом</span>${staff ? '' : '<span><i class="sw sw-mine"></i>ваше занятие</span>'}<span><i class="sw sw-off"></i>служебное</span></div>`;
+export const legend3d = (staff = false) => `<div class="legend"><span><i class="sw sw-free"></i>свободна</span>${mapDate()===S.data.campus.rooms_date?'<span><i class="sw sw-busy"></i>занята по расписанию</span>':'<span><i class="sw sw-busy"></i>нет данных по другим занятиям</span>'}<span><i class="sw sw-staff"></i>отмечено деканатом</span>${staff ? '' : '<span><i class="sw sw-mine"></i>ваше занятие</span>'}<span><i class="sw sw-off"></i>служебное</span></div>`;
 export function pairChips(pair) {
   const now = defaultPair();
   return `<div class="chips" role="group" aria-label="Пара">${S.data.campus.bells.map((b) => `<button class="chip" data-pair="${b.pair}" aria-pressed="${b.pair === pair}">${b.pair} пара · ${b.start}${b.pair === now && roomsIsToday() ? ' · сейчас' : ''}</button>`).join('')}</div>`;
