@@ -340,7 +340,7 @@ export function lessonSheet(id) {
       ${row('Корпус', b ? `${esc(b.name)}, открыт ${esc(b.hours)}<br><span class="muted">${esc(b.hint)}</span>` : '')}
       ${row('Преподаватель', `<span class="who-line">${face(l.teacher, 'sm')}<span>${esc(l.teacher.name)}<br><span class="muted">${esc(l.teacher.title)}</span></span></span>`)}${row('Кафедра', esc(l.teacher.dept))}${row('Консультации', esc(l.teacher.hours))}
       ${row('Неделя', `${d.week}-я, ${d.parity === 'odd' ? 'нечётная' : 'чётная'}${l.parity ? `. Занятие проходит только по ${l.parity === 'odd' ? 'нечётным' : 'чётным'} неделям` : ''}`)}
-    </dl><div class="chips">${l.cancelled ? '' : `<button class="btn sm" data-ics-lesson="${esc(l.id)}">${icon('download')}В календарь</button>`}${r ? `<button class="btn ghost sm" data-goto-room="${esc(r.key)}">${icon('building')}Показать на схеме</button>` : ''}</div></div>`;
+    </dl><div class="chips">${l.cancelled ? '' : `<button class="btn sm" data-ics-lesson="${esc(l.id)}">${icon('download')}В календарь</button>`}${r ? `<button class="btn ghost sm" data-goto-room="${esc(r.key)}">${icon('building')}Показать на схеме</button>` : ''}${S.data.consults?.[l.teacher.key] ? `<button class="btn ghost sm" data-consult="${esc(l.teacher.key)}">${icon('clock')}Консультация</button>` : ''}</div></div>`;
 }
 
 /* ---------- Учёба ---------- */

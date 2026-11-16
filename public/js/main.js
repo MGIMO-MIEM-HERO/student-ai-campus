@@ -1,7 +1,7 @@
 import {S, indexLessons, lessonIndex} from './state.js';
 import {api} from './api.js';
 import {icon} from './icons.js';
-import {esc, buildIcs, downloadIcs, dayMonth} from './util.js';
+import {esc, buildIcs, downloadIcs, downloadText, dayMonth} from './util.js';
 import {activePair, roomByKey} from './campus.js';
 import * as stu from './student.js';
 import * as stf from './staff.js';
@@ -174,7 +174,7 @@ function showRoom(key) {
 }
 
 /* события */
-const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel]';
+const ACTIONS = '[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel],[data-csv]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -190,6 +190,7 @@ document.addEventListener('click', async (event) => {
     if (d.copy) { try { await navigator.clipboard.writeText(d.copy); flash('Ссылка проверки скопирована.'); } catch { flash('Не удалось скопировать. Выделите ссылку вручную.'); } return; }
     if (d.lesson) return openSheet(isTeacher() ? tch.lessonSheet(d.lesson) : stu.lessonSheet(d.lesson));
     if (d.att) return openSheet(tch.attSheet(d.att));
+    if (d.csv) { const f = tch.journalCsv(d.csv); if (f) { downloadText(f.text, f.name); flash('Журнал выгружен в CSV. Файл открывается в Excel и Google Таблицах.'); } return; }
     if (d.consult) { S.cslot = ''; openSheet(stu.consultSheet(d.consult)); return; }
     if (d.slot) { S.cslot = d.slot; const key = d.slot.split('|')[0]; openSheet(stu.consultSheet(key)); sheetBody.querySelector('#cf-topic')?.focus(); return; }
     if (d.ccancel) { const [teacher, date, time] = d.ccancel.split('|'); el.disabled = true; return await mutate('consult', {teacher, date, time, cancel: true}, () => { S.cslot = ''; openSheet(stu.consultSheet(teacher)); flash('Запись отменена.'); }); }

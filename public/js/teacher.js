@@ -181,7 +181,7 @@ export function viewJournal() {
   return `<div class="page">${head(`${j.title} · ${j.group}`, 'Журнал', 'Посещаемость за последние недели и баллы текущего контроля. Нажмите на клетку, чтобы сменить отметку: был → не был → опоздал → уважительная → пусто.')}
     <div class="chips" role="group" aria-label="Группа">${offs.map((o) => `<button class="chip" data-off="${esc(o.id)}" aria-pressed="${o.id === S.off}">${esc(o.group)} · ${esc(o.title)}</button>`).join('')}</div>
     <section class="card jr-card"><div class="row"><div class="legend jr-legend"><span><i class="jm m-p"></i>был</span><span><i class="jm m-l">О</i>опоздал</span><span><i class="jm m-a">Н</i>не был</span><span><i class="jm m-e">У</i>уважительная</span><span><i class="jm m-n"></i>не отмечен</span></div>
-      ${todayIdx >= 0 ? `<button class="btn sm" data-att="${esc(j.lessons[todayIdx].id)}">${icon('check')}Отметить сегодняшнее занятие</button>` : ''}</div>
+      <div class="chips"><button class="btn ghost sm" data-csv="${esc(j.id)}">${icon('download')}Скачать CSV</button>${todayIdx >= 0 ? `<button class="btn sm" data-att="${esc(j.lessons[todayIdx].id)}">${icon('check')}Отметить сегодняшнее занятие</button>` : ''}</div></div>
       <div class="jr-scroll" tabindex="0" aria-label="Журнал, прокрутка вбок"><table class="jr"><thead><tr><th scope="col" class="jr-name">Студент</th>${j.lessons.map((l) => `<th scope="col" class="${l.date === t ? 'is-today' : ''}"><span>${fmt(l.date, {day: 'numeric'})}.${l.date.slice(5, 7)}</span><small>${TYPE_LETTER[l.type] || '·'}</small></th>`).join('')}<th scope="col" class="jr-sum">Посещ.</th><th scope="col" class="jr-sum">Баллы</th></tr></thead>
         <tbody>${j.students.map((s) => `<tr class="${s.login ? 'has-login' : ''}"><th scope="row" class="jr-name"><button class="jr-stud" data-stud="${esc(j.group)}|${esc(s.id)}"><span class="face mono xs f${s.id.charCodeAt(s.id.length - 1) % 5}" aria-hidden="true">${esc(s.initials)}</span>${esc(s.short)}</button></th>${j.lessons.map((l, i) => cell(l, s, i)).join('')}
           <td class="jr-sum ${s.att !== null && s.att < 75 ? 'low' : ''}">${s.att === null ? '—' : `${s.att}%`}</td><td class="jr-sum ${s.points < 60 ? 'low' : ''}">${s.points}</td></tr>`).join('')}</tbody>
@@ -328,4 +328,16 @@ export function searchResults(query) {
   if (lessons.length) out.push('<p class="label">Занятия</p>', ...lessons.slice(0, 4).map((l) => res(`data-lesson="${esc(l.id)}"`, 'schedule', esc(l.title), `${esc(cap(relativeDay(l.date, t)))}, ${l.start} · ${groupsLine(l)} · ${esc(l.place)}`)));
   if (rooms.length) out.push('<p class="label">Аудитории</p>', ...rooms.map((r) => res(`data-goto-room="${esc(r.key)}"`, 'building', `Корпус ${esc(r.building)}, ауд. ${esc(r.room)}`, `${esc(r.kind)} · ${r.floor} этаж`)));
   return out.length ? out.join('') : empty('search', 'Ничего не найдено', 'Попробуйте фамилию студента, название задания или номер аудитории.');
+}
+
+/* ---------- Выгрузка журнала ---------- */
+export function journalCsv(id) {
+  const j = S.data.journals[id];
+  if (!j) return null;
+  const cell = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const label = {p: '+', l: 'оп', a: 'н', e: 'ув', '-': ''};
+  const header = ['Студент', ...j.lessons.map((l) => `${l.date.slice(8, 10)}.${l.date.slice(5, 7)} ${TYPE_LETTER[l.type] || ''}`), 'Посещаемость, %', 'Пропуски', 'Баллы'];
+  const rows = j.students.map((s) => [s.name, ...[...s.marks].map((m) => label[m] ?? ''), s.att ?? '', s.absent, s.points]);
+  // точка с запятой и BOM — так файл сразу правильно открывается в Excel с русской локалью
+  return {text: '\ufeff' + [header, ...rows].map((r) => r.map(cell).join(';')).join('\r\n'), name: `zhurnal-${j.group.replace(/[А-ЯЁ]/g, (ch) => ({П: 'pi', И: '', М: 'mo', О: ''}[ch] ?? 'x')).toLowerCase()}-${j.course}.csv`};
 }
