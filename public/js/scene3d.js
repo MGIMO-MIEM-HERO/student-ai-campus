@@ -1,6 +1,6 @@
 import * as T from './vendor/three.module.js';
 import {S} from './state.js';
-import {floorLayout, roomState,routeForFloor} from './campus.js';
+import {floorLayout, roomState,routeForFloor,currentRoute} from './campus.js';
 
 import {createArchitectureKit, studioEnvironment} from './architecture-kit.js';
 import {territoryRoute} from './campus-geometry.js';
@@ -43,7 +43,54 @@ export function mountScene(host) {
   const cube=new T.BoxGeometry(1,1,1),picks=[];
   const floorGroup=new T.Group(),buildingGroup=new T.Group();
   if(!territory){model.add(floorGroup,buildingGroup);kit.setGroup(floorGroup);}
-  let buildingHeight=0;
+  let buildingHeight=0,xray=null;
+  const ghosts=new Map();
+  // Рентген корпуса: фасад полупрозрачный, внутри — путь от входа к лифту, подъём и коридор до двери аудитории.
+  function buildXray(route,floorsCount) {
+    const keep=new Set(Object.entries(m).filter(([k])=>/lawn|soil|paving|leaf|bark|hedge|grass|concrete/i.test(k)).map(([,v])=>v));
+    const ghost=(mat)=>{
+      if(keep.has(mat))return mat;
+      if(!ghosts.has(mat)){const g=mat.clone();g.transparent=true;g.opacity=.12;g.depthWrite=false;ghosts.set(mat,g);}
+      return ghosts.get(mat);
+    };
+    buildingGroup.traverse((o)=>{if(!o.isMesh||o.userData.labels)return;const before=o.material;o.material=Array.isArray(before)?before.map(ghost):ghost(before);if([before].flat().some((mat)=>!keep.has(mat)))o.castShadow=false;});
+    const level=(f)=>.3+(f-1)*1.18;
+    const slab=(f,color,opacity)=>{
+      const layout=floorLayout(route.target.building,f),H=layout.height||224;
+      const mat=new T.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,toneMapped:false});
+      for(const p of layout.plates||[{x:8,y:8,w:584,h:208}]){const s=new T.Mesh(cube,mat);s.scale.set(p.w/20,.06,p.h/20);s.position.set((p.x+p.w/2-300)/20,level(f),(p.y+p.h/2-H/2)/20);buildingGroup.add(s);}
+      return H;
+    };
+    const start=route.segments[0].floor,end=route.target.floor;
+    // Контуры всех этажей дают отсчёт уровней; нужный этаж залит.
+    const edgeMat=new T.LineBasicMaterial({color:0x7f979d,transparent:true,opacity:.55,depthWrite:false});
+    for(let f=1;f<=floorsCount;f++){
+      const layout=floorLayout(route.target.building,f),H=layout.height||224;
+      for(const p of layout.plates||[{x:8,y:8,w:584,h:208}]){const e=new T.LineSegments(new T.EdgesGeometry(new T.PlaneGeometry(p.w/20,p.h/20).rotateX(-Math.PI/2)),edgeMat);e.position.set((p.x+p.w/2-300)/20,level(f),(p.y+p.h/2-H/2)/20);buildingGroup.add(e);}
+    }
+    if(start!==end)slab(start,0x279197,.18);
+    const H=slab(end,0x5f93a6,.32);
+    const points=[];
+    for(const s of route.segments)for(const [x,z] of s.points)points.push(new T.Vector3((x-300)/20,level(s.floor)+.12,(z-H/2)/20));
+    const clean=points.filter((p,i)=>!i||p.distanceTo(points[i-1])>.001),path=new T.CurvePath();
+    for(let i=1;i<clean.length;i++)path.add(new T.LineCurve3(clean[i-1],clean[i]));
+    for(const [radius,color,order] of [[.16,0xffffff,30],[.09,0x166b91,31]]) {
+      const line=new T.Mesh(new T.TubeGeometry(path,Math.max(48,clean.length*8),radius,6,false),new T.MeshBasicMaterial({color,depthTest:false,depthWrite:false,toneMapped:false}));
+      line.renderOrder=order;buildingGroup.add(line);
+    }
+    for(const [p,color] of [[clean[0],0x279197],[clean.at(-1),0x166b91]]) {
+      const ring=new T.Mesh(new T.RingGeometry(.2,.36,24),new T.MeshBasicMaterial({color,depthTest:false,depthWrite:false,side:T.DoubleSide,toneMapped:false}));
+      ring.rotation.x=-Math.PI/2;ring.position.copy(p);ring.renderOrder=32;buildingGroup.add(ring);
+    }
+    if(start!==end) {
+      // Шахта лифта: полупрозрачный столб между этажами отправления и прибытия.
+      const lift=route.segments[0].points.at(-1),shaft=new T.Mesh(cube,new T.MeshBasicMaterial({color:0x279197,transparent:true,opacity:.22,depthWrite:false,toneMapped:false}));
+      const y0=level(Math.min(start,end)),y1=level(Math.max(start,end))+1;shaft.scale.set(.9,y1-y0,.9);shaft.position.set((lift[0]-300)/20,(y0+y1)/2,(lift[1]-H/2)/20);buildingGroup.add(shaft);
+    }
+    const target=clean.at(-1),pin=new T.Mesh(new T.ConeGeometry(.22,.6,12),new T.MeshBasicMaterial({color:0x166b91,toneMapped:false,depthTest:false}));
+    pin.rotation.z=Math.PI;pin.position.copy(target).add(new T.Vector3(0,.55,0));pin.renderOrder=33;buildingGroup.add(pin);
+    host.dataset.xray=`${start}-${end}`;
+  }
   if(territory) {
     buildTerritory(kit,picks);
     const route=territoryRoute(host.dataset.routeBuilding);
@@ -167,8 +214,12 @@ export function mountScene(host) {
     kit.setGroup(buildingGroup);
     const building=S.data.campus.buildings.find((b)=>b.id===host.dataset.building);
     buildingHeight=buildBuilding(kit,floorLayout(host.dataset.building,Number(host.dataset.floorNumber)),building.floors).height;
+    const route=currentRoute();
+    if(route?.target.building===host.dataset.building&&route.segments.length)xray={route,floors:building.floors};
+    if(xray){const [x,z]=route.segments.at(-1).points.at(-1),H=floorLayout(host.dataset.building,route.target.floor).height||224;text(`АУД. ${route.target.room}`,(x-300)/20,buildingHeight+.4,(z-H/2)/20,2.4);}
   }
   kit.flush();
+  if(xray)buildXray(xray.route,xray.floors);
   const environment=studioEnvironment();scene.environment=environment;scene.environmentIntensity=.62;
   const ground=new T.Mesh(new T.PlaneGeometry(180,160),new T.ShadowMaterial({opacity:.26}));
   ground.rotation.x=-Math.PI/2;ground.position.y=territory?-.77:-.4;ground.receiveShadow=true;scene.add(ground);
@@ -187,6 +238,8 @@ export function mountScene(host) {
     renderer.toneMappingExposure=evening?.94:1.08;
     scene.environmentIntensity=evening?.22:.62;
     kit.setEvening(evening);
+    // Полупрозрачные копии фасада в режиме «рентгена» повторяют вечернее свечение оригиналов.
+    for(const [source,copy] of ghosts)if(source.emissive&&copy.emissive){copy.emissive.copy(source.emissive);copy.emissiveIntensity=source.emissiveIntensity;}
     renderer.shadowMap.needsUpdate=true;sun.shadow.needsUpdate=true;
     // Controls own the on-demand loop; a mode change needs just one extra frame.
     if(draw&&host.dataset.ready==='true')renderer.render(scene,camera);

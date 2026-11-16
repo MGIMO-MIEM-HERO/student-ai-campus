@@ -185,7 +185,7 @@ function navigateLesson(id) {
 }
 
 /* события */
-const ACTIONS = '[data-route-summary],[data-nav-lesson],[data-near-free],[data-route-next],[data-route-floor],[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel],[data-csv]';
+const ACTIONS = '[data-route-summary],[data-route-xray],[data-nav-lesson],[data-near-free],[data-route-next],[data-route-floor],[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel],[data-csv]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
   const el = event.target.closest(ACTIONS);
@@ -193,6 +193,7 @@ document.addEventListener('click', async (event) => {
   const d = el.dataset;
   try {
     if (d.retry !== undefined) return location.reload();
+    if(d.routeXray!==undefined){S.modelMode='building';render();requestAnimationFrame(()=>document.querySelector('.floor-model')?.scrollIntoView({block:'center'}));return;}
     if(d.routeSummary!==undefined){document.querySelector('#navigation')?.scrollIntoView({block:'start'});return;}
     if(d.navLesson)return navigateLesson(d.navLesson);
     if(d.nearFree!==undefined){const from=S.room,near=nearestFreeRoom(from);if(!near)return flash('Свободных аудиторий в этом корпусе на этой паре нет.');Object.assign(S,{routeLesson:null,routeBlocked:false,routeNotice:`Ближайшая свободная: ${near.room}, ${near.floor} этаж. Путь от аудитории ${roomByKey(from).room}.`,routeOrigin:from,room:near.key,floor:near.floor,routeEnabled:true,modelMode:'floor',focusMap:true});render();return;}

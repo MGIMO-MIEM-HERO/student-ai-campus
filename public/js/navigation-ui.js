@@ -14,7 +14,7 @@ export function navigationCaption() {
   const entry=findNavigationLesson(S.data,S.routeLesson),route=currentRoute();
   if(!S.room)return '';
   const segment=route?.segments.find((s)=>s.floor===S.floor);
-  return `<div class="navigation-map-caption" aria-live="polite">${entry?`<strong>${esc(entry.lesson.title)} · ${esc(entry.lesson.start)}–${esc(entry.lesson.end)}</strong><span>${esc(dayLong(entry.date))} · ${esc(entry.lesson.teacher?.short||S.data.profile.name)} · ${esc(entry.lesson.place)}</span>`:''}${S.routeNotice?`<span>${esc(S.routeNotice)}</span>`:''}${segment?`<span>${segment.kind==='departure'?'От начальной точки к лифту':`К двери аудитории ${esc(route.target.room)}`} · ${segment.floor} этаж</span>`:''}<button class="link" data-route-summary>Начало и этапы маршрута ↑</button></div>`;
+  return `<div class="navigation-map-caption" aria-live="polite">${entry?`<strong>${esc(entry.lesson.title)} · ${esc(entry.lesson.start)}–${esc(entry.lesson.end)}</strong><span>${esc(dayLong(entry.date))} · ${esc(entry.lesson.teacher?.short||S.data.profile.name)} · ${esc(entry.lesson.place)}</span>`:''}${S.routeNotice?`<span>${esc(S.routeNotice)}</span>`:''}${segment?`<span>${segment.kind==='departure'?'От начальной точки к лифту':`К двери аудитории ${esc(route.target.room)}`} · ${segment.floor} этаж</span>`:''}<button class="link" data-route-summary>Начало и этапы маршрута ↑</button>${route&&!route.arrived?'<button class="link" data-route-xray>Весь путь в 3D-корпусе</button>':''}</div>`;
 }
 export function navigationPanel() {
   const entries=scheduleEntries(S.data),date=mapDate(),today=mskNow().date,next=nextPhysicalLesson(S.data);

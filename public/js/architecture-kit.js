@@ -81,14 +81,33 @@ export function createArchitectureKit(root) {
     }
   }
   let windowIndex=0;
-  function instance(geometry,mat,x,y,z,w,h,d,rotation=0,detail=0) {
+  function instance(geometry,mat,x,y,z,w,h,d,rotation=0,detail=0,color) {
     if(w<=0||h<=0||d<=0)return;
     let list=batches.get(target);if(!list){list=[];batches.set(target,list);}
     let batch=list.find((b)=>b.geometry===geometry&&b.mat===mat&&b.detail===detail);
     if(!batch){batch={geometry,mat,detail,items:[]};list.push(batch);}
-    batch.items.push({x,y,z,w,h,d,rotation});
+    batch.items.push({x,y,z,w,h,d,rotation,color});
   }
   const box=(x,y,z,w,h,d,mat=m.stone,rotation=0,detail=0)=>instance(geometries.box,mat,x,y,z,w,h,d,rotation,detail);
+  // Street furniture shares four untextured batches, including instance tints.
+  // Detail 1 receives light/shadows but avoids multiplying shadow-map draws.
+  const streetMaterial=material('street-details',0xffffff,.8,.08);
+  let streetGeometry;
+  function streetPart(shape,x,y,z,w,h,d,color,rotation=0) {
+    if(!streetGeometry) {
+      const rounded=new T.BoxGeometry(1,1,1,2,2,2);
+      const positions=rounded.attributes.position,p=new T.Vector3(),core=new T.Vector3();
+      for(let i=0;i<positions.count;i++) {
+        p.fromBufferAttribute(positions,i);core.copy(p).clampScalar(-.36,.36);
+        p.sub(core).normalize().multiplyScalar(.14).add(core);
+        positions.setXYZ(i,p.x,p.y,p.z);
+      }
+      rounded.computeVertexNormals();
+      streetGeometry={box:geometries.box,rounded,
+        cylinder:new T.CylinderGeometry(1,1,1,6),sphere:new T.SphereGeometry(1,6,4)};
+    }
+    instance(streetGeometry[shape],streetMaterial,x,y,z,w,h,d,rotation,1,color);
+  }
   // Floor-wide box batches: one draw per finish, no chair/leg geometry.
   function classroom(x,z,w,d,side,seats,mobile=false) {
     const rotation={n:0,s:Math.PI,w:Math.PI/2,e:-Math.PI/2}[side];
@@ -195,7 +214,8 @@ export function createArchitectureKit(root) {
     const dummy=new T.Object3D();
     for(const [group,list] of batches)for(const batch of list) {
       const mesh=new T.InstancedMesh(batch.geometry,batch.mat,batch.items.length);
-      batch.items.forEach((v,i)=>{dummy.position.set(v.x,v.y,v.z);dummy.rotation.set(0,v.rotation,0);dummy.scale.set(v.w,v.h,v.d);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);});
+      batch.items.forEach((v,i)=>{dummy.position.set(v.x,v.y,v.z);dummy.rotation.set(0,v.rotation,0);dummy.scale.set(v.w,v.h,v.d);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);if(v.color!==undefined)mesh.setColorAt(i,new T.Color(v.color));});
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
       if(batch.detail===4)mesh.raycast=()=>{};
       mesh.userData.detail=batch.detail;mesh.castShadow=batch.detail===0;mesh.receiveShadow=true;
       mesh.matrixAutoUpdate=false;group.add(mesh);
@@ -221,7 +241,7 @@ export function createArchitectureKit(root) {
     }
     batches.clear();labels.clear();
   }
-  return {m,mobile,setEvening,material,box,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
+  return {m,mobile,setEvening,material,box,streetPart,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
 }
 
 export function studioEnvironment() {

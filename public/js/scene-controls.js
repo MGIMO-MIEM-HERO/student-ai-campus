@@ -29,7 +29,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     mode=next;S.modelMode=next;host.dataset.modelMode=next;
     floorGroup.visible=mode==='floor';buildingGroup.visible=mode==='building';
     host.querySelectorAll('[data-model-mode]').forEach((b)=>b.setAttribute('aria-pressed',String(b.dataset.modelMode===next)));
-    const note=host.querySelector('.model-stamp small');if(note)note.textContent=mode==='building'?'Архитектурный концепт':'Проектный интерьер';
+    const note=host.querySelector('.model-stamp small');if(note)note.textContent=mode==='building'?(host.dataset.xray?'Путь внутри корпуса · фасад прозрачный':'Архитектурный концепт'):'Проектный интерьер';
     const title=host.querySelector('.model-stamp>span');if(title)title.textContent=mode==='building'?`Корпус ${host.dataset.building}`:`${host.dataset.floorNumber} этаж`;
     ground.position.y=mode==='building'?-.61:-.4;
     velocity=0;setTour(false);dirtyShadow=true;request();

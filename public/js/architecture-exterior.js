@@ -80,6 +80,60 @@ function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHe
   }
 }
 
+// All coordinates here are world units; pavement is at y=-.105.
+function territoryDetails(kit) {
+  const {streetPart:part,bench,box,m}=kit;
+  const metal=0x647377,wood=0xad916e;
+  // Five uninterrupted spans leave a 3-unit opening centred on GATE (2.25,13.3).
+  const spans=[[-23.1,-13.25,23.1,-13.25],[-23.1,-13.25,-23.1,13.25],
+    [23.1,-13.25,23.1,13.25],[-23.1,13.25,.75,13.25],[3.75,13.25,23.1,13.25]];
+  for(const [ax,az,bx,bz] of spans) {
+    const length=Math.hypot(bx-ax,bz-az),count=Math.ceil(length/3);
+    for(let i=0;i<=count;i++)part('box',ax+(bx-ax)*i/count,.12,az+(bz-az)*i/count,.055,.45,.055,metal);
+    part('box',(ax+bx)/2,.22,(az+bz)/2,length,.045,.045,metal,-Math.atan2(bz-az,bx-ax));
+  }
+  if(kit.mobile)return;
+  // Avenue edges and side aprons: keep the x=2.25 / z=8.9 route axes free.
+  for(const [x,z,r] of [[.55,7.7,Math.PI/2],[3.95,7.7,-Math.PI/2],
+    [.55,10.5,Math.PI/2],[3.95,10.5,-Math.PI/2],[.45,5.4,0],
+    [-10.7,6.5,Math.PI/2],[15.25,7.1,-Math.PI/2]])bench(x,z,-.105,r);
+  // Three inverted-U stands per rack, beside the B and N entrance aprons.
+  for(const [x,z] of [[-8.25,6.4],[12.75,7.1]])for(let i=0;i<3;i++) {
+    const xx=x+i*.22;
+    for(const dz of [-.22,.22])part('box',xx,.12,z+dz,.035,.45,.035,metal);
+    part('box',xx,.345,z,.035,.035,.475,metal);
+  }
+  // South-west parking bay, between the cross-path (z=8.9) and ring road (11.6).
+  box(-11.8,-.102,10.55,10.4,.025,1.35,m.paving);
+  const paint=[0x809295,0x9a8a7b,0x647585,0xa9aca2];
+  for(let i=0;i<8;i++) {
+    const x=-16+i*1.2,z=10.55;
+    part('rounded',x,.075,z,.4,.22,.78,paint[i%4]);
+    part('rounded',x,.225,z-.035,.34,.19,.4,0x52656e);
+    for(const dx of [-.205,.205])for(const dz of [-.24,.24])
+      part('box',x+dx,-.015,z+dz,.065,.16,.14,0x394345);
+    part('box',x,-.084,11.12,.025,.016,.2,0xe8e2d6);
+  }
+  // Seeded small offsets stay on the path shoulders, away from navigation lines.
+  let seed=7319;
+  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const people=[[1.55,6.2],[2.95,6.8],[1.55,8],[2.95,9.7],[1.55,11.3],
+    [2.95,12.4],[-3,9.15],[-5.2,8.65],[-7.2,9.15],[-8.9,7.8],
+    [-10.05,6.1],[6.5,8.65],[8.4,9.15],[10.5,8.65],[12.4,9.15],
+    [13.45,7.65],[14.55,6.95],[1.55,5.35],[-18,11.85],[18,11.35]];
+  const clothing=[0x697e89,0x968579,0x788872,0x8d7476];
+  for(const [px,pz] of people) {
+    const x=px+(random()-.5)*.12,z=pz+(random()-.5)*.12,h=.27+random()*.05;
+    part('cylinder',x,-.105+h/2,z,.065,h,.065,clothing[Math.floor(random()*4)]);
+    part('sphere',x,-.105+h+.065,z,.065,.065,.065,0xc8b39c);
+  }
+  for(const x of [-.6,5.1]) {
+    part('cylinder',x,.98,5.4,.022,2.17,.022,metal);
+    part('box',x+.19,1.77,5.4,.36,.4,.018,0x9caaae);
+    part('box',x,-.06,5.4,.22,.09,.22,wood);
+  }
+}
+
 export function buildTerritory(kit,picks) {
   const {box,prism,text,plant,lamp,hedge,bench,m}=kit;
   box(0,-.46,0,47,.5,27,m.concrete);
@@ -129,6 +183,7 @@ export function buildTerritory(kit,picks) {
   for(let i=0;i<5;i++)box(ex,.08-i*.035,ez+.5+i*.19,2.7,.2-i*.035,.22,m.trim);
   for(const id of ['А','Б','С'])entranceCanopy(kit,territoryRoute(id));
   text('ВХОД',ex,.01,ez+2.4,1.65);
+  territoryDetails(kit);
 }
 
 export function buildBuilding(kit,layout,floors=6) {
