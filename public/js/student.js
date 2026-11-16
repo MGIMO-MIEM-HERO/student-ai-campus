@@ -218,7 +218,7 @@ export function viewToday() {
       notes.push(`<button class="change ${l.cancelled ? 'is-cancel' : ''}" data-lesson="${esc(l.id)}"><span class="change-kind">${esc(l.change.label)}</span><span class="change-body"><strong>${esc(l.title)}</strong><span class="change-diff">${when} · ${l.cancelled ? esc(l.change.reason) : `<s>${esc(l.change.was)}</s> <span aria-hidden="true">→</span> <b>${esc(l.change.now)}</b>`}</span></span>${icon('chevron')}</button>`);
     }
   }
-  for (const n of d.notices.filter((x) => !x.read && x.tag === 'Деканат' || !x.read && x.tag === 'Мероприятие')) {
+  for (const n of d.notices.filter((x) => !x.read && ['Деканат', 'Мероприятие', 'Преподаватель', 'Оценка', 'Задание'].includes(x.tag)).slice(0, 4)) {
     notes.push(`<a class="change" href="#notices"><span class="change-kind">${esc(n.tag)}</span><span class="change-body"><strong>${esc(n.title)}</strong><span class="change-diff">${esc(n.body)}</span></span>${icon('chevron')}</a>`);
   }
   const ready = d.requests.filter((x) => x.status === 'Готова').map((r) => item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `Документ готов: ${esc(r.kind.toLowerCase())}`, sub: 'Электронная версия в кабинете, оригинал в ауд. А-112.'}));
