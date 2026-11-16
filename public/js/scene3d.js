@@ -85,7 +85,7 @@ export function mountScene(host) {
     const corridors=layout.corridors||[{x:8,y:94,w:584,h:36}];
     const tiles=[];
     for(const p of plates)box(X(p.x+p.w/2),-.18,Z(p.y+p.h/2),p.w/20,.34,p.h/20,concrete);
-    for(const p of corridors)box(X(p.x+p.w/2),.015,Z(p.y+p.h/2),p.w/20,.04,p.h/20,material('terrazzo',0xd8d6cc));
+    for(const p of corridors)box(X(p.x+p.w/2),.015,Z(p.y+p.h/2),p.w/20,.04,p.h/20,material('terrazzo',0xded9d0,.94));
     const tileColors={free:0xd6dfce,busy:0xe5ddd0,staff:0xe6c1ab,off:0xe0dfd9,mine:0xb2cbd6,unknown:0xe4e7e3};
     for(const r of layout.boxes) {
       const state=mine.has(r.r.key)?'mine':roomState(r.r.key,pair).cls;
@@ -93,52 +93,32 @@ export function mountScene(host) {
       tiles.push({room:r.r.key,x:X(r.x+r.w/2),z:Z(r.y+r.h/2),w:(r.w-2)/20,d:(r.h-2)/20,color:selected?0x7caeb6:tileColors[state]});
       const x=X(r.x),z=Z(r.y),w=r.w/20,d=r.h/20;
       const vertical=r.side==='w'||r.side==='e';
-      const wallH=1.12;
-      // Corridor wall has an actual door opening, rather than a line over a wall.
+      const wallH=1.12,partition=material('floor-partitions',0xf0ede5,.9);
+      const wall=(xx,zz,ww,dd)=>box(xx,wallH/2,zz,ww,wallH,dd,partition,0,4);
+      // SVG door spans 6..20 plan units; routing passes through its centre at 13.
       if(!vertical) {
         const outer=r.side==='n'?z:z+d, inner=r.side==='n'?z+d:z;
-        box(x+w/2,wallH/2,outer,w,wallH,.09);
-        box(x,wallH/2,z+d/2,.09,wallH,d);
-        box(x+w,wallH/2,z+d/2,.09,wallH,d);
-        box(x+.16,wallH/2,inner,.32,wallH,.08);
-        box(x+(w+.95)/2,wallH/2,inner,Math.max(.01,w-.95),wallH,.08);
-        box(x+.63,.48,inner+(r.side==='n'?-.18:.18),.55,.96,.045,wood,.6);
+        wall(x+w/2,outer,w,.09);
+        wall(x,z+d/2,.09,d);wall(x+w,z+d/2,.09,d);
+        wall(x+.15,inner,.3,.08);
+        wall(x+(w+1)/2,inner,w-1,.08);
         for(let wx=.5;wx<w-.2;wx+=.9)windowBay(x+wx,.7,outer+(r.side==='n'?-.065:.065),.58,.48,r.side==='n'?Math.PI:0);
-        box(x+.83,.51,inner+(r.side==='n'?-.2:.2),.11,.025,.08,metal,.6,1);
         box(x+w/2,.1,outer,w,.1,.12,trim);
       } else {
         const outer=r.side==='w'?x:x+w, inner=r.side==='w'?x+w:x;
-        box(outer,wallH/2,z+d/2,.09,wallH,d);
-        box(x+w/2,wallH/2,z,w,wallH,.09);box(x+w/2,wallH/2,z+d,w,wallH,.09);
-        box(inner,wallH/2,z+.16,.08,wallH,.32);
-        box(inner,wallH/2,z+(d+.95)/2,.08,wallH,Math.max(.01,d-.95));
-        box(inner+(r.side==='w'?-.18:.18),.48,z+.63,.045,.96,.55,wood,.6);
+        wall(outer,z+d/2,.09,d);
+        wall(x+w/2,z,w,.09);wall(x+w/2,z+d,w,.09);
+        wall(inner,z+.15,.08,.3);
+        wall(inner,z+(d+1)/2,.08,d-1);
         for(let wz=.5;wz<d-.2;wz+=.9)windowBay(outer+(r.side==='w'?-.065:.065),.7,z+wz,.58,.48,r.side==='w'?-Math.PI/2:Math.PI/2);
-        box(inner+(r.side==='w'?-.2:.2),.51,z+.83,.08,.025,.11,metal,.6,1);
         box(outer,.1,z+d/2,.12,.1,d,trim);
       }
       const kind=r.r.kind.toLowerCase();
       if(kind.includes('спорт')) {
         box(x+w/2,.09,z+d/2,w*.75,.02,d*.75,material('court',0xa6b8ab));
         box(x+w/2,.105,z+d/2,.03,.015,d*.75,trim);
-      } else {
-        const rotation={n:0,s:Math.PI,w:Math.PI/2,e:-Math.PI/2}[r.side];
-        const rw=vertical?d:w,rd=vertical?w:d;
-        const cols=Math.max(1,Math.floor((rw-.45)/.82)),rows=Math.max(1,Math.min(4,Math.floor((rd-.6)/.86)));
-        const part=(u,v,yy,ww,hh,dd,mat,detail=0)=>box(x+w/2+u*Math.cos(rotation)+v*Math.sin(rotation),yy,z+d/2-u*Math.sin(rotation)+v*Math.cos(rotation),ww,hh,dd,mat,rotation,detail);
-        for(let row=0;row<rows;row++)for(let col=0;col<cols;col++) {
-          const u=-rw/2+.45+col*(rw-.65)/cols,v=-rd/2+.5+row*(rd-.8)/rows;
-          part(u,v,.43,.57,.055,.34,wood);
-          for(const s of [-1,1]){part(u+s*.22,v,.21,.035,.42,.28,metal);part(u+s*.22,v,.07,.085,.035,.32,metal,1);}
-          part(u,v+.29,.27,.33,.065,.3,blue);part(u,v+.43,.45,.33,.28,.04,blue);
-          for(const s of [-1,1]){part(u+s*.13,v+.2,.13,.025,.26,.025,metal,1);part(u+s*.13,v+.4,.2,.025,.4,.025,metal,1);}
-          if(kind.includes('компьютер')){
-            part(u,v,.65,.32,.22,.045,metal);part(u,v+.027,.65,.28,.17,.009,m.glassLight);
-            part(u,v,.52,.04,.12,.04,metal,1);part(u,v+.1,.47,.29,.016,.1,trim,1);
-          }
-        }
-        part(0,-rd/2+.08,.7,Math.min(rw*.6,1.8),.5,.05,material('board-dark',0x354f48));
-        part(0,-rd/2+.13,.435,Math.min(rw*.6,1.8),.025,.09,metal,1);
+      } else if(r.r.seats>0) {
+        kit.classroom(x,z,w,d,r.side,r.r.seats,mobile);
       }
       text(r.r.room,x+w/2,1.32,z+d/2,Math.min(1.5,Math.max(.9,w*.65)));
     }

@@ -73,6 +73,10 @@ export function createArchitectureKit(root) {
   function setEvening(evening) {
     glowingWindows.forEach((mat)=>{mat.emissiveIntensity=evening?.8:0;});
     lampGlow.emissiveIntensity=evening?1.8:.65;
+    for(const name of ['floor-partitions','classroom-desks','classroom-board','terrazzo']) {
+      const mat=materials.get(name);
+      if(mat){mat.emissive.copy(mat.color);mat.emissiveIntensity=evening?.12:0;}
+    }
   }
   let windowIndex=0;
   function instance(geometry,mat,x,y,z,w,h,d,rotation=0,detail=0) {
@@ -83,6 +87,37 @@ export function createArchitectureKit(root) {
     batch.items.push({x,y,z,w,h,d,rotation});
   }
   const box=(x,y,z,w,h,d,mat=m.stone,rotation=0,detail=0)=>instance(geometries.box,mat,x,y,z,w,h,d,rotation,detail);
+  // Floor-wide box batches: one draw per finish, no chair/leg geometry.
+  function classroom(x,z,w,d,side,seats,mobile=false) {
+    const rotation={n:0,s:Math.PI,w:Math.PI/2,e:-Math.PI/2}[side];
+    const vertical=side==='w'||side==='e',rw=vertical?d:w,rd=vertical?w:d;
+    const desk=material('classroom-desks',0xc6aa83,.86);
+    const board=material('classroom-board',0x354b46,.96);
+    const part=(u,v,y,ww,hh,dd,mat)=>box(x+w/2+u*Math.cos(rotation)+v*Math.sin(rotation),y,z+d/2-u*Math.sin(rotation)+v*Math.cos(rotation),ww,hh,dd,mat,rotation,4);
+    // Keep the board inside the outer wall and the corridor door clear.
+    part(0,-rd/2+.09,.74,Math.min(rw*.65,1.8),.34,.045,board);
+    if(mobile||rw<.65||rd<1.2)return;
+    const usableW=rw-.3,front=-rd/2+.65,back=rd/2-.45;
+    part(0,-rd/2+.35,.38,Math.min(usableW*.6,.85),.065,.27,desk);
+    if(back<=front)return;
+    if(seats>=60) {
+      const rows=Math.min(6,Math.max(3,Math.ceil(seats/24)));
+      for(let row=0;row<rows;row++) {
+        const v=front+(row+.5)*(back-front)/rows;
+        // Broad, progressively raised tiers read as a lecture amphitheatre.
+        part(0,v,.13+row*.045,usableW*.9,.1+row*.09,Math.min(.3,(back-front)/rows*.65),desk);
+      }
+    } else {
+      const cols=Math.max(1,Math.min(4,Math.floor(usableW/.65)));
+      const maxRows=Math.max(1,Math.min(6,Math.floor((back-front)/.55)));
+      const count=Math.min(24,Math.ceil(seats/2),cols*maxRows);
+      const rows=Math.ceil(count/cols),dw=Math.min(.57,usableW/cols*.78);
+      for(let i=0;i<count;i++) {
+        const col=i%cols,row=Math.floor(i/cols);
+        part(-usableW/2+(col+.5)*usableW/cols,front+(row+.5)*(back-front)/rows,.37,dw,.055,Math.min(.3,(back-front)/rows*.55),desk);
+      }
+    }
+  }
   function prism(points,holes,height,bottom=0,cap=m.roof,side=m.stone,bevel=.025) {
     const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));
     for(const pts of holes)shape.holes.push(new T.Path(pts.map(([x,z])=>new T.Vector2(x,-z))));
@@ -159,6 +194,7 @@ export function createArchitectureKit(root) {
     for(const [group,list] of batches)for(const batch of list) {
       const mesh=new T.InstancedMesh(batch.geometry,batch.mat,batch.items.length);
       batch.items.forEach((v,i)=>{dummy.position.set(v.x,v.y,v.z);dummy.rotation.set(0,v.rotation,0);dummy.scale.set(v.w,v.h,v.d);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);});
+      if(batch.detail===4)mesh.raycast=()=>{};
       mesh.userData.detail=batch.detail;mesh.castShadow=batch.detail===0;mesh.receiveShadow=true;
       mesh.matrixAutoUpdate=false;group.add(mesh);
     }
@@ -183,7 +219,7 @@ export function createArchitectureKit(root) {
     }
     batches.clear();labels.clear();
   }
-  return {m,setEvening,material,box,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
+  return {m,setEvening,material,box,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
 }
 
 export function studioEnvironment() {
