@@ -4,12 +4,14 @@ import {S} from './state.js';
 // Keep a chosen close-up when room selection or dashboard refresh replaces DOM.
 const views=new Map();
 
-export function mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced,animate,hasAnimation}) {
+export function mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,bounds,fitShadow,ground,mobile,reduced,animate,hasAnimation}) {
   const canvas=renderer.domElement;
   canvas.tabIndex=0;canvas.setAttribute('role','img');
   canvas.setAttribute('aria-label',territory?'Объёмная схема территории. Стрелки — вращение, плюс и минус — масштаб.':'Модель корпуса и этажа. Стрелки — вращение, плюс и минус — масштаб. Аудитории доступны на схеме рядом.');
   host.prepend(canvas);
   let mode=territory?'territory':S.modelMode||'building';
+  const orbitCenter=new T.Vector3();
+  const routeZoom=1.18;
   const viewKey=()=>territory?'territory':`${host.dataset.building}-${mode}`;
   const initial={a:territory?-.14:-20*Math.PI/180,e:.76,z:1,x:0,depth:0};
   const target={...initial,a:territory?-.14:S.rz*Math.PI/180,...views.get(viewKey())};
@@ -32,9 +34,10 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     const note=host.querySelector('.model-stamp small');if(note)note.textContent=mode==='building'?(host.dataset.xray?'Путь внутри корпуса · фасад прозрачный':'Архитектурный концепт'):'Проектный интерьер';
     const title=host.querySelector('.model-stamp>span');if(title)title.textContent=mode==='building'?`Корпус ${host.dataset.building}`:`${host.dataset.floorNumber} этаж`;
     ground.position.y=mode==='building'?-.61:-.4;
+    fitShadow(bounds[mode]);
     velocity=0;setTour(false);dirtyShadow=true;request();
   }
-  setMode(mode);
+  if(territory)fitShadow(bounds.territory);else setMode(mode);
   function tick(time) {
     frame=0;if(disposed||!visible||document.hidden)return;
     const animatingRoute=!reduced.matches&&hasAnimation();
@@ -58,10 +61,33 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     if(Math.abs(renderer.getPixelRatio()-ratio)>.01)renderer.setPixelRatio(ratio);
     const size=renderer.getSize(new T.Vector2());if(size.x!==width||size.y!==height)renderer.setSize(width,height,false);
     const worldWidth=territory?55:mode==='building'?43:35;
-    const aspect=width/height,span=Math.max(territory?29:mode==='building'?30:23,worldWidth/aspect);
-    camera.left=-span*aspect/2/current.z;camera.right=-camera.left;camera.top=span/2/current.z;camera.bottom=-camera.top;camera.updateProjectionMatrix();
-    const y=mode==='building'?buildingHeight*.28:0;
-    camera.position.set(current.x+Math.sin(current.a)*Math.cos(current.e)*60,Math.sin(current.e)*60+y,current.depth+Math.cos(current.a)*Math.cos(current.e)*60);camera.lookAt(current.x,y,current.depth);
+    const {center,radius}=bounds[mode];
+    const aspect=width/height;
+    const flat=bounds[mode].flat??radius,tall=bounds[mode].height??radius*2;
+    // Полувысота кадра: проекция основания при текущем наклоне камеры плюс высота корпуса; полуширина — полудиагональ.
+    const vertical=flat*Math.sin(current.e)+tall/2*Math.cos(current.e);
+    const fit=Math.max(Math.min(vertical,radius),flat/aspect)*1.08;
+    const halfHeight=Math.max(fit,worldWidth/(2*aspect))/current.z;
+    const halfWidth=halfHeight*aspect;
+    // Keep a margin on both axes at reset and zoom-out, and ease into the route close-up.
+    const pan=Math.hypot(current.x,current.depth);
+    const availablePan=Math.max(0,Math.min(halfWidth,halfHeight)-radius*1.03);
+    const zoomBlend=T.MathUtils.clamp((current.z-1)/(routeZoom-1),0,1);
+    const panScale=pan?T.MathUtils.lerp(Math.min(1,availablePan/pan),1,zoomBlend):1;
+    orbitCenter.copy(center);
+    orbitCenter.x+=current.x*panScale;
+    orbitCenter.z+=current.depth*panScale;
+    const reach=radius+pan*panScale;
+    const distance=Math.max(60,reach*1.06+camera.near);
+    camera.left=-halfWidth;camera.right=halfWidth;camera.top=halfHeight;camera.bottom=-halfHeight;
+    camera.far=distance+Math.max(radius*2,reach)*1.06;
+    camera.updateProjectionMatrix();
+    camera.position.set(
+      Math.sin(current.a)*Math.cos(current.e),
+      Math.sin(current.e),
+      Math.cos(current.a)*Math.cos(current.e)
+    ).multiplyScalar(distance).add(orbitCenter);
+    camera.lookAt(orbitCenter);
     const close=!moving&&width*current.z/worldWidth>32;
     model.traverse((o)=>{
       if(o.userData.detail===1)o.visible=!moving&&(current.z>1.22||width>700);
@@ -100,7 +126,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     const wing=picks.find((mesh)=>mesh.userData.wing?.id===host.dataset.routeWing);
     if(wing) {
       const center=new T.Box3().setFromObject(wing).getCenter(new T.Vector3());
-      Object.assign(target,{x:center.x,depth:center.z,z:1.18});
+      Object.assign(target,{x:center.x-bounds.territory.center.x,depth:center.z-bounds.territory.center.z,z:routeZoom});
       if(reduced.matches)Object.assign(current,target);
       selectWing(host.dataset.routeWing,true);
     }

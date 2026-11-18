@@ -11,6 +11,7 @@ import {mountControls} from './scene-controls.js';
 let sceneMode='day';
 try { if(localStorage.getItem('campusSceneMode')==='evening')sceneMode='evening'; } catch {}
 const modeListeners=new Set();
+let duskObserver=null;
 
 export function mountScene(host) {
   const territory = host.dataset.scene === 'territory';
@@ -26,13 +27,12 @@ export function mountScene(host) {
   const scene = new T.Scene();
   const model = new T.Group();
   scene.add(model);
-  const camera = new T.OrthographicCamera(-25,25,17,-17,.1,200);
+  const camera = new T.OrthographicCamera();
   const hemi = new T.HemisphereLight(0xdde9f3,0x7f8c6c,1.25);
   scene.add(hemi);
   const sun = new T.DirectionalLight(0xffe7c7,3.1);
-  sun.position.set(-26,27,-16); sun.castShadow=true;
+  sun.castShadow=true;
   sun.shadow.mapSize.set(mobile?1024:2048,mobile?1024:2048);
-  Object.assign(sun.shadow.camera,{left:territory?-27:-21,right:territory?27:21,top:territory?27:23,bottom:territory?-27:-23,near:1,far:100});
   sun.shadow.bias=-.0003; sun.shadow.normalBias=.035; sun.shadow.radius=3;
   scene.add(sun);
   const fill = new T.DirectionalLight(0xa9c6e0,.6);
@@ -73,7 +73,7 @@ export function mountScene(host) {
       walker.marker.position.copy(walker.path.getPoint(reduced.matches?1:Math.min(walker.elapsed/6,1)));
     }
   };
-  let buildingHeight=0,xray=null;
+  let xray=null;
   const ghosts=new Map();
   // Рентген корпуса: фасад полупрозрачный, внутри — путь от входа к лифту, подъём и коридор до двери аудитории.
   function buildXray(route,floorsCount) {
@@ -252,17 +252,57 @@ export function mountScene(host) {
   if(!territory) {
     kit.setGroup(buildingGroup);
     const building=S.data.campus.buildings.find((b)=>b.id===host.dataset.building);
-    buildingHeight=buildBuilding(kit,floorLayout(host.dataset.building,Number(host.dataset.floorNumber)),building.floors).height;
+    const {height:buildingHeight}=buildBuilding(kit,floorLayout(host.dataset.building,Number(host.dataset.floorNumber)),building.floors);
     const route=currentRoute();
     if(route?.target.building===host.dataset.building&&route.segments.length)xray={route,floors:building.floors};
     if(xray){const [x,z]=route.segments.at(-1).points.at(-1),H=floorLayout(host.dataset.building,route.target.floor).height||224;text(`АУД. ${route.target.room}`,(x-300)/20,buildingHeight+.4,(z-H/2)/20,2.4);}
   }
   kit.flush();
   if(xray)buildXray(xray.route,xray.floors);
+  function modelBounds(group) {
+    const bounds=new T.Box3().setFromObject(group);
+    for(const {path,marker} of walkers) {
+      if(marker.parent!==group)continue;
+      const markerBounds=new T.Box3().setFromObject(marker).translate(marker.position.clone().negate());
+      // The route is piecewise linear, so its endpoints bound the moving marker.
+      for(const {v1,v2} of path.curves) {
+        bounds.union(markerBounds.clone().translate(v1));
+        bounds.union(markerBounds.clone().translate(v2));
+      }
+    }
+    const sphere=bounds.getBoundingSphere(new T.Sphere()),size=bounds.getSize(new T.Vector3());
+    // Для плоских макетов кадр считается по коробке: при любом повороте по горизонтали модель занимает
+    // не больше полудиагонали основания, а по вертикали — проекцию основания и высоты на экран.
+    sphere.flat=Math.hypot(size.x,size.z)/2;sphere.height=size.y;
+    return sphere;
+  }
+  const bounds=territory?{territory:modelBounds(model)}:{
+    building:modelBounds(buildingGroup),floor:modelBounds(floorGroup)
+  };
+  let shadowBounds;
+  function fitShadow(sphere) {
+    shadowBounds=sphere;
+    const {center,radius}=sphere;
+    const extent=radius*1.06;
+    // Translate the light and target together to preserve the lighting direction.
+    sun.position.set(-26,sceneMode==='evening'?9:27,-16);
+    const distance=Math.max(sun.position.length(),extent+1);
+    sun.position.setLength(distance).add(center);
+    sun.target.position.copy(center);
+    const halfWidth=Math.max(territory?27:21,extent);
+    const halfHeight=Math.max(territory?27:23,extent);
+    const shadowCamera=sun.shadow.camera;
+    Object.assign(shadowCamera,{
+      left:-halfWidth,right:halfWidth,top:halfHeight,bottom:-halfHeight,
+      near:1,far:Math.max(100,distance+extent)
+    });
+    shadowCamera.updateProjectionMatrix();
+  }
+  scene.add(sun.target);
   const environment=studioEnvironment();scene.environment=environment;scene.environmentIntensity=.62;
   const ground=new T.Mesh(new T.PlaneGeometry(180,160),new T.ShadowMaterial({opacity:.26}));
   ground.rotation.x=-Math.PI/2;ground.position.y=territory?-.77:-.4;ground.receiveShadow=true;scene.add(ground);
-  const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced,animate,hasAnimation});
+  const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,bounds,fitShadow,ground,mobile,reduced,animate,hasAnimation});
   const modeButton=host.querySelector('[data-scene-mode]');
   const labelMask=document.createElement('span'),label=document.createElement('span');
   labelMask.className='scene-mode-mask';
@@ -290,7 +330,13 @@ export function mountScene(host) {
     frame.className='scene-wipe-frame';
     frame.alt='';
     frame.decoding='sync';
-    frame.style.background=getComputedStyle(host).background;
+    // Под снимком — фон самого контейнера, а если он прозрачный, то ближайшего непрозрачного предка
+    // (панели территории): иначе новый кадр просвечивал бы через пустые места старого.
+    let bg=getComputedStyle(host).backgroundColor,from=host;
+    while(from&&(bg==='rgba(0, 0, 0, 0)'||bg==='transparent')){from=from.parentElement;bg=from?getComputedStyle(from).backgroundColor:'#eef0ec';}
+    // Полупрозрачную панель заменяем непрозрачным цветом уходящего режима (sceneMode уже переключён на новый).
+    if(host.closest('.territory')||/rgba\([^)]*,\s*0?\.\d+\)/.test(bg))bg=sceneMode==='evening'?'#eef0ec':'#1c2a3a';
+    frame.style.background=`${getComputedStyle(host).backgroundImage!=='none'?getComputedStyle(host).backgroundImage+',':''}${bg}`;
     edge.className='scene-wipe-edge';
     edge.setAttribute('aria-hidden','true');
     frame.src=src;
@@ -344,10 +390,18 @@ export function mountScene(host) {
     const overlay=snapshot&&prepareWipe(snapshot);
     const evening=sceneMode==='evening';
     host.classList.toggle('scene-evening',evening);
+    // Вечер меняет и фон страницы вокруг макета (см. glass.css: html.scene-evening).
+    document.documentElement.classList.toggle('scene-evening',evening);
+    // Тёмный слой фона заканчивается ровно у нижнего края панели территории, чтобы не попадать под текст ниже.
+    const panel=host.closest('.territory');
+    const fitDusk=()=>{if(panel?.isConnected)document.documentElement.style.setProperty('--dusk-h',`${Math.round(panel.getBoundingClientRect().bottom+scrollY+28)}px`);};
+    fitDusk();
+    // Один наблюдатель на весь модуль: при перерисовке он переключается на новую панель, старая не удерживается.
+    if(panel){duskObserver?.disconnect();duskObserver=new ResizeObserver(fitDusk);duskObserver.observe(panel);}
     host.dataset.lighting=sceneMode;
     updateLabel(evening,Boolean(overlay));
     sun.color.setHex(evening?0xffa35c:0xffe7c7);
-    sun.position.set(-26,evening?9:27,-16);sun.intensity=evening?1.15:3.1;
+    fitShadow(shadowBounds);sun.intensity=evening?1.15:3.1;
     hemi.color.setHex(evening?0x294b91:0xdde9f3);
     hemi.groundColor.setHex(evening?0x34394c:0x7f8c6c);hemi.intensity=evening?.75:1.25;
     fill.intensity=evening?.25:.6;
@@ -369,7 +423,8 @@ export function mountScene(host) {
   modeListeners.add(applyMode);modeButton?.addEventListener('click',toggleMode);
   applyMode(false);
   return ()=>{
-    modeListeners.delete(applyMode);modeButton?.removeEventListener('click',toggleMode);
+    modeListeners.delete(applyMode);
+    if(territory){duskObserver?.disconnect();duskObserver=null;}modeButton?.removeEventListener('click',toggleMode);
     reduced.removeEventListener('change',stopModeAnimations);stopModeAnimations();
     stop();environment.dispose();
     const geometries=new Set(),materials=new Set(),textures=new Set();

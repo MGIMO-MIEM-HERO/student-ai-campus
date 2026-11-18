@@ -53,7 +53,8 @@ async function main() {
     await canvas.screenshot({path:'/tmp/campus-3d-check/top.png'});
     const bounds=await canvas.boundingBox();
     let picked=false;
-    for(const [x,y] of [[.25,.26],[.3,.3],[.4,.26],[.65,.26],[.76,.7]]) {
+    // Кадр подстраивается под модель при любом повороте, поэтому пробуем сетку точек, а не фиксированные координаты.
+    for(const [x,y] of [[.25,.26],[.3,.3],[.4,.26],[.65,.26],[.76,.7],...[.3,.4,.5,.6,.7,.8].flatMap((gx)=>[.3,.4,.6,.7].map((gy)=>[gx,gy]))]) {
       await page.mouse.click(bounds.x+bounds.width*x,bounds.y+bounds.height*y);
       await page.waitForTimeout(200);
       const selection=await page.locator('[data-scene="floor"]').getAttribute('data-selected-room');
