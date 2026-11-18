@@ -26,7 +26,7 @@ const STEPS = [
 export function aboutScreen(brand) {
   return `<div class="about enter"><header class="about-hero sky">${brand}
       <div class="about-copy"><h1>Один кабинет для всей учёбы</h1><p class="lede">Кампус — концепт личного кабинета университета. Студент, преподаватель и деканат работают в одной системе: действие одного сразу видно другому.</p>
-        <div class="chips"><a class="btn light" href="#">${icon('arrow')}Ко входу</a></div></div></header>
+        <div class="chips"><a class="btn light" href="#">${icon('arrow')}Ко входу</a><button class="btn light about-deck-btn" type="button" data-deck-open>Режим презентации</button></div></div></header>
     <main id="main" tabindex="-1" class="about-main">
       <section class="sec"><div class="sec-head"><h2>Три кабинета</h2></div><div class="about-roles">${ROLES.map((r) => `<article class="card about-role"><span class="ico">${r.photo ? `<img src="${r.photo}" alt="" width="40" height="40">` : icon(r.ico)}</span><h3>${r.who}</h3><ul>${r.points.map((p) => `<li>${p}</li>`).join('')}</ul><button class="btn sm" data-demo="${r.login}">${r.demo}</button></article>`).join('')}</div></section>
       <section class="sec"><div class="sec-head"><h2>Как связаны роли</h2></div><ol class="flows">${FLOWS.map(([a, b]) => `<li><span>${a}</span>${icon('arrow')}<span>${b}</span></li>`).join('')}</ol></section>

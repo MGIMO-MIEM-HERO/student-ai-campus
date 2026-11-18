@@ -264,11 +264,88 @@ export function mountScene(host) {
   ground.rotation.x=-Math.PI/2;ground.position.y=territory?-.77:-.4;ground.receiveShadow=true;scene.add(ground);
   const stop=mountControls({host,renderer,scene,camera,model,territory,floorGroup,buildingGroup,picks,buildingHeight,ground,mobile,reduced,animate,hasAnimation});
   const modeButton=host.querySelector('[data-scene-mode]');
+  const labelMask=document.createElement('span'),label=document.createElement('span');
+  labelMask.className='scene-mode-mask';
+  labelMask.append(label);
+  modeButton?.replaceChildren(labelMask);
+  const easing='cubic-bezier(.76,0,.18,1)';
+  let clearWipe,clearLabel;
+  const stopModeAnimations=()=>{
+    clearWipe?.();
+    clearLabel?.();
+  };
+  reduced.addEventListener('change',stopModeAnimations);
+
+  const captureFrame=()=>{
+    try {
+      // Read the WebGL drawing buffer immediately after rendering the outgoing mode.
+      renderer.render(scene,camera);
+      const src=renderer.domElement.toDataURL();
+      if(src.startsWith('data:image/png;base64,'))return src;
+    } catch {}
+  };
+
+  const prepareWipe=(src)=>{
+    const frame=document.createElement('img'),edge=document.createElement('span');
+    frame.className='scene-wipe-frame';
+    frame.alt='';
+    frame.decoding='sync';
+    frame.style.background=getComputedStyle(host).background;
+    edge.className='scene-wipe-edge';
+    edge.setAttribute('aria-hidden','true');
+    frame.src=src;
+    host.append(frame,edge);
+    return {frame,edge};
+  };
+  const startWipe=({frame,edge})=>{
+    const timing={duration:900,easing,fill:'both'};
+    const wipe=frame.animate([{clipPath:'inset(0% 0 0 0)'},{clipPath:'inset(100% 0 0 0)'}],timing);
+    const sweep=edge.animate([{top:'0%'},{top:'100%'}],timing);
+    const cleanup=()=>{
+      wipe.cancel();
+      sweep.cancel();
+      frame.remove();
+      edge.remove();
+      if(clearWipe===cleanup)clearWipe=null;
+    };
+    clearWipe=cleanup;
+    wipe.onfinish=cleanup;
+    frame.addEventListener('error',cleanup,{once:true});
+  };
+
+  const updateLabel=(evening,animateLabel)=>{
+    if(!modeButton)return;
+    const previous=label.textContent;
+    label.textContent=evening?'День':'Вечер';
+    modeButton.setAttribute('aria-pressed',String(evening));
+    if(!animateLabel)return;
+    const outgoing=document.createElement('span');
+    outgoing.className='scene-mode-outgoing';
+    outgoing.textContent=previous;
+    outgoing.setAttribute('aria-hidden','true');
+    labelMask.append(outgoing);
+    const timing={duration:400,easing,fill:'both'};
+    const enter=label.animate([{transform:'translateY(100%)'},{transform:'translateY(0)'}],timing);
+    const leave=outgoing.animate([{transform:'translateY(0)'},{transform:'translateY(-100%)'}],timing);
+    clearLabel=()=>{
+      enter.cancel();
+      leave.cancel();
+      outgoing.remove();
+      clearLabel=null;
+    };
+    enter.onfinish=clearLabel;
+  };
+
   const applyMode=(draw=true)=>{
+    stopModeAnimations();
+    const ready=draw&&host.dataset.ready==='true';
+    const animateMode=ready&&!reduced.matches&&typeof host.animate==='function';
+    const snapshot=animateMode&&captureFrame();
+    const overlay=snapshot&&prepareWipe(snapshot);
     const evening=sceneMode==='evening';
     host.classList.toggle('scene-evening',evening);
     host.dataset.lighting=sceneMode;
-    if(modeButton){modeButton.textContent=evening?'День':'Вечер';modeButton.setAttribute('aria-pressed',String(evening));}
+    updateLabel(evening,Boolean(overlay));
     sun.color.setHex(evening?0xffa35c:0xffe7c7);
     sun.position.set(-26,evening?9:27,-16);sun.intensity=evening?1.15:3.1;
     hemi.color.setHex(evening?0x294b91:0xdde9f3);
@@ -281,7 +358,8 @@ export function mountScene(host) {
     for(const [source,copy] of ghosts)if(source.emissive&&copy.emissive){copy.emissive.copy(source.emissive);copy.emissiveIntensity=source.emissiveIntensity;}
     renderer.shadowMap.needsUpdate=true;sun.shadow.needsUpdate=true;
     // Controls own the on-demand loop; a mode change needs just one extra frame.
-    if(draw&&host.dataset.ready==='true')renderer.render(scene,camera);
+    if(ready)renderer.render(scene,camera);
+    if(overlay)startWipe(overlay);
   };
   const toggleMode=()=>{
     sceneMode=sceneMode==='evening'?'day':'evening';
@@ -292,6 +370,7 @@ export function mountScene(host) {
   applyMode(false);
   return ()=>{
     modeListeners.delete(applyMode);modeButton?.removeEventListener('click',toggleMode);
+    reduced.removeEventListener('change',stopModeAnimations);stopModeAnimations();
     stop();environment.dispose();
     const geometries=new Set(),materials=new Set(),textures=new Set();
     scene.traverse((o)=>{if(o.geometry)geometries.add(o.geometry);for(const mat of [o.material||[]].flat()){materials.add(mat);for(const v of Object.values(mat))if(v?.isTexture)textures.add(v);}o.dispose?.();});

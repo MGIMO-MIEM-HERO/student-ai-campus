@@ -1,4 +1,5 @@
 import {syncLibrary} from './library.js';
+import {mountIdCard} from './idcard.js';
 import {S, indexLessons, lessonIndex} from './state.js';
 import {api} from './api.js';
 import {icon} from './icons.js';
@@ -11,6 +12,10 @@ import {aboutScreen} from './about.js';
 import {findNavigationLesson,nextPhysicalLesson,syncNavigation} from './schedule-navigation.js';
 import {syncScenes, territoryScene} from './scene-host.js';
 import {nearestFreeRoom} from './navigation-ui.js';
+import {mountGradeBars} from './gradebars.js';
+import {mountDeadlineStack} from './deadlines.js';
+import {viewNotFound} from './notfound.js';
+import './deck.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -18,6 +23,7 @@ const sheet = document.querySelector('#sheet');
 const sheetBody = document.querySelector('#sheet-body');
 const DEMO_PASSWORD = 'Campus-demo-2026';
 let toastTimer, lastFocus, lastKey = '', drag = null, suppressClick = false;
+let cleanupIdCard;
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const isStaff = () => S.data?.role === 'staff';
@@ -66,18 +72,21 @@ function loginScreen(error = '', login = '') {
       <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role, photo]) => `<button class="demo" data-demo="${id}">${photo ? `<img class="avatar" src="${photo}" alt="" width="38" height="38">` : `<span class="avatar" aria-hidden="true">${name[0]}</span>`}<span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
-      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p><a class="link" href="#about">Как устроен Кампус ${icon('arrow')}</a></div>
+      <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p><a class="link" href="#about">Как устроен Кампус ${icon('arrow')}</a> <button class="link" type="button" data-deck-open>Режим презентации ${icon('arrow')}</button></div>
       <p class="disclaimer">${BRAND} — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');
 }
 function errorScreen() {
   app.innerHTML = `<div class="state"><h1>Не удалось загрузить кабинет</h1><p class="lede">Проверьте подключение к интернету и повторите попытку.</p><button class="btn" data-retry>Повторить</button></div>`;
+  syncIdCard(app);
   app.setAttribute('aria-busy', 'false');
 }
 async function verifyScreen(code) {
+  featureCleanups.forEach((dispose) => dispose()); featureCleanups = [];
   const frame = (inner) => { app.innerHTML = `<header class="topbar"><div class="topbar-in">${brand('/')}<span class="tag">Концепт</span></div></header><div class="verify">${inner}<p class="disclaimer">Страница проверки концепт-прототипа. Документы не имеют юридической силы. Персональные данные показаны в сокращённом виде.</p><a class="btn ghost" href="/">Перейти в кабинет</a></div>`; app.setAttribute('aria-busy', 'false'); };
   frame('<div class="sk"></div>');
+  syncIdCard(app);
   const row = (k, v) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`;
   try {
     const d = await api(`verify/${encodeURIComponent(code || '')}`);
@@ -91,8 +100,21 @@ async function verifyScreen(code) {
   }
 }
 
+function syncIdCard(root) {
+  cleanupIdCard?.();
+  cleanupIdCard = mountIdCard(root);
+}
+// Шкалы баллов и стопка дедлайнов: при каждой перерисовке снимаем старые обработчики и подключаем новые.
+let featureCleanups = [];
+function syncFeatures(root) {
+  featureCleanups.forEach((dispose) => dispose());
+  featureCleanups = [mountGradeBars(root), mountDeadlineStack(root)];
+}
+// Адрес, которого нет ни у одной роли, — страница 404 («Такой аудитории нет»).
+const isMissing = () => { const k = hashParts()[0]; return !!k && !['main'].includes(k) && !routes().includes(k); };
+
 function decorate(root) {
-  if (root === app) { syncScenes(root); syncLibrary(root); }
+  if (root === app) { syncScenes(root); syncLibrary(root); syncIdCard(root); syncFeatures(root); }
   // План шире экрана телефона: показываем выбранную аудиторию и подсказку «листайте», пока не дошли до края.
   root.querySelectorAll('.plan-scroll').forEach((box) => {
     const mark = () => { box.dataset.more = String(box.scrollWidth - box.clientWidth - box.scrollLeft > 8); };
@@ -132,7 +154,7 @@ function render() {
     : {library: stu.viewLibrary, today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, tasks: stu.viewTasks, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
   const entering = key !== lastKey;
   lastKey = key;
-  app.innerHTML = shell(views[key](), key);
+  app.innerHTML = shell(isMissing() ? viewNotFound(hashParts()[0]) : views[key](), isMissing() ? '' : key);
   decorate(app);
   if(S.focusMap){S.focusMap=false;requestAnimationFrame(()=>document.querySelector('#campus-map')?.scrollIntoView({block:'start'}));}
   if (entering) { const main = app.querySelector('#main'); main.classList.add('enter'); countUp(main); }

@@ -10,6 +10,8 @@ import {navigationPanel,navigationCaption} from './navigation-ui.js';
 import {scheduleEntries} from './schedule-navigation.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['tasks', 'Задания', 'tasks'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Корпуса', 'building']];
+import {gradeBarsSection} from './gradebars.js';
+import {deadlineStack} from './deadlines.js';
 export const ROUTES = ['today', 'schedule', 'tasks', 'study', 'requests', 'rooms', 'news', 'notices', 'assistant', 'profile', 'doc', 'library'];
 export const NAV_OF = {library: 'study', doc: 'requests', news: 'today', notices: 'today'};
 export const DOCS = [
@@ -162,12 +164,14 @@ export function viewTasks() {
   }
   const sum = graded.reduce((s, h) => s + h.points, 0), max = graded.reduce((s, h) => s + h.points_max, 0);
   const near = active.find((h) => h.status === 'todo');
+  const stack = f === 'active' ? deadlineStack(((byDue) => [...byDue.filter((h) => h.status === 'overdue').slice(0, 2), ...byDue.filter((h) => h.status === 'todo')].slice(0, 5))([...active].sort((a, b) => `${a.due_date} ${a.due_time}`.localeCompare(`${b.due_date} ${b.due_time}`))).map((h) => ({id: h.id, course: h.course_title, title: h.title, kind: h.kind, when: dueWhen(h), days: daysBetween(t, h.due_date), overdue: h.status === 'overdue'}))) : '';
   return `<div class="page">${head(S.data.semester.term, 'Задания', 'Домашние задания и работы из LMS со сроками. Когда закончите, отметьте задание кружком: преподаватель увидит, что работа сдана. Оценки и комментарии приходят сюда же.')}
     <section class="stats" aria-label="Коротко">
       <div class="stat"><span class="num">${active.length}</span><span class="l">активных заданий</span></div>
       <div class="stat"><span class="num sm">${near ? esc(dueWhen(near).split(',')[0]) : '—'}</span><span class="l">${near ? `ближайший срок: ${esc(near.course_title)}` : 'ближайших сроков нет'}</span></div>
       <div class="stat"><span class="num">${done.length}</span><span class="l">сдано, ждут проверки</span></div>
       <div class="stat"><span class="num">${max ? Math.round(sum / max * 100) : 0}<small>%</small></span><span class="l">баллов за проверенные работы</span></div></section>
+    ${stack}
     <div class="cols tasks-cols"><div class="stack"><div class="chips" role="group" aria-label="Фильтр заданий">${chip('active', 'Активные', active.length)}${chip('done', 'Сданные', done.length)}${chip('graded', 'Проверенные', graded.length)}</div>${body}</div>
       <div class="stack tasks-side"><section class="card"><div class="stack"><p class="title">Сроки на две недели</p>${dueStrip()}<p class="cap">Точка — срок задания в этот день.</p></div></section>
         <section class="card"><div class="stack"><p class="title">Как сдавать</p><div class="list">${[['schedule', 'К занятию', 'Сдаётся на паре: распечатка, тетрадь или устный ответ.'], ['download', 'Загрузка в LMS', 'Файл или ссылка на странице дисциплины до 23:59 дня срока.'], ['check', 'Тест онлайн', 'Проходится в LMS, баллы приходят автоматически.']].map(([ico, ttl, sub]) => `<div class="how"><span class="ico">${icon(ico)}</span><span><strong>${ttl}</strong><span>${sub}</span></span></div>`).join('')}</div></div></section></div></div></div>`;
@@ -370,6 +374,7 @@ export function viewStudy() {
       <div class="stat"><span class="num">${toSession > 0 ? toSession : 0}</span><span class="l">дней до начала сессии</span></div></section>
     ${risk}
     <section class="sec">${secHead('Семестр')}<div class="strip" role="img" aria-label="Идёт ${s.week}-я неделя из ${s.weeks}, сессия с ${dayMonth(s.session_starts)}">${Array.from({length: s.weeks}, (_, i) => `<div class="${i + 1 < s.week ? 'done' : i + 1 === s.week ? 'cur' : ''}"><b>${i + 1}</b>${i + 1 === s.week ? 'сейчас' : 'нед.'}</div>`).join('')}<div class="session"><b>Сессия</b>с ${dayMonth(s.session_starts)}</div></div></section>
+    ${gradeBarsSection()}
     <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div class="ring-wrap sm">${ring(g.points, {size: 76, stroke: 9, tone: g.points < 60 ? 'papaya' : 'ink', label: `${g.points} баллов из 100`})}<span class="ring-num"><span data-count="${g.points}">${g.points}</span></span></div>
       <div class="course-info"><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span><span><span class="tag ${g.result === 'Нет допуска' ? 'papaya' : 'mint'}">${esc(g.result)}</span></span></div></div>
       <div class="spark-wrap">${sparkline(g.trend, {label: `Баллы по неделям: ${g.trend.join(', ')}`})}<div class="spark-axis"><span>1 нед.</span><span>порог 60</span><span>${g.trend.length} нед.</span></div></div>
@@ -490,12 +495,30 @@ export function viewProfile() {
   const p = S.data.profile;
   const rows = [['Факультет', p.faculty], ['Направление', p.program], ['Уровень образования', p.level], ['Форма обучения', p.form], ['Курс', p.year], ['Группа', p.group_name], ['Подгруппа', p.subgroup], ['Номер зачётной книжки', p.record_book], ['Куратор группы', p.curator]];
   const url = p.card_code ? verifyUrl(p.card_code) : '';
+  const qr = url ? qrSvg(url) : '';
   return `<div class="page">${head('Профиль', 'Студенческий билет', 'Электронный билет с QR-кодом. По коду можно проверить статус обучения без входа в кабинет.')}
-    <div class="cols even"><div class="stack"><article class="idcard sky" aria-label="Электронный студенческий билет">
-      <div class="row"><p class="eyebrow">Студенческий билет</p><span class="tag mint">Обучается</span></div>
-      <div class="who"><p class="h2">${esc(p.name)}</p><p>${esc(p.program)} · ${p.year} курс</p></div>
-      <div class="grid"><dl><div><dt>Группа</dt><dd>${esc(p.group_name)}</dd></div><div><dt>Зачётная книжка</dt><dd>${esc(p.record_book || '')}</dd></div><div><dt>Действителен до</dt><dd>${dayMonth(p.card_valid_until)} ${p.card_valid_until.slice(0, 4)}</dd></div></dl>${url ? qrSvg(url) : ''}</div></article>
-      <p class="cap">Демонстрационный билет, не является документом. ${url ? `Ссылка проверки: <a href="${esc(url)}">${esc(url)}</a>` : ''}</p>
+    <div class="cols even idcard3d-profile"><div class="stack">
+      <div class="idcard3d" data-idcard>
+        <button class="idcard3d-toggle" type="button" role="button" aria-label="Перевернуть билет" aria-pressed="false" data-idcard-toggle></button>
+        <div class="idcard3d-tilt" data-idcard-tilt><div class="idcard3d-flip">
+          <div class="idcard3d-edges" aria-hidden="true">${'<span></span>'.repeat(7)}</div>
+          <article class="idcard sky idcard3d-front" aria-label="Электронный студенческий билет" data-idcard-front>
+            <div class="row"><p class="eyebrow">Студенческий билет</p><span class="tag mint">Обучается</span></div>
+            <div class="who"><p class="h2">${esc(p.name)}</p><p>${esc(p.program)} · ${p.year} курс</p></div>
+            <div class="grid"><dl><div><dt>Группа</dt><dd>${esc(p.group_name)}</dd></div><div><dt>Зачётная книжка</dt><dd>${esc(p.record_book || '')}</dd></div><div><dt>Действителен до</dt><dd>${dayMonth(p.card_valid_until)} ${p.card_valid_until.slice(0, 4)}</dd></div></dl>${qr}</div>
+          </article>
+          <article class="idcard sky idcard3d-back" data-idcard-back inert>
+            <p class="eyebrow">Кампус · студенческий билет</p>
+            <div class="idcard3d-stripe" aria-hidden="true"></div>
+            ${qr ? `<figure class="idcard3d-verify">${qr}<figcaption>Проверка подлинности</figcaption></figure>` : ''}
+            <dl><div><dt>Зачётная книжка</dt><dd>${esc(p.record_book || '')}</dd></div></dl>
+            <div class="idcard3d-note"><p>Демонстрационный билет, не является документом</p>
+              ${url ? `<p>Ссылка проверки: <a href="${esc(url)}">${esc(url)}</a></p>` : ''}
+            </div>
+          </article>
+        </div></div>
+      </div>
+      <p class="cap">Нажмите на билет, чтобы перевернуть</p>
       <section class="card"><div class="list">${item({href: 'notices', ico: 'bell', tone: 'marigold', title: 'Уведомления', sub: unreadCount() ? `Непрочитанных: ${unreadCount()}` : 'Все прочитаны'})}${item({href: 'assistant', ico: 'chat', tone: 'periwinkle', title: 'Помощник', sub: 'Ответы по расписанию, срокам и справкам'})}</div></section></div>
     <section class="card profile"><div class="stack"><p class="title">Сведения об обучении</p><dl>${rows.filter((r) => r[1]).map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       <p class="cap">Логин: ${esc(p.login)}. Учётная запись демонстрационная, сведения вымышлены.</p><button class="btn ghost" data-logout>${icon('logout')}Выйти из кабинета</button></div></section></div></div>`;
