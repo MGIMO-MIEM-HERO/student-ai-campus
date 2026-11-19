@@ -43,19 +43,13 @@ export function viewLibrary(){
   return `<div class="lib-page" data-library data-library-search data-library-catalog>
     <header class="lib-header"><p class="eyebrow">Учёба</p><h1>Библиотека курса</h1><p>Учебники по вашим дисциплинам: где взять и сколько экземпляров. Каталог демонстрационный.</p></header>
     <div class="lib-catalog-search">${libraryControls(list)}<div id="book-results" ${filtered?'':'hidden'}>${searchResults(list,false)}</div></div>
-    <div data-library-browse ${filtered?'hidden':''}><section class="lib-stage" data-lib-stage aria-label="Полка учебников"><div class="lib-track">${Array.from({length:36},(_,v)=>{const i=v%12,b=books[i];return `<div class="lib-book" data-lib-book="${v}"><button class="lib-spine" data-lib-pick="${v}" aria-label="${escape(b.title+' — '+b.author)}"><span class="lib-spine-motif">${['∫','⋮','ε','⊥','∩','◇','×','×','⌒','⋰','⋈','▤'][i]}</span><strong>${escape(b.title)}</strong><small>${escape(b.author.split(',')[0])}</small><b>${['','МАТ','ЭКОН','ИНФ'][b.section]}</b></button><button class="lib-cover" data-lib-pick="${v}" aria-label="Открыть: ${escape(b.title)}">${cover(b,i)}<span class="lib-open-ring">↗</span></button><div class="lib-pages"></div></div>`;}).join('')}</div><div class="lib-cursor" data-lib-cursor aria-hidden="true"><span>ОТКРЫТЬ</span></div></section>
-    <footer class="lib-caption"><button data-lib-step="-1" aria-label="Предыдущая книга">←</button><div class="lib-caption-content" aria-live="polite" data-lib-caption></div><button data-lib-step="1" aria-label="Следующая книга">→</button></footer><p class="lib-hint">Листайте стрелками или потяните полку · Enter — открыть книгу</p></div>
-    <div class="lib-sheet" data-lib-sheet role="dialog" aria-modal="true" aria-label="Карточка учебника" hidden></div></div>`;
+    ${libraryBrowser(filtered)}</div>`;
 }
+function libraryBrowser(filtered){return `    <div data-library-browse ${filtered?'hidden':''}><section class="lib-stage" data-lib-stage aria-label="Полка учебников"><div class="lib-track">${Array.from({length:36},(_,v)=>{const i=v%12,b=books[i];return `<div class="lib-book" data-lib-book="${v}"><button class="lib-spine" data-lib-pick="${v}" aria-label="${escape(b.title+' — '+b.author)}"><span class="lib-spine-motif">${['∫','⋮','ε','⊥','∩','◇','×','×','⌒','⋰','⋈','▤'][i]}</span><strong>${escape(b.title)}</strong><small>${escape(b.author.split(',')[0])}</small><b>${['','МАТ','ЭКОН','ИНФ'][b.section]}</b></button><button class="lib-cover" data-lib-pick="${v}" aria-label="Открыть: ${escape(b.title)}">${cover(b,i)}<span class="lib-open-ring">↗</span></button><div class="lib-pages"></div></div>`;}).join('')}</div><div class="lib-cursor" data-lib-cursor aria-hidden="true"><span>ОТКРЫТЬ</span></div></section>
+    <footer class="lib-caption"><button data-lib-step="-1" aria-label="Предыдущая книга">←</button><div class="lib-caption-content" aria-live="polite" data-lib-caption></div><button data-lib-step="1" aria-label="Следующая книга">→</button></footer><p class="lib-hint">Листайте стрелками или потяните полку · Enter — открыть книгу</p></div>
+    <div class="lib-sheet" data-lib-sheet role="dialog" aria-modal="true" aria-label="Карточка учебника" hidden></div>`;}
 /** Учебник библиотеки к дисциплине пары (по точному названию курса) — для карточки ближайшей пары. */
 export function bookForCourse(title){const i=books.findIndex((b)=>b.course===title);if(i<0)return null;const b=books[i];return {i,id:b.id,title:b.title,author:b.author,shelf:b.shelf,copies:b.copies};}
-/** Витрина для главной: «книга дня» с обложкой и полка корешков; клик по корешку открывает библиотеку на этой книге. */
-function shelfPreview(){
-  const day=new Date().getDate()%12,f=books[day],heights=[100,94,98,92,100,96,93,99,95,100,92,97],motif=['∫','⋮','ε','⊥','∩','◇','×','×','⌒','⋰','⋈','▤'];
-  return `<div class="hm-lib-body"><a class="hm-lib-feat" href="#library/${f.id}" data-lib-go="${day}" aria-label="Книга дня: ${escape(f.title)}"><span class="hm-lib-flag">Книга дня</span><span class="hm-lib-cover">${cover(f,day)}</span>
-      <span class="hm-lib-info"><strong>${escape(f.title)}</strong><span>${escape(f.author)}</span><small>${escape(f.shelf)} · в наличии ${escape(f.copies)}</small></span></a>
-      <div class="hm-shelf">${books.map((b,i)=>`<a class="hm-spine" href="#library/${b.id}" data-lib-go="${i}" data-vars="--c:${b.color};--h:${heights[i]}%" aria-label="${escape(b.title+' — '+b.author)}"><i>${motif[i]}</i><strong>${escape(b.title)}</strong><small>${escape(b.author.split(',')[0].replace(/^[А-ЯA-Z]\. ?([А-ЯA-Z]\. )?/,''))}</small><b>${['','МАТ','ЭКОН','ИНФ'][b.section]}</b></a>`).join('')}</div></div>`;
-}
 const searchActive = () => S.libraryQuery.trim() || S.librarySection || S.libraryAvailable;
 const normalize = (value) => value.toLocaleLowerCase('ru').replaceAll('ё','е');
 function matchingBooks(){
@@ -63,7 +57,7 @@ function matchingBooks(){
   return books.filter(b=>(!S.librarySection||b.section===S.librarySection)&&(!S.libraryAvailable||b.available>0)&&words.every(word=>normalize(`${b.title} ${b.author} ${b.course}`).includes(word)));
 }
 function searchResults(list,preview=true){
-  if(!searchActive())return preview?shelfPreview():'';
+  if(!searchActive())return '';
   if(!list.length)return `<div class="empty">${icon('search')}<strong>Ничего не найдено</strong><span>Попробуйте другое название, автора или дисциплину либо сбросьте фильтры.</span></div>`;
   return `<div class="hm-book-grid">${list.map(b=>`<a class="hm-book-result" href="#library/${b.id}?open=1"><span class="hm-book-icon">${icon('book')}</span><span class="hm-book-copy"><span class="hm-book-course">${escape(b.course)}</span><strong>${escape(b.title)}</strong><span>${escape(b.author)}</span><small>${escape(b.shelf)} · в наличии ${escape(b.copies)}</small><span class="hm-book-open">Открыть книгу</span></span></a>`).join('')}</div>`;
 }
@@ -73,9 +67,9 @@ function libraryControls(list){
     <p class="small muted" data-book-count role="status" aria-atomic="true">Найдено книг: ${list.length} из ${books.length}</p>`;
 }
 export function libraryShelf(){
-  const list=matchingBooks();
-  return `<section class="hm-card hm-lib" data-library-search aria-label="Библиотека курса"><div class="hm-card-head"><div><p class="hm-eyebrow">Библиотека курса</p><h2 class="hm-title">Учебники по вашим дисциплинам</h2></div><a class="link" href="#library">Открыть полку</a></div>
-    ${libraryControls(list)}<div id="book-results">${searchResults(list)}</div></section>`;
+  const list=matchingBooks(),filtered=Boolean(searchActive());
+  return `<section class="hm-card hm-lib lib-embedded" data-library data-library-search data-library-catalog aria-label="Библиотека курса"><div class="hm-card-head"><div><p class="hm-eyebrow">Библиотека курса</p><h2 class="hm-title">Учебники по вашим дисциплинам</h2></div><a class="link" href="#library">Открыть полку</a></div>
+    ${libraryControls(list)}<div id="book-results" ${filtered?'':'hidden'}>${searchResults(list,false)}</div>${libraryBrowser(filtered)}</section>`;
 }
 function mountLibrarySearch(root){
   const host=root.querySelector('[data-library-search]');if(!host)return ()=>{};

@@ -8,4 +8,7 @@
 [data-library]:focus{outline:none}
 .lib-reserved{margin-top:12px;font-size:14px;color:#2f6a4f}
 .lib-catalog-search{display:grid;gap:16px;margin:28px 5% 20px;min-width:0}
+.lib-embedded{--lib-h:320px;--lib-ws:51px;--lib-d:224px;overflow:hidden}
+.lib-embedded .lib-stage{margin-top:0}
+.lib-embedded .lib-hint{margin-top:8px;font-size:13px}
 @media(max-width:600px){.lib-catalog-search{margin-inline:20px}}
