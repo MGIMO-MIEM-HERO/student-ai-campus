@@ -1,4 +1,5 @@
 import {syncLibrary} from './library.js';
+import './viewport.js';
 import {mountIdCard} from './idcard.js';
 import {S, indexLessons, lessonIndex} from './state.js';
 import {api} from './api.js';
@@ -67,7 +68,7 @@ function loginScreen(error = '', login = '') {
   app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
       <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Студенту — расписание с заменами, задания со сроками, баллы и справки. Преподавателю — журнал, посещаемость и проверка работ. С телефона и с компьютера.</p></div>
       ${territoryScene(true)}</section>
-    <main class="login-main" id="main" tabindex="-1"><div class="login-card"><h2 class="title">Вход в кабинет</h2>
+    <main class="login-main" id="main" tabindex="-1"><div class="login-mobile-brand">${brand('/')}</div><div class="login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
       <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
