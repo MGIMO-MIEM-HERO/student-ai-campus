@@ -59,7 +59,7 @@ function entranceCanopy(kit,route) {
   box(edge.x+nx*.07,.88,edge.z+nz*.07,1.35,1.76,.14,m.glass,rotation);
 }
 
-function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHeight=.48,base=.14}={}) {
+function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHeight=.48,base=.14,relief=false}={}) {
   const {box,windowBay,m}=kit;
   // Outer loops run clockwise in the XZ plane, courtyard loops the other way.
   for(let i=0;i<points.length;i++) {
@@ -72,13 +72,16 @@ function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHe
     box(mid[0],height-.18,mid[1],length,.055,.09,m.trim,angle);
     for(let floor=1;floor<floors;floor++)box(mid[0]+normal[0]*.045,base+floor*(height-base)/floors,mid[1]+normal[1]*.045,length,.035,.08,m.trim,angle);
     const count=Math.max(0,Math.floor((length-.3)/spacing));
+    // Вертикальные пилястры через каждые четыре окна: рельеф стены и ритм фасада (на телефоне не рисуем — бюджет треугольников).
+    if(relief&&!kit.mobile&&count>=6)for(let n=3;n<count;n+=3) {
+      const t=n/count,px=a[0]+dx*t+normal[0]*.11,pz=a[1]+dz*t+normal[1]*.11;
+      box(px,(base+height-.2)/2,pz,.34,height-base-.2,.16,kit.material('pier',0xcdbf9f,.92),angle);
+    }
     for(let n=0;n<count;n++)for(let f=0;f<floors;f++) {
       const t=(n+.5)/count,x=a[0]+dx*t+normal[0]*.055,z=a[1]+dz*t+normal[1]*.055;
       const y=base+(f+.55)*(height-base)/floors;
       const wh=Math.min(windowHeight,(height-base)/floors*.65);
       windowBay(x,y,z,windowWidth,wh,Math.PI-Math.atan2(dz,dx),n+f*7);
-      // Подоконник выступает из стены и ловит свет: фасад перестаёт выглядеть плоской сеткой.
-      if(!kit.mobile)box(x+normal[0]*.035,y-wh/2-.02,z+normal[1]*.035,windowWidth+.1,.04,.1,m.trim,angle,1);
     }
   }
 }
@@ -213,8 +216,8 @@ export function buildBuilding(kit,layout,floors=6) {
   for(let x=-15.2;x<=15.2;x+=1.9){if(Math.abs(x)>4.6)plant(x,D/2-.75,-.1,size(k++),true);plant(x,-D/2+.75,-.1,size(k++),true);}
   for(let z=-D/2+2.4;z<=D/2-2.4;z+=1.9)for(const x of [-15.7,15.7])plant(x,z,-.1,size(k++),true);
   prism(outline,hole?[hole]:[],height,.01,m.roof,m.stone);
-  facade(kit,outline,height,{floors,spacing:.82,windowWidth:.48,windowHeight:.71,base:.28});
-  if(hole)facade(kit,hole,height,{floors,spacing:.88,windowWidth:.46,windowHeight:.68,base:.28});
+  facade(kit,outline,height,{floors,spacing:.82,windowWidth:.48,windowHeight:.71,base:.28,relief:true});
+  if(hole)facade(kit,hole,height,{floors,spacing:.88,windowWidth:.46,windowHeight:.68,base:.28,relief:true});
   // Recessed roof equipment with grilles, hatch, ducts and concrete upstands.
   for(const [x,z] of [[-9,Z(42)],[6,Z(42)],[-8,Z(H-48)],[9,Z(H-48)]]) {
     box(x,height+.11,z,1.5,.18,.85,m.plinth);
@@ -254,7 +257,7 @@ export function buildBuilding(kit,layout,floors=6) {
     }
     kit.treeBlobs(ctx,cx,cz,S,.4);
   }});
-  text('МГИМО',0,height+.2,Z(H-44),2.7);
+  text('Главный корпус',0,height+.2,Z(H-44),3.4);
   // Visual subdivision for the larger model, not more polygons at a distance.
   for(const sign of [-1,1])for(let i=0;i<8;i++) {
     box(sign*14.45,.15+i*.018,front+2.7-i*.4,.025,.045,.25,m.trim,0,1);

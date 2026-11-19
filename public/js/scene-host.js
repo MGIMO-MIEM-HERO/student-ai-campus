@@ -31,7 +31,7 @@ export function syncScenes(root) {
   hosts.forEach((host)=>observer.observe(host));
 }
 
-const footprint = () => `<svg class="territory-fallback" viewBox="-40 -25 920 465" role="img" aria-label="Схема территории МГИМО по предоставленному изображению">${WINGS.map((wing)=>`<path fill-rule="evenodd" d="${[wing.pts,...(wing.holes||[])].map((points)=>`M${points.map((p)=>p.join(',')).join('L')}Z`).join('')}"/>${wing.id?`<text x="${wing.label[0]}" y="${wing.label[1]}">${wing.id}</text>`:''}`).join('')}</svg>`;
+const footprint = () => `<svg class="territory-fallback" viewBox="-40 -25 920 465" role="img" aria-label="Схема территории кампуса по предоставленному изображению">${WINGS.map((wing)=>`<path fill-rule="evenodd" d="${[wing.pts,...(wing.holes||[])].map((points)=>`M${points.map((p)=>p.join(',')).join('L')}Z`).join('')}"/>${wing.id?`<text x="${wing.label[0]}" y="${wing.label[1]}">${wing.id}</text>`:''}`).join('')}</svg>`;
 export const territoryScene = (compact = false, route = null) => `<section class="territory ${compact ? 'territory-compact' : ''}">
   <div class="model-view territory-view" data-scene="territory" ${route ? `data-route-building="${route.building}"` : ''}>
     ${footprint()}
