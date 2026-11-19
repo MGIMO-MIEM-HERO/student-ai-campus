@@ -16,7 +16,7 @@ import {mountGradeBars} from './gradebars.js';
 import {mountDeadlineStack} from './deadlines.js';
 import {viewNotFound} from './notfound.js';
 import './deck.js';
-import {maybeShowIntro, resetIntro, closeIntro} from './intro.js';
+import {resetIntro, closeIntro} from './intro.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -42,7 +42,7 @@ function flash(message) {
 /* Название продукта и знак: корпус кампуса в круге. */
 const BRAND = 'Кампус';
 const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.png" alt="" width="36" height="36"><span class="brand-text"><b>${BRAND}</b><small>${ROLE_LABEL[S.data?.role] || 'личный кабинет'} · концепт</small></span></a>`;
-const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.png" alt="" width="28" height="28"><p>${BRAND} — концепт-прототип личного кабинета студента и преподавателя для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все люди, данные и новости вымышлены, портреты преподавателей сгенерированы нейросетью. Шрифт Golos Text, лицензия SIL OFL.</p></footer>`;
+const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.png" alt="" width="28" height="28"><p>${BRAND} · Конкурсный концепт MGIMO×AI Challenge. Данные вымышлены. <a href="#about">О проекте</a></p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -65,7 +65,7 @@ function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['vetrova', 'Ирина Ветрова', 'преподаватель, высшая математика', '/assets/people/vetrova.webp'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
   lastKey = '';
   app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
-      <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Студенту — расписание с заменами, задания со сроками, баллы и справки. Преподавателю — журнал, посещаемость и проверка работ. С телефона и с компьютера.</p></div>
+      <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Расписание, задания и документы — всё, что нужно на учебный день.</p></div>
       ${territoryScene(true)}</section>
     <main class="login-main" id="main" tabindex="-1"><div class="login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
@@ -160,8 +160,6 @@ function render() {
   if(S.focusMap){S.focusMap=false;requestAnimationFrame(()=>document.querySelector('#campus-map')?.scrollIntoView({block:'start'}));}
   if (entering) { const main = app.querySelector('#main'); main.classList.add('enter'); countUp(main); }
   app.setAttribute('aria-busy', 'false');
-  // Вступление (подлёт к корпусу ближайшей пары) — один раз за вход, только на главной.
-  if (key === 'today' && !isMissing()) maybeShowIntro();
 }
 function openSheet(html) {
   if (!html) return;

@@ -193,3 +193,54 @@ a.hm-card{text-decoration:none}
 .intro.is-evening .intro-kicker{color:#a9cbe6}
 .intro.is-evening .intro-actions .btn:not(.ghost){background:#eef2f6;color:#1d2a38;border-color:#eef2f6}
 .intro.is-evening .intro-actions .btn.ghost{color:#fff;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
+
+/* Ежедневные действия имеют приоритет над витринами сервисов. */
+:root {
+  --font-sans: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { font-variant-numeric: tabular-nums; }
+h1, h2, .title { text-wrap: balance; }
+h1 { font-size: clamp(34px, 4vw, 52px); line-height: 1.12; }
+h2, .title { font-size: clamp(23px, 2.5vw, 29px); line-height: 1.2; }
+.lede { font-size: 16px; max-width: 54ch; }
+.card, .hw, .stat, .lesson, .empty, .tcard, .hm-card {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  border: 1px solid var(--line);
+}
+.calm-today { gap: 28px; }
+.today-primary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.today-primary > div { min-width: 0; }
+.today-primary .now { margin: 0; padding: 28px; }
+.today-primary .now-time { font-size: clamp(34px, 4vw, 48px); }
+.today-primary .now-title { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.2; }
+.today-primary .day-card { padding: 24px; }
+.today-primary .mini-l { padding-block: 14px; }
+.today-primary .mini-l > svg { width: 16px; color: var(--muted); }
+.attention-list { display: grid; gap: 8px; }
+.attention-list .item { border: 1px solid var(--line); border-radius: var(--r-md); }
+.service-links { display: flex; flex-wrap: wrap; gap: 8px 24px; border-block: 1px solid var(--line); padding-block: 12px; }
+.service-links a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; text-decoration: none; font-size: 14px; color: var(--ink-2); }
+.service-links a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.service-links svg { width: 18px; height: 18px; }
+.disclosure { border-block-start: 1px solid var(--line); padding-block: 4px; min-width: 0; }
+.disclosure > summary { cursor: pointer; padding: 16px 4px; font: 500 16px/1.5 var(--font-sans); color: var(--ink-2); }
+.disclosure > summary::marker { color: var(--muted); }
+.disclosure[open] > summary { margin-block-end: 12px; color: var(--ink); }
+.disclosure > .hm-card { margin-block-end: 16px; }
+.tasks-page { max-width: 880px; margin-inline: auto; }
+.tasks-page .hw { border-radius: var(--r-md); }
+.tasks-page .hw-h { font-family: var(--font-sans); font-size: 16px; }
+.tasks-page .hw-groups { gap: 28px; }
+@media (max-width: 700px) {
+  .today-primary { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .today-primary .now, .today-primary .day-card { padding: 20px; }
+  .calm-today { gap: 24px; }
+  .service-links { gap: 4px 20px; }
+  input, textarea, select { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-route-line, .hm-end-ring { animation: none; }
+}
