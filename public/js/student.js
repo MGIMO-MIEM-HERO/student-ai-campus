@@ -13,7 +13,6 @@ import {libraryShelf, bookForCourse} from './library.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['tasks', 'Задания', 'tasks'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Корпуса', 'building']];
 import {gradeBarsSection} from './gradebars.js';
-import {deadlineStack} from './deadlines.js';
 export const ROUTES = ['today', 'schedule', 'tasks', 'study', 'requests', 'rooms', 'news', 'notices', 'assistant', 'profile', 'doc', 'library'];
 export const NAV_OF = {library: 'study', doc: 'requests', news: 'today', notices: 'today'};
 export const DOCS = [
@@ -110,7 +109,7 @@ function nowCard() {
   if (next) return card('Следующая пара', `через ${duration(toMin(next.start) - t.minutes)}`, next);
   const upcoming = nextLessonDay(t.date), first = upcoming?.lessons.find((l) => !l.cancelled);
   if (!first) return `<section class="now sky"><div class="now-top"><span class="pill">Свободные дни</span></div><p class="now-title">В ближайшие дни занятий нет</p></section>`;
-  return card(d?.lessons.length ? 'Занятия закончились' : 'Сегодня занятий нет', `ближайшая пара ${esc(relativeDay(upcoming.date, t.date))}`, first);
+  return card('Следующее занятие', esc(cap(relativeDay(upcoming.date, t.date))), first);
 }
 
 /* ---------- Задания ---------- */
@@ -142,45 +141,23 @@ export function hwRow(h, compact = false) {
     <strong>${esc(h.title)}</strong>${compact ? '' : `<span class="hw-text">${esc(h.text)}</span>`}${h.comment ? `<span class="hw-comment">${face(h.teacher, 'xs')}<span>${esc(h.comment)}</span></span>` : ''}
     <span class="hw-foot">${dueLine(h)}${compact ? '' : `<span class="hw-who">${face(h.teacher, 'xs')}${esc(h.teacher.short)}</span>`}</span></button></article>`;
 }
-function dueStrip() {
-  const t = nowIso(), list = activeHomework();
-  const cells = Array.from({length: 14}, (_, i) => {
-    const iso = new Date(Date.parse(t + 'T12:00:00Z') + i * 864e5).toISOString().slice(0, 10);
-    const n = list.filter((h) => h.due_date === iso).length;
-    return `<li class="${i === 0 ? 'today' : ''} ${n ? 'has' : ''}" title="${n ? `Сроков: ${n}` : 'Сроков нет'}"><small>${weekdayShort(iso)}</small><b>${fmt(iso, {day: 'numeric'})}</b><i>${'<s></s>'.repeat(Math.min(n, 3))}</i></li>`;
-  }).join('');
-  return `<ol class="due-strip" aria-label="Сроки на две недели">${cells}</ol>`;
-}
 export function viewTasks() {
   const all = S.data.homework || [], t = nowIso(), active = activeHomework();
   const done = all.filter((h) => h.status === 'done'), graded = all.filter((h) => h.status === 'graded');
   const f = S.hwFilter || 'active';
   const chip = (id, label, n) => `<button class="chip" data-hwf="${id}" aria-pressed="${f === id}">${label} · ${n}</button>`;
-  // Три самых срочных задания — стопкой наверху; в списке ниже только остальные, без дублей.
-  const byDue = [...active].sort((a, b) => `${a.due_date} ${a.due_time}`.localeCompare(`${b.due_date} ${b.due_time}`));
-  const stackTasks = f === 'active' ? [...byDue.filter((h) => h.status === 'overdue').slice(0, 2), ...byDue.filter((h) => h.status === 'todo')].slice(0, 3) : [];
-  const rest = active.filter((h) => !stackTasks.includes(h));
+  const rest = [...active].sort((a, b) => `${a.due_date} ${a.due_time}`.localeCompare(`${b.due_date} ${b.due_time}`));
   let body;
   if (f === 'active') {
     const groups = [['Просрочено', (h) => h.status === 'overdue'], ['Сегодня и завтра', (h) => h.status === 'todo' && daysBetween(t, h.due_date) <= 1], ['На неделе', (h) => h.status === 'todo' && daysBetween(t, h.due_date) > 1 && daysBetween(t, h.due_date) <= 7], ['Позже', (h) => h.status === 'todo' && daysBetween(t, h.due_date) > 7]];
-    body = rest.length ? `<div class="hw-groups">${groups.map(([name, test]) => { const g = rest.filter(test); return g.length ? `<section class="hw-group"><h2 class="hw-h">${name}<span>${g.length}</span></h2>${g.map((h) => hwRow(h)).join('')}</section>` : ''; }).join('')}</div>` : active.length ? '' : empty('check', 'Всё сделано', 'Активных заданий нет.');
+    body = rest.length ? `<div class="hw-groups">${groups.map(([name, test]) => { const g = rest.filter(test); return g.length ? `<section class="hw-group"><h2 class="hw-h">${name}<span>${g.length}</span></h2>${g.map((h) => hwRow(h, true)).join('')}</section>` : ''; }).join('')}</div>` : active.length ? '' : empty('check', 'Всё сделано', 'Активных заданий нет.');
   } else {
     const list = f === 'done' ? done : graded;
-    body = list.length ? `<div class="hw-list">${list.map((h) => hwRow(h)).join('')}</div>` : empty('tasks', f === 'done' ? 'Пока ничего не отмечено' : 'Проверенных работ нет', f === 'done' ? 'Отметьте задание кружком слева, когда закончите.' : '');
+    body = list.length ? `<div class="hw-list">${list.map((h) => hwRow(h, true)).join('')}</div>` : empty('tasks', f === 'done' ? 'Пока ничего не отмечено' : 'Проверенных работ нет', f === 'done' ? 'Отметьте задание кружком слева, когда закончите.' : '');
   }
-  const sum = graded.reduce((s, h) => s + h.points, 0), max = graded.reduce((s, h) => s + h.points_max, 0);
-  const near = active.find((h) => h.status === 'todo');
-  const stack = f === 'active' ? deadlineStack(stackTasks.map((h) => ({box: hwBox(h), id: h.id, course: h.course_title, title: h.title, kind: h.kind, when: dueWhen(h), days: daysBetween(t, h.due_date), overdue: h.status === 'overdue'}))) : '';
-  return `<div class="page">${head(S.data.semester.term, 'Задания', 'Домашние задания и работы из LMS со сроками. Когда закончите, отметьте задание кружком: преподаватель увидит, что работа сдана. Оценки и комментарии приходят сюда же.')}
-    <section class="stats" aria-label="Коротко">
-      <div class="stat"><span class="num">${active.length}</span><span class="l">активных заданий</span></div>
-      <div class="stat"><span class="num sm">${near ? esc(dueWhen(near).split(',')[0]) : '—'}</span><span class="l">${near ? `ближайший срок: ${esc(near.course_title)}` : 'ближайших сроков нет'}</span></div>
-      <div class="stat"><span class="num">${done.length}</span><span class="l">сдано, ждут проверки</span></div>
-      <div class="stat"><span class="num">${max ? Math.round(sum / max * 100) : 0}<small>%</small></span><span class="l">баллов за проверенные работы</span></div></section>
-    ${stack}
-    <div class="cols tasks-cols"><div class="stack"><div class="chips" role="group" aria-label="Фильтр заданий">${chip('active', 'Активные', active.length)}${chip('done', 'Сданные', done.length)}${chip('graded', 'Проверенные', graded.length)}</div>${body}</div>
-      <div class="stack tasks-side"><section class="card"><div class="stack"><p class="title">Сроки на две недели</p>${dueStrip()}<p class="cap">Точка — срок задания в этот день.</p></div></section>
-        <section class="card"><div class="stack"><p class="title">Как сдавать</p><div class="list">${[['schedule', 'К занятию', 'Сдаётся на паре: распечатка, тетрадь или устный ответ.'], ['download', 'Загрузка в LMS', 'Файл или ссылка на странице дисциплины до 23:59 дня срока.'], ['check', 'Тест онлайн', 'Проходится в LMS, баллы приходят автоматически.']].map(([ico, ttl, sub]) => `<div class="how"><span class="ico">${icon(ico)}</span><span><strong>${ttl}</strong><span>${sub}</span></span></div>`).join('')}</div></div></section></div></div></div>`;
+  return `<div class="page tasks-page">${head(S.data.semester.term, 'Задания', 'Выберите задание, чтобы посмотреть условия и сдать работу.')}
+    <div class="chips" role="group" aria-label="Фильтр заданий">${chip('active', 'Активные', active.length)}${chip('done', 'Сданные', done.length)}${chip('graded', 'Проверенные', graded.length)}</div>
+    ${body}</div>`;
 }
 export function taskSheet(id) {
   const h = (S.data.homework || []).find((x) => x.id === id);
@@ -360,7 +337,7 @@ export function viewStudy() {
     const nextStep = g.points >= 90 ? '' : g.points >= 75 ? ` До «отлично» ещё ${90 - g.points}.` : ` До «хорошо» ещё ${75 - g.points}.`;
     return `По шкале сейчас «${w}».${nextStep}`;
   };
-  return `<div class="page">${head(s.term, 'Учёба', 'Баллы текущего контроля, допуск, преподаватели и график сессии.')}
+  return `<div class="page">${head(s.term, 'Учёба', 'Баллы, допуск и даты контроля.')}
     <a class="lib-study-link" href="#library">Библиотека курса →</a>
     <section class="stats" aria-label="Показатели">
       <div class="stat"><span class="num">${st.avg}</span><span class="l">средний балл из 100</span></div>
@@ -368,14 +345,14 @@ export function viewStudy() {
       <div class="stat"><span class="num">${next ? daysBetween(t, next.date) : '—'}</span><span class="l">дней до ближайшего контроля</span></div>
       <div class="stat"><span class="num">${toSession > 0 ? toSession : 0}</span><span class="l">дней до начала сессии</span></div></section>
     ${risk}
-    <section class="sec">${secHead('Семестр')}<div class="strip" role="img" aria-label="Идёт ${s.week}-я неделя из ${s.weeks}, сессия с ${dayMonth(s.session_starts)}">${Array.from({length: s.weeks}, (_, i) => `<div class="${i + 1 < s.week ? 'done' : i + 1 === s.week ? 'cur' : ''}"><b>${i + 1}</b>${i + 1 === s.week ? 'сейчас' : 'нед.'}</div>`).join('')}<div class="session"><b>Сессия</b>с ${dayMonth(s.session_starts)}</div></div></section>
-    ${gradeBarsSection()}
-    <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div class="ring-wrap sm">${ring(g.points, {size: 76, stroke: 9, tone: g.points < 60 ? 'papaya' : 'ink', label: `${g.points} баллов из 100`})}<span class="ring-num"><span data-count="${g.points}">${g.points}</span></span></div>
+    <details class="disclosure"><summary>Календарь семестра</summary><section class="sec">${secHead('Семестр')}<div class="strip" role="img" aria-label="Идёт ${s.week}-я неделя из ${s.weeks}, сессия с ${dayMonth(s.session_starts)}">${Array.from({length: s.weeks}, (_, i) => `<div class="${i + 1 < s.week ? 'done' : i + 1 === s.week ? 'cur' : ''}"><b>${i + 1}</b>${i + 1 === s.week ? 'сейчас' : 'нед.'}</div>`).join('')}<div class="session"><b>Сессия</b>с ${dayMonth(s.session_starts)}</div></div></section>
+    </details>${gradeBarsSection()}
+    <details class="disclosure"><summary>Динамика баллов и учебники по дисциплинам</summary><section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div class="ring-wrap sm">${ring(g.points, {size: 76, stroke: 9, tone: g.points < 60 ? 'papaya' : 'ink', label: `${g.points} баллов из 100`})}<span class="ring-num"><span data-count="${g.points}">${g.points}</span></span></div>
       <div class="course-info"><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span><span><span class="tag ${g.result === 'Нет допуска' ? 'papaya' : 'mint'}">${esc(g.result)}</span></span></div></div>
       <div class="spark-wrap">${sparkline(g.trend, {label: `Баллы по неделям: ${g.trend.join(', ')}`})}<div class="spark-axis"><span>1 нед.</span><span>порог 60</span><span>${g.trend.length} нед.</span></div></div>
       <p class="small muted">${advice(g)}</p>${attLine(g.course)}${courseBook(g.title)}</article>`).join('')}</div>
       <p class="cap">Кольцо — баллы из 100. График — накопление баллов по неделям, пунктир — порог допуска 60. Шкала перевода условная, данные демонстрационные.</p></section>
-    ${teachersCarousel('Преподаватели семестра')}
+    </details><details class="disclosure"><summary>Преподаватели и запись на консультацию</summary>${teachersCarousel('Преподаватели семестра')}</details>
     <section class="sec">${secHead('График сессии')}<div class="card">${d.grades.map((g) => `<div class="tl ${g.assessment === 'Экзамен' ? 'exam' : ''} ${g.date < t ? 'past' : ''}"><div class="tl-date"><b>${fmt(g.date, {day: 'numeric'})}</b><span>${fmt(g.date, {month: 'short'}).replace('.', '')}</span></div>
       <div><div class="row"><h3>${esc(g.title)}</h3><span class="tag ${g.assessment === 'Экзамен' ? 'marigold' : 'periwinkle'}">${esc(g.assessment)}</span></div><p>${g.start} · ${esc(g.place)} · ${esc(g.examiner)} · ${untilText(g.date, t)}${g.consultation ? `<br>Консультация: ${dayShort(g.consultation.date)}, ${g.consultation.start}, ${esc(g.consultation.place)}` : ''}</p></div></div>`).join('')}</div></section></div>`;
 }

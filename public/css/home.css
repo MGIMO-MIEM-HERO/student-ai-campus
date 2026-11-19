@@ -224,3 +224,14 @@ a.hm-card{text-decoration:none}
 .intro.is-evening .intro-kicker{color:#a9cbe6}
 .intro.is-evening .intro-actions .btn:not(.ghost){background:#eef2f6;color:#1d2a38;border-color:#eef2f6}
 .intro.is-evening .intro-actions .btn.ghost{color:#fff;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
+
+/* Раскрываемые разделы учёбы и группировка заданий из main. */
+.disclosure { border-block-start: 1px solid var(--line); padding-block: 4px; min-width: 0; }
+.disclosure > summary { cursor: pointer; padding: 16px 4px; font: 500 16px/1.5 var(--font-sans); color: var(--ink-2); }
+.disclosure > summary::marker { color: var(--muted); }
+.disclosure[open] > summary { margin-block-end: 12px; color: var(--ink); }
+.disclosure > .hm-card { margin-block-end: 16px; }
+.tasks-page { max-width: 880px; margin-inline: auto; }
+.tasks-page .hw { border-radius: var(--r-md); }
+.tasks-page .hw-h { font-family: var(--font-sans); font-size: 16px; }
+.tasks-page .hw-groups { gap: 28px; }

@@ -59,7 +59,16 @@ export function floorLayout(buildingId, floor) {
     if (Math.ceil(list.length / 2) === list.length) voids.push({x: CORE1, y: y0, w: PW - PM - CORE1, h: y1 - y0});
     if (!list.length) voids.push({x: PM, y: y0, w: CORE0 - PM, h: y1 - y0});
   }
-  return {boxes, voids};
+  return {
+    boxes,
+    voids,
+    // Те же проходы, что нарисованы на плане, включая вестибюль у главного входа.
+    corridors: [
+      {x: PM, y: CY0, w: PW - 2 * PM, h: CY1 - CY0},
+      {x: CORE0, y: PM, w: CORE1 - CORE0, h: CY0 - PM},
+      {x: CORE0, y: CY1, w: CORE1 - CORE0, h: PH - PM - CY1},
+    ],
+  };
 }
 export function currentRoute() {
   if(!S.routeEnabled||!S.room||S.routeBlocked)return null;
