@@ -395,7 +395,7 @@ export function mountScene(host) {
     document.documentElement.classList.toggle('scene-evening',evening);
     // Тёмный слой фона заканчивается ровно у нижнего края панели территории, чтобы не попадать под текст ниже.
     const panel=host.closest('.territory');
-    const fitDusk=()=>{if(panel?.isConnected)document.documentElement.style.setProperty('--dusk-h',`${Math.round(panel.getBoundingClientRect().bottom+scrollY+28)}px`);};
+    const fitDusk=()=>{if(panel?.isConnected)document.documentElement.style.setProperty('--dusk-h',`${Math.round(panel.getBoundingClientRect().bottom+scrollY)}px`);};
     fitDusk();
     // Один наблюдатель на весь модуль: при перерисовке он переключается на новую панель, старая не удерживается.
     if(panel){duskObserver?.disconnect();duskObserver=new ResizeObserver(fitDusk);duskObserver.observe(panel);}
