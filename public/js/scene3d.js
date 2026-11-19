@@ -32,7 +32,8 @@ export function mountScene(host) {
   scene.add(hemi);
   const sun = new T.DirectionalLight(0xffe7c7,3.1);
   sun.castShadow=true;
-  sun.shadow.mapSize.set(mobile?1024:2048,mobile?1024:2048);
+  const shadowRes=mobile?1024:(territory&&renderer.capabilities.maxTextureSize>=4096?4096:2048);
+  sun.shadow.mapSize.set(shadowRes,shadowRes);
   sun.shadow.bias=-.0003; sun.shadow.normalBias=.035; sun.shadow.radius=3;
   scene.add(sun);
   const fill = new T.DirectionalLight(0xa9c6e0,.6);

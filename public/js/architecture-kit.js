@@ -150,8 +150,11 @@ export function createArchitectureKit(root) {
   function text(value,x,y,z,size=1.3) {
     const list=labels.get(target)||[];list.push({value,x,y,z,size});labels.set(target,list);
   }
+  // Места посадки деревьев запоминаются, чтобы нарисовать под ними мягкое контактное затемнение.
+  const treeSpots=[];
   function plant(x,z,y=0,scale=1,outdoor=false) {
     if(outdoor) {
+      treeSpots.push([x,z,scale]);
       // Position hash keeps species and silhouette stable across rebuilds and groups.
       let seed=(Math.imul(Math.round(x*100),73856093)^Math.imul(Math.round(z*100),19349663))>>>0;
       const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -241,7 +244,29 @@ export function createArchitectureKit(root) {
     }
     batches.clear();labels.clear();
   }
-  return {m,mobile,setEvening,material,box,streetPart,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
+  /** Контактное затемнение: одна полупрозрачная плоскость с нарисованной на холсте картой AO (вместо теней-пятен под каждым объектом). */
+  function addContact({minX,maxX,minZ,maxZ,y,draw}) {
+    const w=maxX-minX,d=maxZ-minZ,res=mobile?512:1024,cw=res,ch=Math.max(64,Math.round(res*d/w));
+    const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
+    const ctx=canvas.getContext('2d');ctx.lineJoin='round';ctx.lineCap='round';
+    draw(ctx,(x)=>(x-minX)/w*cw,(z)=>(z-minZ)/d*ch,cw/w);
+    const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;map.anisotropy=4;
+    const mesh=new T.Mesh(new T.PlaneGeometry(w,d),new T.MeshBasicMaterial({map,transparent:true,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+    mesh.rotation.x=-Math.PI/2;mesh.position.set((minX+maxX)/2,y,(minZ+maxZ)/2);mesh.renderOrder=1;mesh.raycast=()=>{};mesh.userData.contact=true;
+    target.add(mesh);return mesh;
+  }
+  /** Мягкая тень вдоль контура: несколько обводок с нарастающей шириной и малой прозрачностью. */
+  function haloPath(ctx,S,reach,alpha) {
+    for(let i=12;i>=1;i--) {ctx.strokeStyle=`rgba(18,26,20,${alpha})`;ctx.lineWidth=2*reach*S*(i/12)+1;ctx.stroke();}
+  }
+  function treeBlobs(ctx,X,Z,S,strength=.34) {
+    for(const [x,z,scale] of treeSpots) {
+      const r=Math.max(.55,.95*scale)*S,cx=X(x),cz=Z(z),g=ctx.createRadialGradient(cx,cz,0,cx,cz,r);
+      g.addColorStop(0,`rgba(18,26,20,${strength})`);g.addColorStop(.55,`rgba(18,26,20,${strength*.45})`);g.addColorStop(1,'rgba(18,26,20,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cz,r,0,Math.PI*2);ctx.fill();
+    }
+  }
+  return {m,mobile,addContact,haloPath,treeBlobs,setEvening,material,box,streetPart,classroom,prism,text,plant,lamp,hedge,bench,windowBay,flush,setGroup:(group)=>{target=group;}};
 }
 
 export function studioEnvironment() {

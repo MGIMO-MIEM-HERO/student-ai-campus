@@ -75,7 +75,10 @@ function facade(kit,points,height,{floors=3,spacing=.76,windowWidth=.36,windowHe
     for(let n=0;n<count;n++)for(let f=0;f<floors;f++) {
       const t=(n+.5)/count,x=a[0]+dx*t+normal[0]*.055,z=a[1]+dz*t+normal[1]*.055;
       const y=base+(f+.55)*(height-base)/floors;
-      windowBay(x,y,z,windowWidth,Math.min(windowHeight,(height-base)/floors*.65),Math.PI-Math.atan2(dz,dx),n+f*7);
+      const wh=Math.min(windowHeight,(height-base)/floors*.65);
+      windowBay(x,y,z,windowWidth,wh,Math.PI-Math.atan2(dz,dx),n+f*7);
+      // Подоконник выступает из стены и ловит свет: фасад перестаёт выглядеть плоской сеткой.
+      if(!kit.mobile)box(x+normal[0]*.035,y-wh/2-.02,z+normal[1]*.035,windowWidth+.1,.04,.1,m.trim,angle,1);
     }
   }
 }
@@ -184,6 +187,14 @@ export function buildTerritory(kit,picks) {
   for(const id of ['А','Б','С'])entranceCanopy(kit,territoryRoute(id));
   text('ВХОД',ex,.01,ez+2.4,1.65);
   territoryDetails(kit);
+  // Контактное затемнение: мягкая тень у оснований корпусов и под деревьями.
+  kit.addContact({minX:-23.5,maxX:23.5,minZ:-13.5,maxZ:13.5,y:-.095,draw:(ctx,X,Z,S)=>{
+    for(const wing of WINGS)for(const loop of [wing.pts,...(wing.holes||[])]) {
+      ctx.beginPath();loop.map(world).forEach(([x,z],i)=>i?ctx.lineTo(X(x),Z(z)):ctx.moveTo(X(x),Z(z)));ctx.closePath();
+      kit.haloPath(ctx,S,1.25,.048);
+    }
+    kit.treeBlobs(ctx,X,Z,S,.4);
+  }});
 }
 
 export function buildBuilding(kit,layout,floors=6) {
@@ -234,6 +245,15 @@ export function buildBuilding(kit,layout,floors=6) {
     box(cx,-.01,cz,.6,.045,p.h/20-.5,m.paving);
     for(const sign of [-1,1]){plant(cx+sign*2,cz+sign*2,-.02,1.1,true);bench(cx+sign*1.1,cz);}
   }
+  // Контактное затемнение у основания корпуса и под деревьями вокруг.
+  kit.addContact({minX:-16.5,maxX:16.5,minZ:-D/2,maxZ:D/2,y:-.06,draw:(ctx,cx,cz,S)=>{
+    const loops=[outline.map(([x,z])=>[x,z])];if(hole)loops.push(hole.map(([x,z])=>[x,z]));
+    for(const loop of loops) {
+      ctx.beginPath();loop.forEach(([x,z],i)=>i?ctx.lineTo(cx(x),cz(z)):ctx.moveTo(cx(x),cz(z)));ctx.closePath();
+      kit.haloPath(ctx,S,1.6,.058);
+    }
+    kit.treeBlobs(ctx,cx,cz,S,.4);
+  }});
   text('МГИМО',0,height+.2,Z(H-44),2.7);
   // Visual subdivision for the larger model, not more polygons at a distance.
   for(const sign of [-1,1])for(let i=0;i<8;i++) {
