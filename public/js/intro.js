@@ -1,5 +1,5 @@
-// Вступление после входа: корпус издалека «подлетает» с разворотом, на карте загорается путь, а справа
-// крупно появляется номер кабинета ближайшей пары. Показывается раз за вход; Esc, клик или «Пропустить» закрывают.
+// Вступление после входа: корпус издалека «подлетает» с разворотом, на карте загорается путь, а в плашке
+// появляется кабинет ближайшей пары. Показывается раз за вход; Esc, клик или «Пропустить» закрывают.
 import {S} from './state.js';
 import {esc, mskNow, relativeDay, cap} from './util.js';
 import {nextPhysicalLesson} from './schedule-navigation.js';
@@ -25,7 +25,7 @@ export function maybeShowIntro() {
   if (!entry?.lesson.building || !territoryRoute(entry.lesson.building)) return;
   try { sessionStorage.setItem(KEY, '1'); } catch { /* не страшно */ }
 
-  const l = entry.lesson, place = String(l.place || ''), room = (place.match(/ауд\.\s*([^\s,]+)/) || [])[1] || '';
+  const l = entry.lesson, place = String(l.place || '');
   const when = `${cap(relativeDay(entry.date, mskNow().date))}, ${l.start}`;
   const evening = flag('campusSceneMode') === 'evening' || (() => { try { return localStorage.getItem('campusSceneMode') === 'evening'; } catch { return false; } })();
   const mine = S.data.role === 'teacher' ? 'Ваше ближайшее занятие' : 'Ваша ближайшая пара';
@@ -36,7 +36,6 @@ export function maybeShowIntro() {
   overlay.innerHTML = `<div class="intro-sky"></div>
     <div class="model-view intro-view" data-scene="territory" data-route-building="${esc(l.building)}" data-intro="1"><div class="scene-status" data-scene-status role="status"></div></div>
     <button class="intro-skip" type="button" data-intro-close>Пропустить</button>
-    ${room ? `<div class="intro-room" aria-hidden="true"><div class="intro-mask"><span>аудитория</span></div><div class="intro-mask"><b>${esc(room)}</b></div></div>` : ''}
     <div class="intro-copy">
       <div class="intro-mask"><p class="intro-kicker">${mine} · ${esc(when)}</p></div>
       <div class="intro-mask"><h2 class="intro-title" id="intro-title">${esc(l.title)}</h2></div>
@@ -72,9 +71,8 @@ function whenReady(host, run) {
 function startTimeline() {
   if (!overlay) return;
   const rise = (el, delay, dur = 900) => anims.push(el.animate([{transform: 'translateY(115%)'}, {transform: 'translateY(0)'}], {duration: dur, delay, easing: EASE, fill: 'backwards'}));
-  // Сначала корпус подлетает (≈ 4 с), затем текст и номер кабинета поднимаются из масок.
+  // Сначала корпус подлетает (≈ 4 с), затем подпись с кабинетом поднимается из масок.
   overlay.querySelectorAll('.intro-copy .intro-mask > *').forEach((el, i) => rise(el, 2200 + i * 110));
-  overlay.querySelectorAll('.intro-room .intro-mask > *').forEach((el, i) => rise(el, 3000 + i * 160, 1100));
   setTimeout(() => overlay?.classList.add('is-live'), 2100);
   const bar = overlay.querySelector('.intro-progress');
   anims.push(bar.animate([{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], {duration: 9000, delay: 600, easing: 'linear', fill: 'both'}));
