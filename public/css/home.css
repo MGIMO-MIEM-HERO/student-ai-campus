@@ -1,4 +1,4 @@
-/* Главная студента: ближайшая пара, расписание дня, быстрые переходы, библиотека и уведомления. */
+/* Главная студента: ближайшая пара, расписание дня, быстрые переходы, библиотека, новости и преподаватели. */
 .hm-page{gap:clamp(28px,3.4vw,44px)}
 .hm-card{position:relative;display:grid;gap:16px;align-content:start;min-width:0;border-radius:var(--r-lg);padding:clamp(18px,2vw,26px);color:var(--ink);
   background:linear-gradient(180deg,rgba(255,255,255,.76),rgba(255,255,255,.52));-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);box-shadow:var(--glass-shadow)}
@@ -85,7 +85,6 @@ a.hm-card{text-decoration:none}
 .hm-book-copy small{font-size:14px;color:var(--muted)}
 .hm-book-course,.hm-book-open{color:var(--sky-ink)}
 .hm-book-open{font-weight:500;margin-top:4px}
-.hm-notices .change-body{overflow-wrap:anywhere}
 .schedule-room-filters{display:grid;gap:14px}
 .schedule-room-filters>div{display:grid;gap:6px;min-width:0}
 .schedule-room-filters label{font-size:14px}

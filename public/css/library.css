@@ -7,3 +7,5 @@
 .lib-cover-type.lib-long strong{font-size:clamp(14px,1.45vw,19px)}
 [data-library]:focus{outline:none}
 .lib-reserved{margin-top:12px;font-size:14px;color:#2f6a4f}
+.lib-catalog-search{display:grid;gap:16px;margin:28px 5% 20px;min-width:0}
+@media(max-width:600px){.lib-catalog-search{margin-inline:20px}}

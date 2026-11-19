@@ -243,23 +243,6 @@ export const clockText = () => { const m = mskNow().minutes; return `${String(Ma
 export function viewToday() {
   const t = nowIso(), d = S.data, s = d.semester;
   const today = day(t), todayLessons = today?.lessons || [];
-  const notes = [];
-  const shownChanges = new Set();
-  for (const dd of d.schedule) {
-    if (dd.date < t) continue;
-    for (const l of dd.lessons) {
-      if (!l.change) continue;
-      shownChanges.add(`${l.change.label} · ${l.title}`);
-      const when = `${cap(relativeDay(dd.date, t))}, ${l.pair} пара`;
-      notes.push(`<button class="change ${l.cancelled ? 'is-cancel' : ''}" data-lesson="${esc(l.id)}"><span class="change-kind">${esc(l.change.label)}</span><span class="change-body"><strong>${esc(l.title)}</strong><span class="change-diff">${when} · ${l.cancelled ? esc(l.change.reason) : `<s>${esc(l.change.was)}</s> <span aria-hidden="true">→</span> <b>${esc(l.change.now)}</b>`}</span></span>${icon('chevron')}</button>`);
-    }
-  }
-  for (const n of d.notices.filter((x) => !x.read && !['Дедлайн', 'Задание', 'Оценка'].includes(x.tag) && !(x.tag === 'Расписание' && shownChanges.has(x.title)))) {
-    notes.push(`<a class="change" href="#notices"><span class="change-kind">${esc(n.tag)}</span><span class="change-body"><strong>${esc(n.title)}</strong><span class="change-diff">${esc(n.body)}</span></span>${icon('chevron')}</a>`);
-  }
-  const ready = d.requests.filter((x) => x.status === 'Готова').map((r) => item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `Документ готов: ${esc(r.kind.toLowerCase())}`, sub: 'Электронная версия в кабинете, оригинал в ауд. А-112.'}));
-  const consults = (d.teachers || []).map((x) => ({x, c: myConsult(x.key)})).filter((y) => y.c).map(({x, c}) => item({data: `data-consult="${esc(x.key)}"`, ico: 'clock', tone: 'sky', title: `Консультация: ${esc(x.short)}`, sub: `${esc(cap(relativeDay(c.date, t)))}, ${c.time}, ${esc(c.place)} · ${esc(c.topic)}`}));
-  ready.push(...consults);
   const nextEntry = nextPhysicalLesson(S.data);
   return `<div class="page hm-page">
     <header class="today-head"><div><p class="eyebrow">${cap(dayLong(t))} · ${s.week}-я неделя, ${s.parity_label} · <span data-clock>${clockText()}</span></p><h1>Сегодня</h1><p class="hm-text">Здравствуйте, ${esc(d.profile.name.split(' ')[0])}!</p></div>
@@ -274,7 +257,8 @@ export function viewToday() {
     </div>
     ${quickActions({ready: readyCount()})}
     ${libraryShelf()}
-    <section class="sec hm-notices" aria-label="Уведомления">${secHead('Уведомления', go('notices', 'Все уведомления'))}${ready.length || notes.length ? `<div class="card flush">${ready.length ? `<div class="list pad">${ready.join('')}</div>` : ''}${notes.length ? `<div class="changes">${notes.join('')}</div>` : ''}</div>` : empty('bell', 'Новых уведомлений нет', 'Здесь появятся изменения расписания и сообщения деканата.')}</section></div>`;
+    ${newsStrip()}
+    ${teachersCarousel('Ваши преподаватели')}</div>`;
 }
 
 /* ---------- Новости университета ---------- */
@@ -283,6 +267,11 @@ const newsDate = (iso) => relativeDay(iso, nowIso()).replace(/^в /, '');
 const newsMeta = (n) => `<span class="news-meta"><span class="news-cat c-${n.cat}">${esc(n.cat_label)}</span><span>${esc(cap(newsDate(n.date)))} · ${n.minutes} мин чтения</span></span>`;
 function newsCard(n, lead = false) {
   return `<button class="news ${lead ? 'lead sky' : ''}" data-news="${esc(n.id)}"><span class="news-cover c-${n.cat}" aria-hidden="true"><b>${esc((n.cat_label || '')[0] || '')}</b><i>${n.minutes} мин</i></span>${newsMeta(n)}<strong>${esc(n.title)}</strong><span class="sub">${esc(n.lead)}</span><span class="news-more">Читать ${icon('arrow')}</span></button>`;
+}
+function newsStrip() {
+  const list = S.data.news || [];
+  if (!list.length) return '';
+  return `<section class="sec">${secHead('Новости и статьи университета', go('news', 'Все новости'))}<div class="news-grid">${newsCard(list[0], true)}${list.slice(1, 4).map((n) => newsCard(n)).join('')}</div></section>`;
 }
 export function viewNews() {
   const list = (S.data.news || []).filter((n) => S.newsCat === 'all' || n.cat === S.newsCat);
@@ -444,9 +433,11 @@ export function viewDoc(id) {
 
 export function viewNotices() {
   const list = S.noticeFilter === 'unread' ? S.data.notices.filter((n) => !n.read) : S.data.notices, u = unreadCount();
+  const ready = S.data.requests.filter(r => r.status === 'Готова');
+  const documents = S.noticeFilter === 'all' ? ready.map(r => item({href: r.document ? `doc/${r.id}` : 'requests', ico: 'requests', tone: 'mint', title: `${r.kind === APPEAL ? 'Ответ готов' : 'Документ готов'}: ${esc(r.kind.toLowerCase())}`, sub: r.document ? 'Открыть электронную версию и посмотреть данные для получения.' : 'Открыть заявку и посмотреть ответ деканата.'})).join('') : '';
   return `<div class="page">${head('Уведомления', 'Объявления и изменения', 'Объявления деканата, изменения расписания и сроки в одной ленте.')}
-    <div class="chips"><button class="chip" data-nfilter="all" aria-pressed="${S.noticeFilter === 'all'}">Все · ${S.data.notices.length}</button><button class="chip" data-nfilter="unread" aria-pressed="${S.noticeFilter === 'unread'}">Непрочитанные · ${u}</button>${u ? `<button class="link" data-read-all>Отметить все прочитанными</button>` : ''}</div>
-    <section class="card">${list.length ? `<div class="list">${list.map((n) => `<article class="item"><span class="ico ${TAG_TONE[n.tag] || ''}">${icon({'Расписание': 'swap', 'Дедлайн': 'clock', 'Оценка': 'check', 'Задание': 'tasks'}[n.tag] || 'megaphone')}</span>
+    <div class="chips"><button class="chip" data-nfilter="all" aria-pressed="${S.noticeFilter === 'all'}">Все · ${S.data.notices.length + ready.length}</button><button class="chip" data-nfilter="unread" aria-pressed="${S.noticeFilter === 'unread'}">Непрочитанные · ${u}</button>${u ? `<button class="link" data-read-all>Отметить все прочитанными</button>` : ''}</div>
+    <section class="card">${list.length || documents ? `<div class="list">${documents}${list.map((n) => `<article class="item"><span class="ico ${TAG_TONE[n.tag] || ''}">${icon({'Расписание': 'swap', 'Дедлайн': 'clock', 'Оценка': 'check', 'Задание': 'tasks'}[n.tag] || 'megaphone')}</span>
       <span><span class="chips"><span class="tag ${TAG_TONE[n.tag] || ''}">${esc(n.tag)}</span>${n.read ? '' : '<span class="dot" role="img" aria-label="Не прочитано"></span>'}<span class="cap">${dayShort(n.date)}</span></span><strong>${esc(n.title)}</strong><span class="sub">${esc(n.body)}</span>${n.read ? '' : `<button class="link" data-read="${esc(n.id)}">Отметить прочитанным</button>`}</span><span></span></article>`).join('')}</div>` : empty('bell', 'Нет уведомлений', 'Непрочитанных сообщений нет.')}</section></div>`;
 }
 
