@@ -11,4 +11,10 @@
 .lib-embedded{--lib-h:320px;--lib-ws:51px;--lib-d:224px;overflow:hidden}
 .lib-embedded .lib-stage{margin-top:0}
 .lib-embedded .lib-hint{margin-top:8px;font-size:13px}
+/* Only the front cover receives clicks; edge-on covers must not cover it. */
+.lib-book .lib-cover{pointer-events:none}
+.lib-book.lib-current .lib-cover{pointer-events:auto}
+.lib-book.lib-current .lib-spine{pointer-events:none}
+.lib-actions{display:flex;justify-content:center;margin-top:18px;padding-inline:20px}
+.lib-actions .btn{min-height:44px}
 @media(max-width:600px){.lib-catalog-search{margin-inline:20px}}
