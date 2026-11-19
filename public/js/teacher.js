@@ -4,7 +4,7 @@ import {icon} from './icons.js';
 import {esc, mskNow, toMin, dayLong, dayShort, weekdayShort, cap, count, plural, duration, relativeDay, daysBetween, fmt, stamp} from './util.js';
 import {weekGrid} from './viz.js';
 import {roomState, roomByKey} from './campus.js';
-import {head, secHead, empty, face, clockText} from './student.js';
+import {head, secHead, empty, face} from './student.js';
 import {nextPhysicalLesson} from './schedule-navigation.js';
 import {routeMapCard} from './home.js';
 
@@ -37,10 +37,6 @@ function lessonTally(l) {
     for (const s of j?.students || []) { total++; if (i < 0) continue; const m = s.marks[i]; if (m !== '-') marked++; if (m === 'p' || m === 'l') present++; }
   }
   return {marked, present, total};
-}
-function avgAttendance() {
-  const vals = Object.values(S.data.journals).flatMap((j) => j.students.map((s) => s.att)).filter((v) => v !== null);
-  return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
 }
 function riskList() {
   const out = [];
@@ -78,38 +74,44 @@ function miniLesson(l, iso) {
   return `<button class="mini-l ${l.cancelled ? 'is-cancelled' : ''} ${isNow(l, iso, t) ? 'is-now' : ''}" data-lesson="${esc(l.id)}"><b>${l.start}</b><span><strong>${esc(l.title)}</strong><span>${l.change ? `<em class="chg-${l.cancelled ? 'bad' : 'warn'}">${esc(l.change.label)}</em> · ` : ''}${esc(l.type)} · ${groupsLine(l)} · ${where(l)}</span></span>${tally ? `<span class="tally sm ${tally.marked ? 'ok' : ''}" title="Посещаемость">${tally.marked ? `${tally.present}/${tally.total}` : '—'}</span>` : ''}</button>`;
 }
 export function viewToday() {
-  const t = todayIso(), s = S.data.semester, today = day(t)?.lessons || [];
-  const review = S.data.tasks.filter((x) => x.submitted > x.graded);
+  const t = todayIso();
+  const today = day(t)?.lessons || [];
+  const review = S.data.tasks.filter((task) => task.submitted > task.graded);
   const risk = riskList();
-  const lessonsN = today.filter((l) => !l.cancelled).length;
   const nextEntry = nextPhysicalLesson(S.data);
-  const routeCard = nextEntry ? routeMapCard({id: nextEntry.lesson.id, title: nextEntry.lesson.title, where: where(nextEntry.lesson), when: `${cap(relativeDay(nextEntry.date, t))}, ${nextEntry.lesson.start}`, building: nextEntry.lesson.building, floor: nextEntry.lesson.floor}) : '';
-  return `<div class="page">
-    <header class="today-head"><div><p class="eyebrow">${cap(dayLong(t))} · ${s.week}-я неделя, ${s.parity_label} · <span data-clock>${clockText()}</span></p><h1>Сегодня</h1></div>
-      <div class="chips"><button class="btn ghost sm" data-tannounce>${icon('megaphone')}Сообщение группе</button><button class="btn sm" data-newtask>${icon('tasks')}Новое задание</button></div></header>
-    <div class="today-grid">${nowCard()}
-      <section class="card day-card"><div class="row"><p class="title">Занятия сегодня</p><a class="link" href="#schedule">Неделя ${icon('arrow')}</a></div>
-        ${today.length ? `<div class="mini-lessons">${today.map((l) => miniLesson(l, t)).join('')}</div>` : '<p class="muted small">Сегодня занятий нет. Хорошее время проверить работы.</p>'}</section></div>
-    ${routeCard ? `<div class="hm-wide">${routeCard}</div>` : ''}
-    <section class="stats" aria-label="Коротко">
-      <a class="stat" href="#schedule"><span class="num" data-count="${lessonsN}">${lessonsN}</span><span class="l">${plural(lessonsN, ['занятие', 'занятия', 'занятий'])} сегодня</span></a>
-      <a class="stat" href="#tasks"><span class="num" data-count="${review.reduce((a, x) => a + x.submitted - x.graded, 0)}">${review.reduce((a, x) => a + x.submitted - x.graded, 0)}</span><span class="l">работ ждут проверки</span></a>
-      <a class="stat" href="#journal"><span class="num">${avgAttendance()}<small>%</small></span><span class="l">средняя посещаемость</span></a>
-      <a class="stat" href="#journal"><span class="num" data-count="${risk.length}">${risk.length}</span><span class="l">${plural(risk.length, ['студент', 'студента', 'студентов'])} в зоне риска</span></a></section>
-    <div class="cols"><section class="sec">${secHead('Нужно проверить', go('tasks', 'Все задания'))}${review.length ? `<div class="hw-list">${review.slice(0, 4).map(taskCard).join('')}</div>` : empty('check', 'Всё проверено', 'Новых сданных работ нет.')}</section>
-      <section class="sec">${secHead('Зона риска', go('journal', 'Журнал'))}${risk.length ? `<div class="card flush"><div class="risk">${risk.slice(0, 6).map(({j, s, why}) => `<button class="risk-row" data-stud="${esc(j.group)}|${esc(s.id)}"><span class="face mono sm f${s.id.length % 5}" aria-hidden="true">${esc(s.initials)}</span><span><strong>${esc(s.name)}</strong><span>${esc(j.group)} · ${why.map(esc).join(' · ')}</span></span>${icon('chevron')}</button>`).join('')}</div></div>` : empty('check', 'Рисков нет', 'Все студенты набирают баллы и ходят на занятия.')}
-        <p class="cap">Зона риска: меньше 60 баллов текущего контроля или посещаемость ниже 75%.</p></section></div>
+  const routeCard = nextEntry ? routeMapCard({
+    id: nextEntry.lesson.id,
+    title: nextEntry.lesson.title,
+    where: where(nextEntry.lesson),
+    when: `${cap(relativeDay(nextEntry.date, t))}, ${nextEntry.lesson.start}`,
+    building: nextEntry.lesson.building,
+    floor: nextEntry.lesson.floor,
+  }) : '';
+  return `<div class="page teacher-today">
+    <header class="today-head"><div><p class="eyebrow">${cap(dayLong(t))}</p><h1>Сегодня</h1></div>
+      <button class="btn sm" data-newtask>${icon('tasks')}Новое задание</button></header>
+    <div class="today-primary"><div>${nowCard()}</div>
+      <section class="card day-card"><div class="row"><h2 class="title">Занятия сегодня</h2>${go('schedule', 'Расписание')}</div>
+        ${today.length ? `<div class="mini-lessons">${today.map((lesson) => miniLesson(lesson, t)).join('')}</div>` : '<p class="muted">Сегодня занятий нет.</p>'}
+      </section></div>
+    <div class="cols"><section class="sec">${secHead('На проверку', go('tasks', 'Все задания'))}
+      ${review.length ? `<div class="hw-list">${review.slice(0, 3).map(taskCard).join('')}</div>` : empty('check', 'Все работы проверены')}
+    </section><section class="sec">${secHead('Требует внимания', go('journal', 'Открыть журнал'))}
+      ${risk.length ? `<div class="card flush"><div class="risk">${risk.slice(0, 4).map(({j, s, why}) => `<button class="risk-row" data-stud="${esc(j.group)}|${esc(s.id)}"><span class="face mono sm" aria-hidden="true">${esc(s.initials)}</span><span><strong>${esc(s.name)}</strong><span>${esc(j.group)} · ${why.map(esc).join(' · ')}</span></span>${icon('chevron')}</button>`).join('')}</div></div><p class="cap">Ниже 60 баллов или 75% посещаемости. Полный список в журнале.</p>` : empty('check', 'Все студенты выше порогов допуска')}
+    </section></div>
     ${consultSection()}
-    ${groupsSection()}</div>`;
+    <nav class="service-links" aria-label="Действия преподавателя"><button class="link" data-tannounce>${icon('megaphone')}Сообщение группе</button><a href="#journal">${icon('study')}Группы и журнал</a><a href="#rooms">${icon('building')}Аудитории</a></nav>
+    ${routeCard ? `<details class="disclosure"><summary>Карта ближайшего занятия</summary>${routeCard}</details>` : ''}
+  </div>`;
 }
 function consultSection() {
-  const days = S.data.consults || [];
+  const days = (S.data.consults || []).filter((day) => day.date >= todayIso());
   if (!days.length) return '';
-  return `<section class="sec">${secHead('Консультации', `<span class="small muted">${esc(S.data.profile.hours)}</span>`)}<div class="cs-grid">${days.map((d) => {
-    const booked = d.slots.filter((s) => s.name);
-    return `<article class="card"><div class="stack"><div class="row"><p class="title">${esc(cap(dayLong(d.date)))}</p><span class="tag">${count(booked.length, ['запись', 'записи', 'записей'])} из ${d.slots.length}</span></div>
-      <ul class="cs-list">${d.slots.map((s) => `<li class="${s.name ? '' : 'free'}"><b>${s.time}</b>${s.name ? `<span><strong>${esc(s.name)}</strong><span>${esc(s.group)} · ${esc(s.topic)}</span></span>${s.login ? '<span class="tag sky">из кабинета</span>' : ''}` : '<span class="muted">свободно</span>'}</li>`).join('')}</ul></div></article>`;
-  }).join('')}</div><p class="cap">Студенты записываются сами из карточки преподавателя; запись на 15 минут.</p></section>`;
+  const booked = days.flatMap((day) => day.slots.filter((slot) => slot.name).map((slot) => ({...slot, date: day.date})));
+  return `<section class="sec">${secHead('Записи на консультацию')}
+    <p class="small muted">${esc(S.data.profile.hours)}</p>
+    ${booked.length ? `<ul class="card cs-list">${booked.map((slot) => `<li><b>${esc(dayShort(slot.date))}<br>${slot.time}</b><span><strong>${esc(slot.name)}</strong><span>${esc(slot.group)} · ${esc(slot.topic)}</span></span></li>`).join('')}</ul>` : '<p class="small muted">На ближайшие консультации записей нет.</p>'}
+  </section>`;
 }
 function groupsSection() {
   return `<section class="sec">${secHead('Мои группы')}<div class="groups">${S.data.offerings.map((o) => {
@@ -183,7 +185,7 @@ export function viewJournal() {
     return `<td><button class="jm m-${m === '-' ? 'n' : m}" data-mark="${esc(l.id)}|${esc(j.group)}|${esc(j.course)}|${esc(s.id)}|${NEXT_MARK[m]}" aria-label="${esc(s.name)}, ${dayShort(l.date)}: ${MARK[m]}. Нажмите, чтобы изменить">${MARK_SHORT[m]}</button></td>`;
   };
   const colTally = j.lessons.map((l, i) => { const marked = j.students.filter((s) => s.marks[i] !== '-').length; const present = j.students.filter((s) => 'pl'.includes(s.marks[i])).length; return marked ? `${present}` : '—'; });
-  return `<div class="page">${head(`${j.title} · ${j.group}`, 'Журнал', 'Посещаемость за последние недели и баллы текущего контроля. Нажмите на клетку, чтобы сменить отметку: был → не был → опоздал → уважительная → пусто.')}
+  return `<div class="page">${head(`${j.title} · ${j.group}`, 'Журнал', 'Выберите группу. Нажмите на отметку, чтобы изменить посещаемость.')}
     <div class="chips" role="group" aria-label="Группа">${offs.map((o) => `<button class="chip" data-off="${esc(o.id)}" aria-pressed="${o.id === S.off}">${esc(o.group)} · ${esc(o.title)}</button>`).join('')}</div>
     <section class="card jr-card"><div class="row"><div class="legend jr-legend"><span><i class="jm m-p"></i>был</span><span><i class="jm m-l">О</i>опоздал</span><span><i class="jm m-a">Н</i>не был</span><span><i class="jm m-e">У</i>уважительная</span><span><i class="jm m-n"></i>не отмечен</span></div>
       <div class="chips"><button class="btn ghost sm" data-csv="${esc(j.id)}">${icon('download')}Скачать CSV</button>${todayIdx >= 0 ? `<button class="btn sm" data-att="${esc(j.lessons[todayIdx].id)}">${icon('check')}Отметить сегодняшнее занятие</button>` : ''}</div></div>
@@ -192,7 +194,7 @@ export function viewJournal() {
           <td class="jr-sum ${s.att !== null && s.att < 75 ? 'low' : ''}">${s.att === null ? '—' : `${s.att}%`}</td><td class="jr-sum ${s.points < 60 ? 'low' : ''}">${s.points}</td></tr>`).join('')}</tbody>
         <tfoot><tr><th scope="row" class="jr-name">Присутствовало</th>${colTally.map((v) => `<td>${v}</td>`).join('')}<td></td><td></td></tr></tfoot></table></div>
       <p class="cap">Буквы под датами: Л — лекция, С — семинар, П — практика. Баллы — текущий контроль из 100, допуск с 60. Строка студента с личным кабинетом выделена.</p></section>
-    ${groupsSection()}</div>`;
+    <details class="disclosure"><summary>Сводка по группам</summary>${groupsSection()}</details></div>`;
 }
 export function studentSheet(key) {
   const [group, sid] = key.split('|');
@@ -226,7 +228,7 @@ export function viewTasks() {
   const groups = {review: all.filter((x) => x.submitted > x.graded), active: all.filter((x) => !x.past), past: all.filter((x) => x.past)};
   const list = f === 'all' ? all : groups[f];
   const chip = (id, label, n) => `<button class="chip" data-tf="${id}" aria-pressed="${f === id}">${label} · ${n}</button>`;
-  return `<div class="page">${head(S.data.semester.term, 'Задания', 'Задания вашим группам: кто сдал, что проверить, оценки и комментарии. Новое задание сразу появляется у студентов в разделе «Задания».', `<button class="btn" data-newtask>${icon('tasks')}Новое задание</button>`)}
+  return `<div class="page">${head(S.data.semester.term, 'Задания', 'Откройте задание, чтобы проверить работы и выставить оценки.', `<button class="btn" data-newtask>${icon('tasks')}Новое задание</button>`)}
     <div class="chips" role="group" aria-label="Фильтр">${chip('review', 'На проверку', groups.review.length)}${chip('active', 'Идут', groups.active.length)}${chip('past', 'Срок прошёл', groups.past.length)}${chip('all', 'Все', all.length)}</div>
     ${list.length ? `<div class="tk-grid">${list.map(taskCard).join('')}</div>` : empty('check', f === 'review' ? 'Всё проверено' : 'Заданий нет', f === 'review' ? 'Новых сданных работ нет.' : '')}</div>`;
 }

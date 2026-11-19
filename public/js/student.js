@@ -18,7 +18,7 @@ export const NAV_OF = {library: 'study', doc: 'requests', news: 'today', notices
 export const DOCS = [
   {kind: 'Справка об обучении', ico: 'cap', tone: 'mint', what: 'Подтверждает, что вы обучаетесь в университете. Для военкомата, визы, банка, места работы.', sla: '1–2 рабочих дня', how: 'Электронная версия с QR-проверкой и оригинал в деканате'},
   {kind: 'Выписка об успеваемости', ico: 'study', tone: 'marigold', what: 'Перечень дисциплин с баллами и формой контроля за текущий семестр.', sla: '2–3 рабочих дня', how: 'Электронная версия с QR-проверкой и оригинал в деканате'},
-  {kind: 'Обращение в деканат', ico: 'chat', tone: 'periwinkle', what: 'Вопрос по учёбе: индивидуальный график, пересдача, перевод, академический отпуск.', sla: 'Ответ до 5 рабочих дней', how: 'Ответ приходит в историю заявки'},
+  {kind: 'Обращение в деканат', ico: 'chat', tone: 'periwinkle', what: 'Вопрос по учёбе: индивидуальный график, пересдача, перевод, академический отпуск.', sla: 'До 5 рабочих дней', how: 'Ответ приходит в историю заявки'},
 ];
 const STEPS = ['Принята', 'В работе', 'Готова', 'Выдана'];
 const STATUS_TONE = {'Принята': 'periwinkle', 'В работе': 'marigold', 'Готова': 'mint', 'Выдана': '', 'Отклонена': 'papaya'};
@@ -285,7 +285,7 @@ export function viewSchedule() {
   const summary = active.length ? `${count(active.length, ['занятие', 'занятия', 'занятий'])}, ${active[0].start}–${active[active.length - 1].end}` : 'занятий нет';
   const upcoming = !active.length ? nextLessonDay(current.date) : null, nextFirst = upcoming?.lessons.find((l) => !l.cancelled);
   const curPair = current.date === t ? defaultPair() : 0;
-  return `<div class="page">${head(S.data.semester.term, 'Расписание', 'Нажмите на занятие, чтобы увидеть преподавателя, этаж, задание к паре и как пройти. Время московское.')}
+  return `<div class="page">${head(S.data.semester.term, 'Расписание', 'Выберите занятие для подробностей. Время московское.')}
     <div class="seg wk-seg only-desk" role="group" aria-label="Неделя"><button data-week="0" aria-pressed="${S.week === 0}">Эта неделя<small>${range(w0)}</small></button><button data-week="1" aria-pressed="${S.week === 1}">Следующая<small>${range(w1)}</small></button></div>
     <section class="card wk-card only-desk">${weekGrid(week, t, S.day)}</section>
     <div class="cols"><div class="stack lg only-mob">
@@ -329,7 +329,7 @@ export function viewStudy() {
   const t = nowIso(), d = S.data, s = d.semester, st = gradeStats();
   const next = d.grades.filter((g) => g.date >= t)[0];
   const toSession = daysBetween(t, s.session_starts);
-  const risk = st.risk.map((g) => `<section class="card alert"><div class="stack"><span><span class="tag papaya">Требует внимания</span></span><p class="title">Нет допуска: ${esc(g.title)}</p><p>До порога допуска не хватает ${60 - g.points} ${60 - g.points === 1 ? 'балла' : 'баллов'}. Контроль ${dayMonth(g.date)}. Преподаватель: ${esc(g.teacher.name)}, консультации: ${esc(g.teacher.hours)}.</p></div></section>`).join('');
+  const risk = st.risk.map((g) => `<section class="card alert"><div class="stack"><span><span class="tag papaya">Требует внимания</span></span><p class="title">Нет допуска: ${esc(g.title)}</p><p>До допуска ещё ${count(60 - g.points, ['балл', 'балла', 'баллов'])}. Контроль ${dayMonth(g.date)}. Преподаватель: ${esc(g.teacher.name)}, консультации: ${esc(g.teacher.hours)}.</p></div></section>`).join('');
   const advice = (g) => {
     if (g.points < 60) return `До допуска не хватает ${60 - g.points}.`;
     if (g.assessment === 'Зачёт') return g.points >= 85 ? 'Зачёт выставляется автоматом.' : `До зачёта автоматом (85) ещё ${85 - g.points}.`;
@@ -370,9 +370,10 @@ function attLine(course) {
 /* ---------- Заявки ---------- */
 export function viewRequests() {
   const rows = S.data.requests, dean = roomByKey('А-112');
-  return `<div class="page">${head('Деканат онлайн', 'Заявки и справки', 'Закажите документ или направьте обращение. Статус, комментарии деканата и электронная версия документа — в истории заявки.')}
-    <section class="sec" aria-label="Каталог документов"><div class="catalog">${DOCS.map((x) => `<article class="card doc"><span class="ico ${x.tone}">${icon(x.ico)}</span><p class="title">${x.kind}</p><p class="small">${x.what}</p>
-      <div class="chips"><span class="tag">${icon('clock')}${x.sla}</span></div><p class="cap">${x.how}</p><button class="btn sm" data-request-kind="${x.kind}">Оформить</button></article>`).join('')}</div></section>
+  return `<div class="page">${head('Деканат онлайн', 'Заявки и справки', 'Закажите документ или направьте обращение. Ответ появится в истории.')}
+    <details class="disclosure new-request" ${rows.length ? '' : 'open'}><summary>Новая заявка</summary>
+    <section class="sec" aria-label="Каталог документов"><div class="catalog">${DOCS.map((x) => `<article class="card doc"><span class="ico ${x.tone}">${icon(x.ico)}</span><p class="title">${x.kind}</p>
+      <div class="chips"><span class="tag">${icon('clock')}${x.sla}</span></div><button class="btn sm" data-request-kind="${x.kind}" aria-label="Оформить: ${x.kind}">Оформить</button></article>`).join('')}</div></section></details>
     <section class="sec">${secHead('История заявок')}${rows.length ? `<div class="history">${rows.map((r) => {
       const last = r.events[r.events.length - 1], idx = STEPS.indexOf(r.status);
       return `<article class="card req"><div class="row"><div><h3>${esc(r.kind)}</h3><span class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · от ${dayShort(r.created)}</span></div>${statusTag(r.status)}</div>
@@ -389,9 +390,9 @@ export function viewRequests() {
 export function requestSheet(kind) {
   const doc = DOCS.find((x) => x.kind === kind) || DOCS[0];
   return `<div class="sheet-in"><div class="sheet-top"><div><p class="eyebrow">Новая заявка</p><h2 id="sheet-title" class="title">${doc.kind}</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
-    <p class="small">${doc.what} Срок: ${doc.sla}. ${doc.how}.</p>
-    <form id="request-form"><label for="kind">Тип заявки</label><select id="kind" name="kind">${DOCS.map((x) => `<option ${x.kind === doc.kind ? 'selected' : ''}>${x.kind}</option>`).join('')}</select>
-    <label for="note">Комментарий <span class="muted">(необязательно)</span></label><textarea id="note" name="note" maxlength="1000" placeholder="Например: для оформления визы, нужен оригинал"></textarea>
+    <p class="small" id="request-help">${doc.what} Срок: ${doc.sla}. ${doc.how}.</p>
+    <form id="request-form"><label for="kind">Тип заявки</label><select id="kind" name="kind" aria-describedby="request-help">${DOCS.map((x) => `<option ${x.kind === doc.kind ? 'selected' : ''}>${x.kind}</option>`).join('')}</select>
+    <label for="note">Комментарий <span class="muted">(необязательно)</span></label><textarea id="note" name="note" maxlength="1000" placeholder="Укажите цель получения документа или опишите свой вопрос"></textarea>
     <p class="form-error" role="alert"></p><button class="btn block">Отправить заявку</button></form></div>`;
 }
 export function viewDoc(id) {
@@ -444,14 +445,14 @@ export function viewRooms() {
   const free = freeRooms(pair, S.bld).filter((r) => r.floor === floor), total = S.data.campus.rooms.filter((r) => r.building === S.bld && r.floor === floor && r.seats).length;
   const b = building(S.bld);
   const target = S.room && !S.routeBlocked ? roomByKey(S.room) : null;
-  return `<div class="page campus-page">${territoryScene(false, target ? {building: target.building, label: BUILDING_WING[target.building] && BUILDING_WING[target.building] !== target.building ? `${target.building} (на схеме — ${BUILDING_WING[target.building]})` : target.building, room: target.room} : null)}${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
+  return `<div class="page campus-page">${head('Внутри корпуса', 'Аудитории и занятия', `Проектная версия по мотивам плана главного здания: внутренние дворы, коридоры и аудитории. Номера, назначение комнат и этажность придуманы для прототипа.`)}
     ${navigationPanel()}<div class="stack">${mapDate()===S.data.campus.rooms_date?roomsDayNote():''}${buildingSeg()}${pairChips(pair)}</div>
     <section class="card campus-card" id="campus-map"><div class="row"><div><p class="eyebrow">${esc(b.name)} · открыт ${esc(b.hours)}</p><p class="title">${floor} этаж · ${mapDate()===S.data.campus.rooms_date?`свободно ${free.length} из ${total}`:esc(dayShort(mapDate()))}</p></div>
         <div class="rot"><button class="icon-btn flip" data-rot="-15" aria-label="Повернуть корпус влево">${icon('arrow')}</button><button class="icon-btn" data-rot="15" aria-label="Повернуть корпус вправо">${icon('arrow')}</button></div></div>
       ${navigationCaption()}${building3d(S.bld, pair, {mine, selected: S.room})}${legend3d()}</section>
     <div class="cols"><div class="stack"><div id="room-card">${roomCard(S.room, pair)}</div>
         <section class="card"><div class="stack"><p class="title">Свободны на ${pair} паре</p>${free.length ? `<div class="free-list">${free.slice(0, 9).map(freeChip).join('')}</div>${free.length > 9 ? `<details class="more" ${free.slice(9).some((r) => r.key === S.room) ? 'open' : ''}><summary>Показать ещё ${free.length - 9}</summary><div class="free-list">${free.slice(9).map(freeChip).join('')}</div></details>` : ''}` : `<p class="muted">${mapDate()===S.data.campus.rooms_date?'На выбранном этаже нет свободных аудиторий на этой паре.':'Общая занятость на этот день неизвестна. На карте отмечены только ваши занятия.'}</p>`}<p class="cap">${esc(b.hint)}</p></div></section></div>
-      <section class="card"><div class="stack"><label for="room-q" class="title">Найти аудиторию</label><input id="room-q" type="search" placeholder="Номер, например 512, или «деканат»" value="${esc(S.roomQuery)}" autocomplete="off" enterkeyhint="search"><div id="rooms-list">${roomsFiltered()}</div></div></section></div></div>`;
+      <section class="card"><div class="stack"><label for="room-q" class="title">Найти аудиторию</label><input id="room-q" type="search" placeholder="Номер, например 512, или «деканат»" value="${esc(S.roomQuery)}" autocomplete="off" enterkeyhint="search"><div id="rooms-list">${roomsFiltered()}</div></div></section></div><details class="disclosure"><summary>Территория кампуса в 3D</summary>${territoryScene(false, target ? {building: target.building, label: BUILDING_WING[target.building] && BUILDING_WING[target.building] !== target.building ? `${target.building} (на схеме — ${BUILDING_WING[target.building]})` : target.building, room: target.room} : null)}</details></div>`;
 }
 export function roomsFiltered() {
   const q = S.roomQuery.trim().toLowerCase();
@@ -463,10 +464,10 @@ export function roomsFiltered() {
 
 /* ---------- Помощник, профиль ---------- */
 export function viewAssistant() {
-  return `<div class="page">${head('Помощник', 'Справочный помощник', 'Отвечает по вашему расписанию, заданиям и срокам, консультациям, контролю и порядку оформления документов.')}
+  return `<div class="page">${head('Помощник', 'Справочный помощник', 'Поможет с расписанием, заданиями и справками.')}
     <section class="card"><div class="stack"><div class="row"><p class="title">Беседа</p><span class="tag periwinkle">${S.data.ai_live ? 'ИИ подключён' : 'Справочный режим'}</span></div>
     <div class="messages" role="log" aria-label="Сообщения помощника" aria-live="polite" aria-busy="${S.busy}">${S.messages.length ? S.messages.map((m) => `<div class="msg ${m.from === 'user' ? 'me' : ''}"><small>${m.from === 'user' ? 'Вы' : 'Помощник'}</small>${esc(m.text)}</div>`).join('') : empty('chat', 'Задайте вопрос', 'Например: «Что завтра?» или «Есть ли изменения в расписании?»')}</div>
-    <div class="chips">${QUESTIONS.map((q, i) => `<button class="chip" data-question="${i}" ${S.busy ? 'disabled' : ''}>${q}</button>`).join('')}</div>
+    <div class="chips">${QUESTIONS.slice(0, 3).map((q, i) => `<button class="chip" data-question="${i}" ${S.busy ? 'disabled' : ''}>${q}</button>`).join('')}</div>
     <form id="assistant-form"><label for="question">Ваш вопрос</label><div class="ask"><input id="question" name="question" maxlength="500" required placeholder="Введите вопрос" ${S.busy ? 'disabled' : ''} autocomplete="off"><button class="btn" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Отвечаю…' : 'Отправить'}</button></div></form></div></section></div>`;
 }
 export function viewProfile() {
