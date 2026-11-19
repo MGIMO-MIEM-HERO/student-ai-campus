@@ -175,7 +175,7 @@ sheet.addEventListener('close', () => { sheetBody.innerHTML = ''; if (lastFocus?
 function openSearch() { if (!S.data || isStaff()) return; openSheet((isTeacher() ? tch : stu).searchSheet()); document.querySelector('#search-q')?.focus(); }
 
 function setData(next) { S.data = next; indexLessons(); syncNavigation(S,next); }
-function resetUi() { resetIntro(); closeIntro(true); Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', mapDate:null,routeEnabled:false,routeLesson:null,routeBlocked:false,routeNotice:'',routeOrigin:'entry',bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
+function resetUi() { resetIntro(); closeIntro(true); Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', libraryQuery: '', librarySection: 0, libraryAvailable: false, schedulePair: null, mapDate:null,routeEnabled:false,routeLesson:null,routeBlocked:false,routeNotice:'',routeOrigin:'entry',bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
 async function doLogin(login, password) {
   try {
     setData(await api('login', {login, password}));
@@ -222,11 +222,12 @@ function navigateLesson(id) {
 const ACTIONS = '[data-route-summary],[data-route-xray],[data-nav-lesson],[data-near-free],[data-route-next],[data-route-floor],[data-demo],[data-lesson],[data-day],[data-week],[data-request-kind],[data-read],[data-read-all],[data-nfilter],[data-qfilter],[data-question],[data-calendar],[data-ics-lesson],[data-logout],[data-close],[data-retry],[data-search],[data-room3],[data-pair],[data-bld],[data-goto-room],[data-print],[data-copy],[data-unmark],[data-rot],[data-news],[data-ncat],[data-hw],[data-task],[data-hwf],[data-scroll],[data-floor],[data-att],[data-mark],[data-attall],[data-review],[data-newtask],[data-tannounce],[data-deltask],[data-off],[data-stud],[data-tf],[data-chg],[data-restore],[data-consult],[data-slot],[data-ccancel],[data-csv]';
 document.addEventListener('click', async (event) => {
   if (suppressClick) { suppressClick = false; event.preventDefault(); return; }
-  const el = event.target.closest(ACTIONS);
+  const el = event.target.closest(`${ACTIONS},[data-schedule-rooms]`);
   if (!el) { if (event.target === sheet) closeSheet(); return; }
   const d = el.dataset;
   try {
     if (d.retry !== undefined) return location.reload();
+    if (d.scheduleRooms !== undefined) { Object.assign(S, {mapDate: d.roomDate, pair: Number(d.roomPair), room: '', floor: null, routeEnabled: false, routeLesson: null, routeBlocked: false, routeNotice: '', routeOrigin: 'entry', modelMode: 'floor'}); location.hash = 'rooms'; return; }
     if(d.routeXray!==undefined){S.modelMode='building';render();requestAnimationFrame(()=>document.querySelector('.floor-model')?.scrollIntoView({block:'center'}));return;}
     if(d.routeSummary!==undefined){document.querySelector('#navigation')?.scrollIntoView({block:'start'});return;}
     if(d.navLesson)return navigateLesson(d.navLesson);
@@ -366,6 +367,7 @@ document.addEventListener('submit', async (event) => {
   }
 });
 document.addEventListener('change',(event)=>{
+  if(event.target.id==='schedule-room-pair'||event.target.id==='schedule-room-building'){const id=event.target.id;if(id==='schedule-room-pair')S.schedulePair=Number(event.target.value);else S.bld=event.target.value;render();document.getElementById(id)?.focus({preventScroll:true});}
   if(event.target.id==='route-origin'){S.routeOrigin=event.target.value;S.modelMode='floor';S.focusMap=true;render();}
   if(event.target.id==='map-date'){S.mapDate=event.target.value;S.routeLesson=null;S.routeBlocked=false;S.routeNotice='';S.pair=null;render();}
 });

@@ -1,4 +1,4 @@
-// Витрины главной страницы студента: маршрут к ближайшей паре на карте, быстрые действия, билет и баллы.
+// Маршрут к ближайшей паре и быстрые переходы студента; компоненты билета и баллов.
 // Модуль не зависит от student.js (иначе круговой импорт): всё нужное передаётся аргументами.
 import {WINGS, territoryRoute, BUILDING_WING} from './campus-geometry.js';
 import {icon} from './icons.js';
@@ -34,15 +34,13 @@ export function routeMapCard(next) {
 }
 
 /** Плитки быстрых действий: то, что раньше пряталось в меню. */
-export function quickActions({books, freeText, unread, ready}) {
-  const t = (cls, ico, title, sub, attrs, tag = 'a') => `<${tag} class="hm-qa ${cls}" ${attrs}><span class="hm-qa-ico">${icon(ico)}</span><span class="hm-qa-copy"><strong>${title}</strong><span>${sub}</span></span></${tag}>`;
+export function quickActions({ready}) {
+  const t = (cls, ico, title, sub, href) => `<a class="hm-qa ${cls}" ${href}><span class="hm-qa-ico">${icon(ico)}</span><span class="hm-qa-copy"><strong>${title}</strong><span>${sub}</span></span></a>`;
   return `<section class="hm-qas" aria-label="Быстрые действия">
-    ${t('lib', 'book', 'Библиотека', `${books} учебников по вашим курсам`, 'href="#library"')}
-    ${t('rooms', 'building', 'Свободные аудитории', freeText || 'Где подготовиться к паре', 'href="#rooms"')}
-    ${t('card', 'user2', 'Студенческий билет', 'QR-код и проверка подлинности', 'href="#profile"')}
-    ${t('doc', 'requests', 'Справка', ready ? `Готово документов: ${ready}` : 'Заказать за минуту', 'data-request-kind="Справка об обучении" type="button"', 'button')}
     ${t('news', 'news', 'Новости', 'События и статьи университета', 'href="#news"')}
-    ${t('ai', 'chat', 'Помощник', unread ? `Непрочитанных уведомлений: ${unread}` : 'Ответы про учёбу и сессию', 'href="#assistant"')}</section>`;
+    ${t('card', 'user2', 'Студенческий', 'Электронный билет и QR-код', 'href="#profile"')}
+    ${t('doc', 'requests', 'Справка', ready ? `Готово документов: ${ready} · заявки и статусы` : 'Оформление и статус заявки', 'href="#requests"')}
+    ${t('ai', 'chat', 'Помощник', 'Вопросы об учёбе, расписании и документах', 'href="#assistant"')}</section>`;
 }
 
 /** Билет-превью: тёмная карта слегка наклонена и ведёт в профиль. */

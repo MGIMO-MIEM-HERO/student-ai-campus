@@ -1,3 +1,5 @@
+import {S} from './state.js';
+import {icon} from './icons.js';
 const sections = ['Все', 'Математика', 'Экономика', 'Информатика'];
 const rows = [
  ['fichtenholz','Курс дифференциального и интегрального исчисления','Г. М. Фихтенгольц',1,'Математический анализ','Интегралы и производные помогают последовательно разбирать задачи анализа.'],
@@ -14,7 +16,7 @@ const rows = [
  ['garcia','Системы баз данных. Полный курс','Г. Гарсиа-Молина, Дж. Ульман, Дж. Уидом',3,'Базы данных','Материал для изучения моделей данных и организации работы с базами.']
 ];
 const colors = ['#1d2430','#9a3a2c','#3e6189','#6f8f7c','#7f9fc3','#b8893c','#3c3f45','#6f8f7c','#4f6b73','#9a3a2c','#1d2430','#3e6189'];
-const books = rows.map(([id,title,author,section,course,annotation],i)=>({id,title,author,section,course,annotation,color:colors[i],shelf:`Читальный зал · А-112 · стеллаж ${['','М','Э','И'][section]}-${i%3+1}`,copies:`${i%4+2} из 6`}));
+const books = rows.map(([id,title,author,section,course,annotation],i)=>({id,title,author,section,course,annotation,color:colors[i],shelf:`Читальный зал · А-112 · стеллаж ${['','М','Э','И'][section]}-${i%3+1}`,available:i%4+2,copies:`${i%4+2} из 6`}));
 export const BOOKS_COUNT = books.length;
 let appliedHash = '', unmountedAt = 0;
 let target = 12, openId = null, generation = 0, dispose;
@@ -40,16 +42,42 @@ export function viewLibrary(){return `<div class="lib-page" data-library><header
 /** Учебник библиотеки к дисциплине пары (по точному названию курса) — для карточки ближайшей пары. */
 export function bookForCourse(title){const i=books.findIndex((b)=>b.course===title);if(i<0)return null;const b=books[i];return {i,id:b.id,title:b.title,author:b.author,shelf:b.shelf,copies:b.copies};}
 /** Витрина для главной: «книга дня» с обложкой и полка корешков; клик по корешку открывает библиотеку на этой книге. */
-export function libraryShelf(){
+function shelfPreview(){
   const day=new Date().getDate()%12,f=books[day],heights=[100,94,98,92,100,96,93,99,95,100,92,97],motif=['∫','⋮','ε','⊥','∩','◇','×','×','⌒','⋰','⋈','▤'];
-  return `<section class="hm-card hm-lib" aria-label="Библиотека курса"><div class="hm-card-head"><div><p class="hm-eyebrow">Библиотека курса</p><h2 class="hm-title">Учебники по вашим дисциплинам</h2></div><a class="link" href="#library/${f.id}" data-lib-go="${day}">Открыть полку <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-    <div class="hm-lib-body"><a class="hm-lib-feat" href="#library/${f.id}" data-lib-go="${day}" aria-label="Книга дня: ${escape(f.title)}"><span class="hm-lib-flag">Книга дня</span><span class="hm-lib-cover">${cover(f,day)}</span>
+  return `<div class="hm-lib-body"><a class="hm-lib-feat" href="#library/${f.id}" data-lib-go="${day}" aria-label="Книга дня: ${escape(f.title)}"><span class="hm-lib-flag">Книга дня</span><span class="hm-lib-cover">${cover(f,day)}</span>
       <span class="hm-lib-info"><strong>${escape(f.title)}</strong><span>${escape(f.author)}</span><small>${escape(f.shelf)} · в наличии ${escape(f.copies)}</small></span></a>
-      <div class="hm-shelf">${books.map((b,i)=>`<a class="hm-spine" href="#library/${b.id}" data-lib-go="${i}" data-vars="--c:${b.color};--h:${heights[i]}%" aria-label="${escape(b.title+' — '+b.author)}"><i>${motif[i]}</i><strong>${escape(b.title)}</strong><small>${escape(b.author.split(',')[0].replace(/^[А-ЯA-Z]\. ?([А-ЯA-Z]\. )?/,''))}</small><b>${['','МАТ','ЭКОН','ИНФ'][b.section]}</b></a>`).join('')}</div></div></section>`;
+      <div class="hm-shelf">${books.map((b,i)=>`<a class="hm-spine" href="#library/${b.id}" data-lib-go="${i}" data-vars="--c:${b.color};--h:${heights[i]}%" aria-label="${escape(b.title+' — '+b.author)}"><i>${motif[i]}</i><strong>${escape(b.title)}</strong><small>${escape(b.author.split(',')[0].replace(/^[А-ЯA-Z]\. ?([А-ЯA-Z]\. )?/,''))}</small><b>${['','МАТ','ЭКОН','ИНФ'][b.section]}</b></a>`).join('')}</div></div>`;
+}
+const searchActive = () => S.libraryQuery.trim() || S.librarySection || S.libraryAvailable;
+const normalize = (value) => value.toLocaleLowerCase('ru').replaceAll('ё','е');
+function matchingBooks(){
+  const words=normalize(S.libraryQuery).trim().split(/\s+/).filter(Boolean);
+  return books.filter(b=>(!S.librarySection||b.section===S.librarySection)&&(!S.libraryAvailable||b.available>0)&&words.every(word=>normalize(`${b.title} ${b.author} ${b.course}`).includes(word)));
+}
+function searchResults(list){
+  if(!searchActive())return shelfPreview();
+  if(!list.length)return `<div class="empty">${icon('search')}<strong>Ничего не найдено</strong><span>Попробуйте другое название, автора или дисциплину либо сбросьте фильтры.</span></div>`;
+  return `<div class="hm-book-grid">${list.map(b=>`<a class="hm-book-result" href="#library/${b.id}?open=1"><span class="hm-book-icon">${icon('book')}</span><span class="hm-book-copy"><span class="hm-book-course">${escape(b.course)}</span><strong>${escape(b.title)}</strong><span>${escape(b.author)}</span><small>${escape(b.shelf)} · в наличии ${escape(b.copies)}</small><span class="hm-book-open">Открыть книгу</span></span></a>`).join('')}</div>`;
+}
+export function libraryShelf(){
+  const list=matchingBooks();
+  return `<section class="hm-card hm-lib" data-library-search aria-label="Библиотека курса"><div class="hm-card-head"><div><p class="hm-eyebrow">Библиотека курса</p><h2 class="hm-title">Учебники по вашим дисциплинам</h2></div><a class="link" href="#library">Открыть полку</a></div>
+    <div class="hm-lib-search"><label for="book-query">Найти книгу</label><div class="hm-lib-query">${icon('search')}<input id="book-query" type="search" placeholder="Название, автор или дисциплина" value="${escape(S.libraryQuery)}" autocomplete="off" aria-controls="book-results"></div>
+    <div class="hm-lib-filters"><div class="chips" role="group" aria-label="Категория книг">${sections.map((s,i)=>`<button class="chip" data-book-section="${i}" aria-pressed="${S.librarySection===i}" aria-controls="book-results">${s}</button>`).join('')}</div><label class="hm-lib-available"><input type="checkbox" data-book-available ${S.libraryAvailable?'checked':''} aria-controls="book-results">Только в наличии</label><button class="link" data-book-reset>Сбросить</button></div></div>
+    <p class="small muted" data-book-count role="status" aria-atomic="true">Найдено книг: ${list.length} из ${books.length}</p><div id="book-results">${searchResults(list)}</div></section>`;
+}
+function mountLibrarySearch(root){
+  const host=root.querySelector('[data-library-search]');if(!host)return ()=>{};
+  const controller=new AbortController(),options={signal:controller.signal};
+  const update=()=>{const list=matchingBooks(),results=host.querySelector('#book-results');results.innerHTML=searchResults(list);host.querySelector('[data-book-count]').textContent=`Найдено книг: ${list.length} из ${books.length}`;host.querySelectorAll('[data-book-section]').forEach(el=>el.setAttribute('aria-pressed',String(+el.dataset.bookSection===S.librarySection)));results.querySelectorAll('[data-vars]').forEach(el=>el.dataset.vars.split(';').forEach(pair=>{const i=pair.indexOf(':');el.style.setProperty(pair.slice(0,i),pair.slice(i+1));}));};
+  host.addEventListener('input',e=>{if(e.target.id==='book-query'){S.libraryQuery=e.target.value;update();}},options);
+  host.addEventListener('change',e=>{if(e.target.matches('[data-book-available]')){S.libraryAvailable=e.target.checked;update();}},options);
+  host.addEventListener('click',e=>{const el=e.target.closest('[data-book-section],[data-book-reset]');if(!el)return;if(el.hasAttribute('data-book-reset')){S.libraryQuery='';S.librarySection=0;S.libraryAvailable=false;host.querySelector('#book-query').value='';host.querySelector('[data-book-available]').checked=false;}else S.librarySection=+el.dataset.bookSection;update();},options);
+  return ()=>controller.abort();
 }
 // Клик по книге на главной запоминает её, и библиотека открывается сразу на нужном корешке.
 document.addEventListener('click',(e)=>{const a=e.target.closest?.('[data-lib-go]');if(a)target=12+Number(a.dataset.libGo);});
-export function syncLibrary(root){const current=++generation;dispose?.();dispose=null;if(current===generation&&root.querySelector('[data-library]'))dispose=mountLibrary(root);}
+export function syncLibrary(root){const current=++generation;dispose?.();dispose=null;if(current!==generation)return;const cleanSearch=mountLibrarySearch(root),cleanShelf=root.querySelector('[data-library]')?mountLibrary(root):()=>{};dispose=()=>{cleanSearch();cleanShelf();};}
 export function mountLibrary(root){
  const host=root.querySelector('[data-library]');if(!host)return ()=>{};
  // Ссылка вида #library/<id> открывает полку на нужной книге (в том числе в новой вкладке); после этого адрес сокращается.
@@ -82,6 +110,6 @@ export function mountLibrary(root){
  on(stage,'wheel',e=>{if(!e.shiftKey&&Math.abs(e.deltaX)<=Math.abs(e.deltaY))return;e.preventDefault();target+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)/(ws+gap)*.5;clearTimeout(timer);timer=setTimeout(()=>{target=Math.round(target);wake();},160);wake();},{passive:false});
  on(document,'keydown',e=>{if(!sheet.hidden){if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const buttons=[...sheet.querySelectorAll('button')],first=buttons[0],lastButton=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastButton.focus();}else if(!e.shiftKey&&document.activeElement===lastButton){e.preventDefault();first.focus();}}return;}if(!visible||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.target.isContentEditable)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();target=Math.round(target)+(e.key==='ArrowLeft'?-1:1);wake();}if(e.key==='Enter'&&!e.target.closest('button,a')){e.preventDefault();open();}});
  on(document,'visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(raf);raf=0;}else wake();});on(reduced,'change',wake);
- const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(visible)wake();else{cancelAnimationFrame(raf);raf=0;}},{threshold:.05});observer.observe(stage);const ro=new ResizeObserver(resize);ro.observe(stage);resize();if(openId){target=12+books.findIndex(b=>b.id===openId);s=target;open(true);}wake();
+ const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(visible)wake();else{cancelAnimationFrame(raf);raf=0;}},{threshold:.05});observer.observe(stage);const ro=new ResizeObserver(resize);ro.observe(stage);resize();if(openId){target=12+books.findIndex(b=>b.id===openId);s=target;open(true);}else if(location.hash.endsWith('?open=1')){s=target;open(true);history.replaceState(null,'',location.hash.split('?')[0]);}wake();
  return ()=>{unmountedAt=performance.now();dead=true;cancelAnimationFrame(raf);clearTimeout(timer);controller.abort();observer.disconnect();ro.disconnect();animations.forEach(a=>a.cancel());animations.clear();target=Math.round(target);if(!sheet.hidden)[...document.body.children].forEach(el=>el.inert=false);sheet.remove();};
 }

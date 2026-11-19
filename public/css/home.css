@@ -1,4 +1,4 @@
-/* Главная студента: герой с картой маршрута, быстрые действия, полка библиотеки, билет, шкалы, новости. */
+/* Главная студента: ближайшая пара, расписание дня, быстрые переходы, библиотека и уведомления. */
 .hm-page{gap:clamp(28px,3.4vw,44px)}
 .hm-card{position:relative;display:grid;gap:16px;align-content:start;min-width:0;border-radius:var(--r-lg);padding:clamp(18px,2vw,26px);color:var(--ink);
   background:linear-gradient(180deg,rgba(255,255,255,.76),rgba(255,255,255,.52));-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);box-shadow:var(--glass-shadow)}
@@ -46,8 +46,8 @@ a.hm-card{text-decoration:none}
 
 /* Быстрые действия */
 .hm-qas{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
-@media (min-width:900px){.hm-qas{grid-template-columns:repeat(3,minmax(0,1fr))}}
-.hm-qa{display:flex;align-items:center;gap:14px;padding:16px 18px;border:0;border-radius:var(--r-lg);text-align:left;font:inherit;color:var(--ink);text-decoration:none;cursor:pointer;
+@media (min-width:1100px){.hm-qas{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hm-qa{display:flex;align-items:center;gap:14px;min-height:120px;padding:18px;border:0;border-radius:var(--r-lg);text-align:left;font:inherit;color:var(--ink);text-decoration:none;cursor:pointer;
   background:linear-gradient(180deg,rgba(255,255,255,.76),rgba(255,255,255,.5));-webkit-backdrop-filter:blur(20px) saturate(170%);backdrop-filter:blur(20px) saturate(170%);box-shadow:var(--glass-shadow);transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
 .hm-qa:hover{transform:translateY(-3px);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 0 0 1px var(--glass-edge),0 24px 40px -22px rgba(43,53,52,.4)}
 .hm-qa:focus-visible{outline:2px solid var(--sky-ink);outline-offset:3px}
@@ -60,7 +60,39 @@ a.hm-card{text-decoration:none}
 .hm-qa.ai .hm-qa-ico{background:#ececec;color:#2a2c30}
 .hm-qa-copy{display:grid;gap:2px;min-width:0}
 .hm-qa-copy strong{font:600 16px/1.2 var(--font-sans)}
-.hm-qa-copy span{font-size:13px;color:var(--muted);line-height:1.35}
+.hm-qa-copy span{font-size:14px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}
+
+/* Поиск в каталоге сохраняет полку, пока фильтры не выбраны. */
+.hm-lib-search{display:grid;gap:10px;min-width:0}
+.hm-lib-search>label{font-size:14px;font-weight:500}
+.hm-lib-query{position:relative;min-width:0}
+.hm-lib-query>svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--muted);pointer-events:none}
+.hm-lib-query input{width:100%;min-width:0;min-height:48px;padding:12px 16px 12px 46px;font-size:16px;border-radius:var(--r-md)}
+.hm-lib-filters{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.hm-lib-filters .chips{flex-wrap:wrap;gap:8px}
+.hm-lib-filters .chip{min-height:44px;font-size:14px}
+.hm-lib-available{display:flex;align-items:center;gap:9px;min-height:44px;font-size:14px;cursor:pointer}
+.hm-lib-available input{width:18px;height:18px;min-height:0;padding:0;margin:0;accent-color:var(--pine);box-shadow:none}
+.hm-lib-filters>[data-book-reset]{min-height:44px;font-size:14px}
+.hm-book-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.hm-book-result{display:flex;align-items:flex-start;gap:14px;min-width:0;padding:20px;border-radius:var(--r-md);background:rgba(255,255,255,.62);text-decoration:none;transition:background .2s,transform .2s}
+.hm-book-result:hover{background:rgba(255,255,255,.95);transform:translateY(-2px)}
+.hm-book-result:focus-visible{outline:2px solid var(--sky-ink);outline-offset:3px}
+.hm-book-icon{display:grid;place-items:center;flex:none;width:40px;height:46px;border-radius:8px;background:#e6eef6;color:var(--sky-ink)}
+.hm-book-icon svg{width:22px;height:22px}
+.hm-book-copy{display:grid;gap:7px;min-width:0;font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.hm-book-copy strong{font-size:17px;font-weight:500}
+.hm-book-copy small{font-size:14px;color:var(--muted)}
+.hm-book-course,.hm-book-open{color:var(--sky-ink)}
+.hm-book-open{font-weight:500;margin-top:4px}
+.hm-notices .change-body{overflow-wrap:anywhere}
+.schedule-room-filters{display:grid;gap:14px}
+.schedule-room-filters>div{display:grid;gap:6px;min-width:0}
+.schedule-room-filters label{font-size:14px}
+.schedule-room-filters select{width:100%;min-width:0;min-height:44px}
+.schedule-rooms{grid-column:1 / -1}
+@media(min-width:640px){.schedule-room-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-rooms .btn{width:auto;justify-self:start}}
+@media(max-width:640px){.hm-book-grid{grid-template-columns:minmax(0,1fr)}.hm-book-result{padding:16px;gap:12px}.hm-qa{min-height:170px}.hm-lib-filters .chips{width:100%}}
 
 /* Библиотека: книга дня и полка корешков */
 .hm-lib-body{display:grid;gap:22px;grid-template-columns:minmax(0,1fr);align-items:end}
