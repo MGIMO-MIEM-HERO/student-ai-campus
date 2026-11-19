@@ -21,7 +21,7 @@
 .gb-val{font-size:13px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
 .gb-row.low .gb-val{color:var(--bad)}
 .gb-row.done .gb-val{color:var(--ok)}
-.gb-rows{padding-top:8px}
+.gb-rows{padding-top:16px}
 @media (max-width:820px){
   .gb-body{padding:18px 16px}
   .gb-scale{display:none}
@@ -106,3 +106,4 @@
 @media (max-width:760px){.nf{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.nf-route,.nf-gone{animation:none}}
 @media (prefers-reduced-motion:reduce){.dl-stack{gap:14px}.dl-head{margin-bottom:0}.dl-card{position:relative;top:auto;transform:none}}
+.dl-actions{display:flex;align-items:center;gap:10px}

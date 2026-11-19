@@ -49,7 +49,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
       else {target.a=tourAngle+Math.PI*2*Math.min(1,(time-tourStart)/12000);if(time>=tourUntil)setTour(false);}
     }
     if(!gesture&&!reduced.matches&&Math.abs(velocity)>.006){target.a+=velocity*dt;velocity*=Math.exp(-7.5*dt);}else if(!gesture)velocity=0;
-    const damping=reduced.matches?1:1-Math.exp(-18*dt);
+    const damping=reduced.matches?1:1-Math.exp(-(introUntil&&time<introUntil?1.35:18)*dt);
     for(const k of ['a','e','z','x','depth'])current[k]+=(target[k]-current[k])*damping;
     const unsettled=['a','e','z','x','depth'].some((k)=>Math.abs(current[k]-target[k])>.0008);
     const moving=!!gesture||!!tourUntil||Math.abs(velocity)>.006||unsettled;
@@ -130,6 +130,13 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
       if(reduced.matches)Object.assign(current,target);
       selectWing(host.dataset.routeWing,true);
     }
+  }
+  // Вступительный подлёт: камера стартует далеко и сверху, делает почти полтора оборота и медленно «садится» на корпус пары.
+  let introUntil=0;
+  if(territory&&host.dataset.intro==='1'&&!reduced.matches) {
+    Object.assign(current,{a:target.a+Math.PI*1.45,e:1.05,z:.62,x:0,depth:0});
+    target.z=Math.max(target.z,1.75);target.e=.64;
+    introUntil=performance.now()+4800;
   }
   function action(name) {
     velocity=0;

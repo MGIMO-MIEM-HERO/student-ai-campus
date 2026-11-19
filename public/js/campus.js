@@ -18,19 +18,19 @@ export function roomsDayNote() {
 export const activePair = () => S.pair || defaultPair();
 export const roomByKey = (key) => S.data.campus.rooms.find((r) => r.key === key);
 let occupancyData,personalOccupancy;
-export function roomState(key, pair) {
+export function roomState(key, pair, date = mapDate()) {
   const room = roomByKey(key);
   if (!room?.seats) return {cls: 'off', text: 'Служебное помещение'};
   if(occupancyData!==S.data){occupancyData=S.data;personalOccupancy=new Map(scheduleEntries(S.data).filter(({lesson:l})=>!l.cancelled&&l.format!=='Онлайн').map(({lesson:l,date})=>[`${date}/${l.pair}/${roomKey(l)}`,l]));}
-  const mine=personalOccupancy.get(`${mapDate()}/${pair}/${key}`);
+  const mine=personalOccupancy.get(`${date}/${pair}/${key}`);
   if(mine)return {cls:'busy',text:`Ваше занятие: ${mine.title}`};
-  if(mapDate()!==S.data.campus.rooms_date)return {cls:'unknown',text:'Нет данных об общей занятости на этот день'};
+  if(date!==S.data.campus.rooms_date)return {cls:'unknown',text:'Нет данных об общей занятости на этот день'};
   const mark = (S.data.campus.busy[String(pair)] || {})[key];
   if (!mark) return {cls: 'free', text: 'Свободна'};
   return mark.by === 'staff' ? {cls: 'staff', text: `Занята: ${mark.note}`} : {cls: 'busy', text: mark.note};
 }
-export function freeRooms(pair, buildingId) {
-  return S.data.campus.rooms.filter((r) => r.seats && (!buildingId || r.building === buildingId) && roomState(r.key, pair).cls === 'free');
+export function freeRooms(pair, buildingId, date = mapDate()) {
+  return S.data.campus.rooms.filter((r) => r.seats && (!buildingId || r.building === buildingId) && roomState(r.key, pair, date).cls === 'free');
 }
 /* ---------- Планы этажей ----------
    Этаж — прямоугольник корпуса с коридором посередине. Аудитории стоят по обе стороны коридора,

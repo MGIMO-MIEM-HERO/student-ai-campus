@@ -16,6 +16,7 @@ import {mountGradeBars} from './gradebars.js';
 import {mountDeadlineStack} from './deadlines.js';
 import {viewNotFound} from './notfound.js';
 import './deck.js';
+import {maybeShowIntro, resetIntro, closeIntro} from './intro.js';
 
 const app = document.querySelector('#app');
 const toast = document.querySelector('#toast');
@@ -159,6 +160,8 @@ function render() {
   if(S.focusMap){S.focusMap=false;requestAnimationFrame(()=>document.querySelector('#campus-map')?.scrollIntoView({block:'start'}));}
   if (entering) { const main = app.querySelector('#main'); main.classList.add('enter'); countUp(main); }
   app.setAttribute('aria-busy', 'false');
+  // Вступление (подлёт к корпусу ближайшей пары) — один раз за вход, только на главной.
+  if (key === 'today' && !isMissing()) maybeShowIntro();
 }
 function openSheet(html) {
   if (!html) return;
@@ -172,7 +175,7 @@ sheet.addEventListener('close', () => { sheetBody.innerHTML = ''; if (lastFocus?
 function openSearch() { if (!S.data || isStaff()) return; openSheet((isTeacher() ? tch : stu).searchSheet()); document.querySelector('#search-q')?.focus(); }
 
 function setData(next) { S.data = next; indexLessons(); syncNavigation(S,next); }
-function resetUi() { Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', mapDate:null,routeEnabled:false,routeLesson:null,routeBlocked:false,routeNotice:'',routeOrigin:'entry',bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
+function resetUi() { resetIntro(); closeIntro(true); Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', mapDate:null,routeEnabled:false,routeLesson:null,routeBlocked:false,routeNotice:'',routeOrigin:'entry',bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
 async function doLogin(login, password) {
   try {
     setData(await api('login', {login, password}));

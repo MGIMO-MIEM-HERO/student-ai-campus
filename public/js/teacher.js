@@ -5,6 +5,8 @@ import {esc, mskNow, toMin, dayLong, dayShort, weekdayShort, cap, count, plural,
 import {weekGrid} from './viz.js';
 import {roomState, roomByKey} from './campus.js';
 import {head, secHead, empty, face, clockText} from './student.js';
+import {nextPhysicalLesson} from './schedule-navigation.js';
+import {routeMapCard} from './home.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['journal', 'Журнал', 'study'], ['tasks', 'Задания', 'tasks'], ['rooms', 'Аудитории', 'building']];
 export const ROUTES = ['today', 'schedule', 'journal', 'tasks', 'rooms', 'profile'];
@@ -80,12 +82,15 @@ export function viewToday() {
   const review = S.data.tasks.filter((x) => x.submitted > x.graded);
   const risk = riskList();
   const lessonsN = today.filter((l) => !l.cancelled).length;
+  const nextEntry = nextPhysicalLesson(S.data);
+  const routeCard = nextEntry ? routeMapCard({id: nextEntry.lesson.id, title: nextEntry.lesson.title, where: where(nextEntry.lesson), when: `${cap(relativeDay(nextEntry.date, t))}, ${nextEntry.lesson.start}`, building: nextEntry.lesson.building, floor: nextEntry.lesson.floor}) : '';
   return `<div class="page">
     <header class="today-head"><div><p class="eyebrow">${cap(dayLong(t))} · ${s.week}-я неделя, ${s.parity_label} · <span data-clock>${clockText()}</span></p><h1>Сегодня</h1></div>
       <div class="chips"><button class="btn ghost sm" data-tannounce>${icon('megaphone')}Сообщение группе</button><button class="btn sm" data-newtask>${icon('tasks')}Новое задание</button></div></header>
     <div class="today-grid">${nowCard()}
       <section class="card day-card"><div class="row"><p class="title">Занятия сегодня</p><a class="link" href="#schedule">Неделя ${icon('arrow')}</a></div>
         ${today.length ? `<div class="mini-lessons">${today.map((l) => miniLesson(l, t)).join('')}</div>` : '<p class="muted small">Сегодня занятий нет. Хорошее время проверить работы.</p>'}</section></div>
+    ${routeCard ? `<div class="hm-wide">${routeCard}</div>` : ''}
     <section class="stats" aria-label="Коротко">
       <a class="stat" href="#schedule"><span class="num" data-count="${lessonsN}">${lessonsN}</span><span class="l">${plural(lessonsN, ['занятие', 'занятия', 'занятий'])} сегодня</span></a>
       <a class="stat" href="#tasks"><span class="num" data-count="${review.reduce((a, x) => a + x.submitted - x.graded, 0)}">${review.reduce((a, x) => a + x.submitted - x.graded, 0)}</span><span class="l">работ ждут проверки</span></a>

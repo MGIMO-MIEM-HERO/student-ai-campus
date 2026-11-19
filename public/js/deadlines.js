@@ -12,7 +12,7 @@ export function deadlineStack(items) {
     ${items.map((it, i) => `<article class="dl-card ${tone(it)}" data-dl-card data-vars="--i:${i}">
       <div class="dl-num">${String(i + 1).padStart(2, '0')}</div>
       <div class="dl-main"><span class="dl-course">${esc(it.course)} · ${esc(it.kind)}</span><strong>${esc(it.title)}</strong><span class="dl-when">Срок: ${esc(it.when)}</span></div>
-      <div class="dl-side"><span class="dl-badge">${badge(it)}</span><button class="btn ghost sm" data-task="${esc(it.id)}">Открыть</button></div>
+      <div class="dl-side"><span class="dl-badge">${badge(it)}</span><span class="dl-actions">${it.box || ''}<button class="btn ghost sm" data-task="${esc(it.id)}">Открыть</button></span></div>
     </article>`).join('')}</section>`;
 }
 

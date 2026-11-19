@@ -7,7 +7,9 @@ import {building3d, legend3d, pairChips, buildingSeg, activePair, activeFloor, r
 import {ring, sparkline, dayTimeline, weekGrid} from './viz.js';
 import {territoryScene} from './scene-host.js';
 import {navigationPanel,navigationCaption} from './navigation-ui.js';
-import {scheduleEntries} from './schedule-navigation.js';
+import {scheduleEntries, nextPhysicalLesson} from './schedule-navigation.js';
+import {routeMapCard, quickActions, idTeaser, gradeMini} from './home.js';
+import {libraryShelf, BOOKS_COUNT, bookForCourse} from './library.js';
 
 export const NAV = [['today', 'Сегодня', 'today'], ['schedule', 'Расписание', 'schedule'], ['tasks', 'Задания', 'tasks'], ['study', 'Учёба', 'study'], ['requests', 'Заявки', 'requests'], ['rooms', 'Корпуса', 'building']];
 import {gradeBarsSection} from './gradebars.js';
@@ -90,6 +92,7 @@ export function lessonsList(lessons, iso) {
 }
 const nextLessonDay = (afterIso) => S.data.schedule.find((d) => d.date > afterIso && d.lessons.some((l) => !l.cancelled));
 
+const bookRow = (l) => { const b = bookForCourse(l.title); return b ? `<a class="now-book" href="#library/${b.id}" data-lib-go="${b.i}"><span class="now-book-k">Учебник к паре</span><strong>${esc(b.title)}</strong><span class="now-book-s">${esc(b.author)} · ${esc(b.shelf)} · в наличии ${esc(b.copies)}</span></a>` : ''; };
 function nowCard() {
   const t = mskNow(), d = day(t.date);
   const list = (d?.lessons || []).filter((l) => !l.cancelled);
@@ -100,7 +103,7 @@ function nowCard() {
   const card = (label, extra, l, body = '') => `<section class="now sky" aria-label="${esc(label)}"><div class="now-top"><span class="pill">${label}</span><span class="now-extra">${extra}</span></div>
     <p class="now-time">${l.start}<span>–${l.end}</span></p><p class="now-title">${esc(l.title)}</p>
     <div class="now-meta"><span>${icon('pin')}${where(l)}</span><span>${icon('clock')}${l.pair} пара</span></div>${body}
-    <div class="now-foot">${who(l)}${l.building && !l.cancelled && l.format!=='Онлайн'?`<button class="btn light sm" data-nav-lesson="${esc(l.id)}">Как пройти</button>`:''}<button class="btn light sm" data-lesson="${esc(l.id)}">Подробнее</button></div>${hw(l)}</section>`;
+    ${bookRow(l)}<div class="now-foot">${who(l)}${l.building && !l.cancelled && l.format!=='Онлайн'?`<button class="btn light sm" data-nav-lesson="${esc(l.id)}">Как пройти</button>`:''}<button class="btn light sm" data-lesson="${esc(l.id)}">Подробнее</button></div>${hw(l)}</section>`;
   if (cur) {
     const total = toMin(cur.end) - toMin(cur.start), left = toMin(cur.end) - t.minutes;
     return card('Идёт сейчас', `осталось ${duration(left)}`, cur, `<div class="bar light" data-pct="${Math.round((total - left) / total * 100)}"></div>${next ? `<p class="now-next">Далее в ${next.start}: ${esc(next.title)}, ${esc(next.place)}</p>` : ''}`);
@@ -154,17 +157,21 @@ export function viewTasks() {
   const done = all.filter((h) => h.status === 'done'), graded = all.filter((h) => h.status === 'graded');
   const f = S.hwFilter || 'active';
   const chip = (id, label, n) => `<button class="chip" data-hwf="${id}" aria-pressed="${f === id}">${label} · ${n}</button>`;
+  // Три самых срочных задания — стопкой наверху; в списке ниже только остальные, без дублей.
+  const byDue = [...active].sort((a, b) => `${a.due_date} ${a.due_time}`.localeCompare(`${b.due_date} ${b.due_time}`));
+  const stackTasks = f === 'active' ? [...byDue.filter((h) => h.status === 'overdue').slice(0, 2), ...byDue.filter((h) => h.status === 'todo')].slice(0, 3) : [];
+  const rest = active.filter((h) => !stackTasks.includes(h));
   let body;
   if (f === 'active') {
     const groups = [['Просрочено', (h) => h.status === 'overdue'], ['Сегодня и завтра', (h) => h.status === 'todo' && daysBetween(t, h.due_date) <= 1], ['На неделе', (h) => h.status === 'todo' && daysBetween(t, h.due_date) > 1 && daysBetween(t, h.due_date) <= 7], ['Позже', (h) => h.status === 'todo' && daysBetween(t, h.due_date) > 7]];
-    body = active.length ? `<div class="hw-groups">${groups.map(([name, test]) => { const g = active.filter(test); return g.length ? `<section class="hw-group"><h2 class="hw-h">${name}<span>${g.length}</span></h2>${g.map((h) => hwRow(h)).join('')}</section>` : ''; }).join('')}</div>` : empty('check', 'Всё сделано', 'Активных заданий нет.');
+    body = rest.length ? `<div class="hw-groups">${groups.map(([name, test]) => { const g = rest.filter(test); return g.length ? `<section class="hw-group"><h2 class="hw-h">${name}<span>${g.length}</span></h2>${g.map((h) => hwRow(h)).join('')}</section>` : ''; }).join('')}</div>` : active.length ? '' : empty('check', 'Всё сделано', 'Активных заданий нет.');
   } else {
     const list = f === 'done' ? done : graded;
     body = list.length ? `<div class="hw-list">${list.map((h) => hwRow(h)).join('')}</div>` : empty('tasks', f === 'done' ? 'Пока ничего не отмечено' : 'Проверенных работ нет', f === 'done' ? 'Отметьте задание кружком слева, когда закончите.' : '');
   }
   const sum = graded.reduce((s, h) => s + h.points, 0), max = graded.reduce((s, h) => s + h.points_max, 0);
   const near = active.find((h) => h.status === 'todo');
-  const stack = f === 'active' ? deadlineStack(((byDue) => [...byDue.filter((h) => h.status === 'overdue').slice(0, 2), ...byDue.filter((h) => h.status === 'todo')].slice(0, 5))([...active].sort((a, b) => `${a.due_date} ${a.due_time}`.localeCompare(`${b.due_date} ${b.due_time}`))).map((h) => ({id: h.id, course: h.course_title, title: h.title, kind: h.kind, when: dueWhen(h), days: daysBetween(t, h.due_date), overdue: h.status === 'overdue'}))) : '';
+  const stack = f === 'active' ? deadlineStack(stackTasks.map((h) => ({box: hwBox(h), id: h.id, course: h.course_title, title: h.title, kind: h.kind, when: dueWhen(h), days: daysBetween(t, h.due_date), overdue: h.status === 'overdue'}))) : '';
   return `<div class="page">${head(S.data.semester.term, 'Задания', 'Домашние задания и работы из LMS со сроками. Когда закончите, отметьте задание кружком: преподаватель увидит, что работа сдана. Оценки и комментарии приходят сюда же.')}
     <section class="stats" aria-label="Коротко">
       <div class="stat"><span class="num">${active.length}</span><span class="l">активных заданий</span></div>
@@ -256,11 +263,18 @@ export function viewToday() {
   const active = activeHomework(), week = active.filter((h) => daysBetween(t, h.due_date) <= 7);
   const toSession = Math.max(0, daysBetween(t, s.session_starts));
   const pairsToday = todayLessons.filter((l) => !l.cancelled).length;
-  return `<div class="page">
+  const nextEntry = nextPhysicalLesson(S.data);
+  // Свободные аудитории считаются по реальной ближайшей паре и дате данных, а не по фильтрам страницы «Корпуса».
+  const freePair = defaultPair(), freeDate = S.data.campus.rooms_date;
+  const freeText = `${roomsIsToday() ? '' : `${cap(relativeDay(freeDate, t))}, `}на ${freePair} паре в корпусе А свободно: ${freeRooms(freePair, 'А', freeDate).length}`;
+  return `<div class="page hm-page">
     <header class="today-head"><div><p class="eyebrow">${cap(dayLong(t))} · ${s.week}-я неделя, ${s.parity_label} · <span data-clock>${clockText()}</span></p><h1>Сегодня</h1></div>
       <div class="chips"><button class="btn ghost sm" data-calendar="week">${icon('download')}Неделя в календарь</button><button class="btn sm" data-request-kind="Справка об обучении">${icon('requests')}Заказать справку</button></div></header>
-    <div class="today-grid">
+    <div class="hm-hero">
       ${nowCard()}
+      ${routeMapCard(nextEntry ? {id: nextEntry.lesson.id, title: nextEntry.lesson.title, where: where(nextEntry.lesson), when: `${cap(relativeDay(nextEntry.date, t))}, ${nextEntry.lesson.start}`, building: nextEntry.lesson.building, floor: nextEntry.lesson.floor} : null)}
+    </div>
+    <div class="hm-wide">
       <section class="card day-card"><div class="row"><p class="title">Расписание на сегодня</p><a class="link" href="#schedule">Неделя ${icon('arrow')}</a></div>
         ${dayTimeline(today, t)}${todayLessons.length ? `<div class="mini-lessons">${todayLessons.map((l) => `<button class="mini-l ${l.cancelled ? 'is-cancelled' : ''} ${isNow(l, t, mskNow()) ? 'is-now' : ''}" data-lesson="${esc(l.id)}"><b>${l.start}</b><span><strong>${esc(l.title)}</strong><span>${l.cancelled ? 'Отменено' : `${esc(l.type)} · ${where(l)}`}</span></span>${face(l.teacher, 'xs')}</button>`).join('')}</div>` : `<p class="muted small">Сегодня пар нет.</p>`}</section>
     </div>
@@ -269,10 +283,13 @@ export function viewToday() {
       <a class="stat" href="#tasks"><span class="num" data-count="${week.length}">${week.length}</span><span class="l">${plural(week.length, ['задание', 'задания', 'заданий'])} на 7 дней</span></a>
       <a class="stat" href="#study"><span class="num" data-count="${st.avg}">${st.avg}</span><span class="l">средний балл из 100</span></a>
       <a class="stat" href="#study"><span class="num" data-count="${toSession}">${toSession}</span><span class="l">${plural(toSession, ['день', 'дня', 'дней'])} до сессии</span></a></section>
+    ${quickActions({books: BOOKS_COUNT, freeText, unread: unreadCount(), ready: d.requests.filter((x) => x.status === 'Готова').length})}
+    ${libraryShelf()}
     <div class="cols"><section class="sec">${secHead('Задания', go('tasks', 'Все задания'))}${ready.length || risk.length ? `<div class="card flush"><div class="list pad">${ready.join('')}${risk.join('')}</div></div>` : ''}${active.length ? `<div class="hw-list">${active.slice(0, 4).map((h) => hwRow(h, true)).join('')}</div>` : empty('check', 'Всё сделано', 'Активных заданий нет.')}</section>
       <section class="sec">${secHead('Что изменилось', go('notices', 'Уведомления'))}${notes.length ? `<div class="card flush"><div class="changes">${notes.join('')}</div></div>` : empty('check', 'Изменений нет', 'Занятия проходят по расписанию.')}</section></div>
-    ${teachersCarousel('Ваши преподаватели')}
-    ${newsStrip()}</div>`;
+    <div class="hm-duo">${idTeaser(d.profile)}${gradeMini(d.grades)}</div>
+    ${newsStrip()}
+    ${teachersCarousel('Ваши преподаватели')}</div>`;
 }
 
 /* ---------- Новости университета ---------- */
@@ -280,12 +297,12 @@ export const NEWS_CATS = [['all', 'Все'], ['uni', 'Университет'], 
 const newsDate = (iso) => relativeDay(iso, nowIso()).replace(/^в /, '');
 const newsMeta = (n) => `<span class="news-meta"><span class="news-cat c-${n.cat}">${esc(n.cat_label)}</span><span>${esc(cap(newsDate(n.date)))} · ${n.minutes} мин чтения</span></span>`;
 function newsCard(n, lead = false) {
-  return `<button class="news ${lead ? 'lead sky' : ''}" data-news="${esc(n.id)}">${newsMeta(n)}<strong>${esc(n.title)}</strong><span class="sub">${esc(n.lead)}</span><span class="news-more">Читать ${icon('arrow')}</span></button>`;
+  return `<button class="news ${lead ? 'lead sky' : ''}" data-news="${esc(n.id)}"><span class="news-cover c-${n.cat}" aria-hidden="true"><b>${esc((n.cat_label || '')[0] || '')}</b><i>${n.minutes} мин</i></span>${newsMeta(n)}<strong>${esc(n.title)}</strong><span class="sub">${esc(n.lead)}</span><span class="news-more">Читать ${icon('arrow')}</span></button>`;
 }
 function newsStrip() {
   const list = S.data.news || [];
   if (!list.length) return '';
-  return `<section class="sec">${secHead('Новости университета', go('news', 'Все новости'))}<div class="news-grid">${newsCard(list[0], true)}${list.slice(1, 4).map((n) => newsCard(n)).join('')}</div></section>`;
+  return `<section class="sec">${secHead('Новости и статьи университета', go('news', 'Все новости'))}<div class="news-grid">${newsCard(list[0], true)}${list.slice(1, 4).map((n) => newsCard(n)).join('')}</div></section>`;
 }
 export function viewNews() {
   const list = (S.data.news || []).filter((n) => S.newsCat === 'all' || n.cat === S.newsCat);
@@ -378,13 +395,17 @@ export function viewStudy() {
     <section class="sec">${secHead('Баллы по дисциплинам')}<div class="courses">${d.grades.map((g) => `<article class="card course"><div class="course-head"><div class="ring-wrap sm">${ring(g.points, {size: 76, stroke: 9, tone: g.points < 60 ? 'papaya' : 'ink', label: `${g.points} баллов из 100`})}<span class="ring-num"><span data-count="${g.points}">${g.points}</span></span></div>
       <div class="course-info"><h3>${esc(g.title)}</h3><span class="small muted">${esc(g.teacher.short)} · ${esc(g.assessment)}</span><span><span class="tag ${g.result === 'Нет допуска' ? 'papaya' : 'mint'}">${esc(g.result)}</span></span></div></div>
       <div class="spark-wrap">${sparkline(g.trend, {label: `Баллы по неделям: ${g.trend.join(', ')}`})}<div class="spark-axis"><span>1 нед.</span><span>порог 60</span><span>${g.trend.length} нед.</span></div></div>
-      <p class="small muted">${advice(g)}</p>${attLine(g.course)}</article>`).join('')}</div>
+      <p class="small muted">${advice(g)}</p>${attLine(g.course)}${courseBook(g.title)}</article>`).join('')}</div>
       <p class="cap">Кольцо — баллы из 100. График — накопление баллов по неделям, пунктир — порог допуска 60. Шкала перевода условная, данные демонстрационные.</p></section>
     ${teachersCarousel('Преподаватели семестра')}
     <section class="sec">${secHead('График сессии')}<div class="card">${d.grades.map((g) => `<div class="tl ${g.assessment === 'Экзамен' ? 'exam' : ''} ${g.date < t ? 'past' : ''}"><div class="tl-date"><b>${fmt(g.date, {day: 'numeric'})}</b><span>${fmt(g.date, {month: 'short'}).replace('.', '')}</span></div>
       <div><div class="row"><h3>${esc(g.title)}</h3><span class="tag ${g.assessment === 'Экзамен' ? 'marigold' : 'periwinkle'}">${esc(g.assessment)}</span></div><p>${g.start} · ${esc(g.place)} · ${esc(g.examiner)} · ${untilText(g.date, t)}${g.consultation ? `<br>Консультация: ${dayShort(g.consultation.date)}, ${g.consultation.start}, ${esc(g.consultation.place)}` : ''}</p></div></div>`).join('')}</div></section></div>`;
 }
 
+function courseBook(title) {
+  const b = bookForCourse(title);
+  return b ? `<a class="course-book" href="#library/${b.id}" data-lib-go="${b.i}">${icon('book')}<span><b>${esc(b.title)}</b><small>${esc(b.author)} · ${esc(b.shelf)}</small></span>${icon('arrow')}</a>` : '';
+}
 function attLine(course) {
   const a = S.data.attendance?.[course];
   if (!a || a.att === null) return '';
