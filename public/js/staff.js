@@ -12,18 +12,15 @@ export const activeCount = () => S.data.requests.filter(isActive).length;
 const history = (events) => (events?.length ? `<details class="hist"><summary>История изменений · ${events.length}</summary><ol>${events.map((e) => `<li><strong>${esc(e.status)}</strong><p>${esc(stamp(e.at))} · ${esc(e.author)}</p>${e.comment ? `<p>${esc(e.comment)}</p>` : ''}</li>`).join('')}</ol></details>` : '');
 export function viewQueue() {
   const all = S.data.requests, active = all.filter(isActive), list = S.queueFilter === 'active' ? active : all;
-  const n = (s) => all.filter((r) => r.status === s).length;
-  return `<div class="page">${head('Кабинет деканата', 'Заявки студентов', 'Смена статуса и комментарий сразу видны студенту. При статусе «Готова» формируется электронный документ с QR-проверкой.')}
-    <section class="stats" aria-label="Заявки"><div class="stat"><span class="num">${n('Принята')}</span><span class="l">новых</span></div><div class="stat"><span class="num">${n('В работе')}</span><span class="l">в работе</span></div><div class="stat"><span class="num">${n('Готова')}</span><span class="l">ждут выдачи</span></div><div class="stat"><span class="num">${all.length}</span><span class="l">всего заявок</span></div></section>
+  return `<div class="page">${head('Кабинет деканата', 'Заявки студентов', 'Выберите заявку, чтобы изменить статус или ответить студенту.')}
     <div class="chips"><button class="chip" data-qfilter="active" aria-pressed="${S.queueFilter === 'active'}">Активные · ${active.length}</button><button class="chip" data-qfilter="all" aria-pressed="${S.queueFilter === 'all'}">Все · ${all.length}</button></div>
-    ${list.length ? `<div class="queue">${list.map((r) => `<article class="card"><div class="stack">
-      <div class="row"><div><h3>${esc(r.kind)}</h3><span class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · ${dayShort(r.created)} · ${esc(r.student)}, ${esc(r.group_name)}</span></div>${statusTag(r.status)}</div>
+    ${list.length ? `<div class="queue">${list.map((r) => `<details class="card queue-entry" name="student-request"><summary><span class="queue-copy"><strong>${esc(r.kind)}</strong><span class="cap">№ ${esc(r.id.slice(0, 6).toUpperCase())} · ${dayShort(r.created)} · ${esc(r.student)}, ${esc(r.group_name)}</span></span>${statusTag(r.status)}</summary><div class="stack queue-body">
       ${r.note ? `<p class="small muted">Комментарий студента: ${esc(r.note)}</p>` : ''}${r.document ? `<p class="small"><span class="tag mint">Электронный документ выпущен</span> код ${esc(r.document.code)}</p>` : ''}
       <form class="status-form" data-request="${esc(r.id)}"><label for="st-${esc(r.id)}">Новый статус</label>
         <select id="st-${esc(r.id)}" name="status">${S.data.statuses.map((s) => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
         <label for="cm-${esc(r.id)}">Комментарий студенту <span class="muted">(необязательно)</span></label>
         <input id="cm-${esc(r.id)}" name="comment" maxlength="600" placeholder="Например: оригинал можно получить в ауд. 112 с 10:00 до 17:00">
-        <p class="form-error" role="alert"></p><div><button class="btn sm">Сохранить</button></div></form>${history(r.events)}</div></article>`).join('')}</div>` : empty('check', 'Активных заявок нет', 'Новые заявки появятся здесь сразу после отправки студентом.')}</div>`;
+        <p class="form-error" role="alert"></p><div><button class="btn sm">Сохранить</button></div></form>${history(r.events)}</div></details>`).join('')}</div>` : empty('check', 'Активных заявок нет', 'Новые заявки появятся здесь сразу после отправки студентом.')}</div>`;
 }
 export function viewStaffRooms() {
   const pair = activePair(), r = roomByKey(S.room), st = r ? roomState(S.room, pair) : null;

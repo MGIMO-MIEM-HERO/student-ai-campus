@@ -235,3 +235,45 @@ a.hm-card{text-decoration:none}
 .tasks-page .hw { border-radius: var(--r-md); }
 .tasks-page .hw-h { font-family: var(--font-sans); font-size: 16px; }
 .tasks-page .hw-groups { gap: 28px; }
+/* Очередь деканата и рабочие страницы преподавателя. */
+.teacher-today { gap: 28px; }
+.queue { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.queue-entry { padding: 0; }
+.queue-entry > summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px;
+  list-style: none;
+  cursor: pointer;
+}
+.queue-entry > summary::-webkit-details-marker { display: none; }
+.queue-entry > summary::after { content: '+'; margin-inline-start: auto; font-size: 24px; color: var(--muted); }
+.queue-entry[open] > summary::after { content: '−'; }
+.queue-copy { display: grid; gap: 5px; min-width: 0; }
+.queue-copy strong { font-size: 16px; font-weight: 500; }
+.queue-copy .cap { overflow-wrap: anywhere; }
+.queue-body { padding: 0 24px 24px; }
+.queue-body form { max-width: 640px; }
+.service-links button { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; }
+.gb-name { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.45; overflow-wrap: anywhere; }
+.gb-tabs button { min-height: 40px; }
+.gb-ind { transition-duration: 150ms; }
+.catalog .doc { gap: 14px; }
+@media (max-width: 700px) {
+  .queue-entry > summary { flex-wrap: wrap; padding: 18px; gap: 10px; }
+  .queue-copy { flex-basis: calc(100% - 32px); order: 0; }
+  .queue-entry > summary::after { order: 1; }
+  .queue-entry > summary > .tag { order: 2; }
+  .queue-body { padding: 0 18px 18px; }
+  .gradebars .sec-head { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .gb-tabs { max-width: 100%; }
+}
+/* Числа и заголовки появляются сразу, чтобы страницу можно было быстро просмотреть. */
+h1, h2, .title { font-weight: 400; }
+.new-request > summary { font-weight: 500; }
+
+.teacher-today .today-primary { display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); gap:24px; align-items:start; }
+.teacher-today .service-links { display:flex; flex-wrap:wrap; gap:8px 24px; padding-block:12px; }
+.teacher-today .service-links a { display:inline-flex; align-items:center; gap:8px; min-height:44px; }
+@media(max-width:700px) { .teacher-today .today-primary { grid-template-columns:minmax(0,1fr); gap:20px; } }

@@ -24,7 +24,7 @@ const toast = document.querySelector('#toast');
 const sheet = document.querySelector('#sheet');
 const sheetBody = document.querySelector('#sheet-body');
 const DEMO_PASSWORD = 'Campus-demo-2026';
-let toastTimer, lastFocus, lastKey = '', drag = null, suppressClick = false;
+let toastTimer, lastFocus, drag = null, suppressClick = false;
 let cleanupIdCard;
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -55,7 +55,8 @@ function shell(content, key) {
   return `<header class="topbar"><div class="topbar-in">${brand('#' + nav[0][0])}
     <nav class="nav" aria-label="Разделы кабинета"><ul>${nav.map(([id, label, ico]) => {
       const b = badge(id);
-      return `<li><a href="#${id}" ${id === navKey ? 'aria-current="page"' : ''}>${icon(ico)}<span>${label}</span>${b ? `<span class="badge" aria-label="${b} новых">${b}</span>` : ''}</a></li>`;
+      const badgeLabel = staff ? 'Активных заявок' : isTeacher() ? 'Заданий на проверку' : id === 'requests' ? 'Готовых документов и ответов' : 'Просроченных заданий';
+      return `<li><a href="#${id}" ${id === navKey ? 'aria-current="page"' : ''}>${icon(ico)}<span>${label}</span>${b ? `<span class="badge" aria-label="${badgeLabel}: ${b}">${b}</span>` : ''}</a></li>`;
     }).join('')}</ul></nav><span class="grow"></span>
     ${staff ? '' : `<button class="search-btn" data-search>${icon('search')}Поиск<kbd>/</kbd></button><button class="icon-btn search-icon" data-search aria-label="Поиск">${icon('search')}</button>${isTeacher() ? '' : `<a class="icon-btn" href="#notices" aria-label="Уведомления${stu.unreadCount() ? `, непрочитанных: ${stu.unreadCount()}` : ''}">${icon('bell')}${stu.unreadCount() ? `<span class="badge">${stu.unreadCount()}</span>` : ''}</a>`}`}
     <a class="avatar" href="#profile" aria-label="Профиль: ${esc(name)}">${S.data.profile.photo ? `<img src="${esc(S.data.profile.photo)}" alt="" width="38" height="38">` : esc(name[0])}</a></div></header>
@@ -64,8 +65,7 @@ function shell(content, key) {
 
 function loginScreen(error = '', login = '') {
   const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['vetrova', 'Ирина Ветрова', 'преподаватель, высшая математика', '/assets/people/vetrova.webp'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
-  lastKey = '';
-  app.innerHTML = `<div class="login enter"><section class="login-side sky">${brand('/')}
+  app.innerHTML = `<div class="login"><section class="login-side sky">${brand('/')}
       <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Расписание, задания и документы — всё, что нужно на учебный день.</p></div>
       ${territoryScene(true)}</section>
     <main class="login-main" id="main" tabindex="-1"><div class="login-mobile-brand">${brand('/')}</div><div class="login-card"><h2 class="title">Вход в кабинет</h2>
@@ -92,13 +92,15 @@ async function verifyScreen(code) {
   const row = (k, v) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`;
   try {
     const d = await api(`verify/${encodeURIComponent(code || '')}`);
+    if (hashParts()[0] !== 'verify' || hashParts()[1] !== code) return;
     if (!d.valid) throw Object.assign(new Error('not found'), {status: 404});
     const facts = d.type === 'card'
       ? row('Владелец', d.holder) + row('Статус', d.status) + row('Факультет', d.faculty) + row('Направление', d.program) + row('Группа', `${d.group}, ${d.year} курс`) + row('Действителен до', `${dayMonth(d.valid_until)} ${d.valid_until.slice(0, 4)}`)
       : row('Документ', d.kind) + row('Номер', d.number) + row('Выдан', `${dayMonth(d.issued)} ${d.issued.slice(0, 4)}`) + row('Кому', d.holder) + row('Группа', d.group);
     frame(`<section class="card"><div class="stack"><span class="seal">${icon('check')}</span><p class="eyebrow">Проверка подлинности</p><h1>${d.type === 'card' ? 'Студенческий билет действителен' : 'Документ действителен'}</h1><dl class="facts">${facts}</dl></div></section>`);
   } catch (e) {
-    frame(`<section class="card"><div class="stack"><span class="seal bad">${icon('alert')}</span><p class="eyebrow">Проверка подлинности</p><h1>Документ не найден</h1><p class="lede">${e.status === 404 ? 'Кода нет в реестре: документ не выдавался или был отозван.' : 'Не удалось выполнить проверку. Повторите попытку позже.'}</p></div></section>`);
+    if (hashParts()[0] !== 'verify' || hashParts()[1] !== code) return;
+    frame(`<section class="card"><div class="stack"><span class="seal bad">${icon('alert')}</span><p class="eyebrow">Проверка подлинности</p><h1>${e.status === 404 ? 'Документ не найден' : 'Не удалось проверить документ'}</h1><p class="lede">${e.status === 404 ? 'Кода нет в реестре: документ не выдавался или был отозван.' : 'Проверьте подключение и обновите страницу.'}</p></div></section>`);
   }
 }
 
@@ -114,16 +116,24 @@ function syncFeatures(root) {
 }
 // Адрес, которого нет ни у одной роли, — страница 404 («Такой аудитории нет»).
 const isMissing = () => { const k = hashParts()[0]; return !!k && !['main'].includes(k) && !routes().includes(k); };
+const planObservers = new WeakMap();
 
 function decorate(root) {
   if (root === app) { syncScenes(root); syncLibrary(root); syncIdCard(root); syncFeatures(root); }
+  (planObservers.get(root) || []).forEach((observer) => observer.disconnect());
+  const observers = [];
+  planObservers.set(root, observers);
   // План шире экрана телефона: показываем выбранную аудиторию и подсказку «листайте», пока не дошли до края.
   root.querySelectorAll('.plan-scroll').forEach((box) => {
     const mark = () => { box.dataset.more = String(box.scrollWidth - box.clientWidth - box.scrollLeft > 8); };
     const sel = box.querySelector('.sel,[aria-pressed="true"]');
     if (sel && box.scrollWidth > box.clientWidth) { const b = box.getBoundingClientRect(), r = sel.getBoundingClientRect(); box.scrollLeft += r.left + r.width / 2 - (b.left + b.width / 2); }
     mark(); box.addEventListener('scroll', mark, {passive: true});
-    if (window.ResizeObserver) new ResizeObserver(mark).observe(box);
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(mark);
+      observer.observe(box);
+      observers.push(observer);
+    }
   });
   root.querySelectorAll('[data-pct]').forEach((el) => el.style.setProperty('--pct', el.dataset.pct));
   root.querySelectorAll('[data-vars]').forEach((el) => el.dataset.vars.split(';').forEach((pair) => {
@@ -131,35 +141,17 @@ function decorate(root) {
     if (i > 0) el.style.setProperty(pair.slice(0, i).trim(), pair.slice(i + 1).trim());
   }));
 }
-function countUp(root) {
-  if (reduceMotion()) return;
-  root.querySelectorAll('[data-count]').forEach((el) => {
-    const target = Number(el.dataset.count);
-    if (!Number.isFinite(target) || target <= 0) return;
-    const t0 = performance.now(), dur = 900;
-    const step = (now) => {
-      const k = Math.min(1, (now - t0) / dur), eased = 1 - Math.pow(1 - k, 3);
-      el.textContent = String(Math.round(target * eased));
-      if (k < 1) requestAnimationFrame(step);
-    };
-    el.textContent = '0';
-    requestAnimationFrame(step);
-  });
-}
 function render() {
   if (hashParts()[0] === 'verify') return verifyScreen(hashParts()[1]);
-  if (hashParts()[0] === 'about') { lastKey = 'about'; app.innerHTML = aboutScreen(brand('#')); decorate(app); app.setAttribute('aria-busy', 'false'); return; }
+  if (hashParts()[0] === 'about') { app.innerHTML = aboutScreen(brand('#')); decorate(app); app.setAttribute('aria-busy', 'false'); return; }
   if (!S.data) return loginScreen();
   const key = route();
   const views = isStaff() ? {queue: stf.viewQueue, rooms: stf.viewStaffRooms, announce: stf.viewAnnounce, profile: stf.viewStaffProfile}
     : isTeacher() ? {today: tch.viewToday, schedule: tch.viewSchedule, journal: tch.viewJournal, tasks: tch.viewTasks, rooms: stu.viewRooms, profile: tch.viewProfile}
     : {library: stu.viewLibrary, today: stu.viewToday, schedule: stu.viewSchedule, study: stu.viewStudy, requests: stu.viewRequests, notices: stu.viewNotices, news: stu.viewNews, tasks: stu.viewTasks, rooms: stu.viewRooms, assistant: stu.viewAssistant, profile: stu.viewProfile, doc: () => stu.viewDoc(hashParts()[1])};
-  const entering = key !== lastKey;
-  lastKey = key;
   app.innerHTML = shell(isMissing() ? viewNotFound(hashParts()[0]) : views[key](), isMissing() ? '' : key);
   decorate(app);
   if(S.focusMap){S.focusMap=false;requestAnimationFrame(()=>document.querySelector('#campus-map')?.scrollIntoView({block:'start'}));}
-  if (entering) { const main = app.querySelector('#main'); main.classList.add('enter'); countUp(main); }
   app.setAttribute('aria-busy', 'false');
 }
 function openSheet(html) {
@@ -351,14 +343,57 @@ document.addEventListener('submit', async (event) => {
     if (form.classList.contains('grade-form')) {
       const raw = String(fields.points ?? '').trim();
       const body = {task_id: form.dataset.gtask, student_id: form.dataset.student, points: raw === '' ? null : Number(raw), comment: fields.comment || ''};
-      await mutate('teacher/grade', body, () => { openSheet(tch.reviewSheet(form.dataset.gtask)); sheetBody.querySelector(`.grade-form[data-student="${CSS.escape(body.student_id)}"] input`)?.focus(); });
+      const saveButtons = [...sheetBody.querySelectorAll('.grade-form button')];
+      const savedInputs = [...form.querySelectorAll('input')];
+      [...saveButtons, ...savedInputs].forEach((control) => { control.disabled = true; });
+      try {
+        await mutate('teacher/grade', body, () => {
+          // Берём черновики перед перерисовкой, включая ввод во время запроса.
+          const drafts = [...sheetBody.querySelectorAll('.grade-form')]
+            .filter((row) => row !== form)
+            .map((row) => ({
+              student: row.dataset.student,
+              inputs: [...row.querySelectorAll('input')]
+                .filter((input) => input.value !== input.defaultValue)
+                .map((input) => ({name: input.name, value: input.value})),
+            }));
+          openSheet(tch.reviewSheet(form.dataset.gtask));
+          for (const draft of drafts) {
+            const row = sheetBody.querySelector(`.grade-form[data-student="${CSS.escape(draft.student)}"]`);
+            for (const input of draft.inputs) {
+              const field = row?.elements.namedItem(input.name);
+              if (field) field.value = input.value;
+            }
+          }
+          sheetBody.querySelector(`.grade-form[data-student="${CSS.escape(body.student_id)}"] input`)?.focus();
+        });
+      } finally {
+        [...saveButtons, ...savedInputs].forEach((control) => { control.disabled = false; });
+      }
       return flash(body.points === null && !body.comment ? 'Оценка снята.' : 'Оценка сохранена.');
     }
     if (form.id === 'room-form') {
       await mutate('staff/rooms', {building: form.dataset.building, room: form.dataset.room, pair: fields.scope === 'day' ? 0 : activePair(), state: fields.state, note: fields.note || ''});
       return flash('Отметка сохранена. Студенты уже видят её на схеме.');
     }
-    if (form.classList.contains('status-form')) { await mutate(`staff/requests/${form.dataset.request}`, fields); return flash('Статус обновлён. Студент увидит его в истории заявки.'); }
+    if (form.classList.contains('status-form')) {
+      const id = form.dataset.request;
+      const otherForms = [...app.querySelectorAll('.status-form')].filter((row) => row !== form);
+      await mutate(`staff/requests/${id}`, fields);
+      for (const previous of otherForms) {
+        const current = app.querySelector(`.status-form[data-request="${CSS.escape(previous.dataset.request)}"]`);
+        for (const field of previous.querySelectorAll('input,select')) {
+          const restored = current?.elements.namedItem(field.name);
+          if (restored && fieldHasDraft(field)) restored.value = field.value;
+        }
+      }
+      const entry = app.querySelector(`.status-form[data-request="${CSS.escape(id)}"]`)?.closest('details');
+      if (entry) {
+        entry.open = true;
+        entry.querySelector('summary')?.focus({preventScroll: true});
+      }
+      return flash('Статус обновлён. Студент увидит его в истории заявки.');
+    }
   } catch (e) {
     if (e.status === 401) { S.data = null; closeSheet(); return render(); }
     const box = form.querySelector('.form-error') || sheetBody.querySelector('.form-error'); if (box) box.textContent = e.message; else flash(e.message);
@@ -413,7 +448,16 @@ document.addEventListener('pointercancel', () => { drag = null; });
 setInterval(() => { document.querySelectorAll('[data-clock]').forEach((el) => { el.textContent = stu.clockText(); }); }, 15000);
 
 /* актуальность данных */
-const busyUi = () => sheet.open || !!document.querySelector('[data-lib-sheet]:not([hidden])') || document.activeElement?.matches?.('input,textarea,select') || S.busy || !!document.querySelector('[data-scene][data-animating="true"]');
+function fieldHasDraft(field) {
+  if (field instanceof HTMLSelectElement) {
+    const initial = [...field.options].find((option) => option.defaultSelected) || field.options[0];
+    return field.value !== (initial?.value || '');
+  }
+  if (field.type === 'checkbox' || field.type === 'radio') return field.checked !== field.defaultChecked;
+  return field.value !== field.defaultValue;
+}
+const hasFormDrafts = () => [...app.querySelectorAll('form input, form textarea, form select')].some(fieldHasDraft);
+const busyUi = () => sheet.open || !!document.querySelector('[data-lib-sheet]:not([hidden])') || document.activeElement?.matches?.('input,textarea,select') || S.busy || hasFormDrafts() || !!document.querySelector('details[open], [data-scene][data-animating="true"]');
 async function refresh() {
   if (!S.data || busyUi() || document.hidden || hashParts()[0] === 'verify') return;
   const version = S.version;

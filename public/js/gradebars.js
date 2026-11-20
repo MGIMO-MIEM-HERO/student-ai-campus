@@ -1,5 +1,5 @@
 // Шкалы баллов с вкладками («Учёба»): полосы вырастают по очереди, на шкале — пороги 60/75/90.
-// При смене вкладки данные меняются и анимация проигрывается заново. Без затуханий: только масштаб по оси X.
+// При смене вкладки данные меняются сразу; первое появление анимируется по оси X.
 import {S} from './state.js';
 import {esc} from './util.js';
 
@@ -22,7 +22,7 @@ function goal(g) {
 function rows(tab) {
   const att = S.data.attendance || {};
   return S.data.grades.map((g) => {
-    const short = g.title.length > 28 ? `${g.title.slice(0, 26)}…` : g.title;
+    const short = g.title;
     if (tab === 'points') return {title: short, full: g.title, value: g.points, text: `${g.points}`, low: g.points < 60};
     if (tab === 'att') {
       const a = att[g.course]?.att;
@@ -52,8 +52,8 @@ export function gradeBarsSection() {
   if (!S.data?.grades?.length) return '';
   return `<section class="sec gradebars" data-gradebars>
     <div class="sec-head"><h2>Шкалы по дисциплинам</h2>
-      <div class="gb-tabs" role="tablist" aria-label="Что показать">${TABS.map((t) => `<button role="tab" data-gb-tab="${t.id}" aria-selected="${t.id === current}" tabindex="${t.id === current ? 0 : -1}">${t.label}</button>`).join('')}<span class="gb-ind" aria-hidden="true"></span></div></div>
-    <div class="card gb-body" role="tabpanel" data-gb-body>${bodyHtml(current)}</div>
+      <div class="gb-tabs" role="tablist" aria-label="Что показать">${TABS.map((t) => `<button role="tab" id="grade-tab-${t.id}" aria-controls="grade-panel" data-gb-tab="${t.id}" aria-selected="${t.id === current}" tabindex="${t.id === current ? 0 : -1}">${t.label}</button>`).join('')}<span class="gb-ind" aria-hidden="true"></span></div></div>
+    <div class="card gb-body" role="tabpanel" id="grade-panel" aria-labelledby="grade-tab-${current}" data-gb-body>${bodyHtml(current)}</div>
     <p class="cap">Пороги: 60 — допуск, 75 — «хорошо», 90 — «отлично»; для зачёта автоматом нужно 85. Посещаемость ниже 75% отмечена. Данные демонстрационные.</p></section>`;
 }
 
@@ -91,7 +91,9 @@ export function mountGradeBars(root) {
     if (!tab || tab.dataset.gbTab === current) return;
     current = tab.dataset.gbTab;
     host.querySelectorAll('[data-gb-tab]').forEach((b) => { b.setAttribute('aria-selected', String(b.dataset.gbTab === current)); b.tabIndex = b.dataset.gbTab === current ? 0 : -1; });
-    body.innerHTML = bodyHtml(current); setVars(body); moveInd(); play();
+    body.innerHTML = bodyHtml(current);
+    body.setAttribute('aria-labelledby', `grade-tab-${current}`);
+    setVars(body); moveInd();
   };
   const onKey = (e) => {
     const focused = e.target.closest('[data-gb-tab]');
