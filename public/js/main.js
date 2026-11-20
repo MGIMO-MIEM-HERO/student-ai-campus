@@ -181,9 +181,10 @@ async function logout() {
 }
 async function ask(question) {
   if (!question.trim() || S.busy) return;
+  const history = S.messages.filter(m => m.from === 'user').slice(-6).map(m => m.text);
   S.busy = true; S.messages.push({from: 'user', text: question.trim()}); render();
   const version = S.version;
-  try { const r = await api('assistant', {question: question.trim()}); if (version === S.version) S.messages.push({from: 'bot', text: r.answer}); }
+  try { const r = await api('assistant', {question: question.trim(), history}); if (version === S.version) S.messages.push({from: 'bot', text: r.answer}); }
   catch (e) { if (version === S.version) S.messages.push({from: 'bot', text: e.message}); }
   finally { if (version === S.version) { S.busy = false; if (route() === 'assistant') { render(); document.querySelector('#question')?.focus(); } } }
 }

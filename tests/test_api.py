@@ -69,6 +69,45 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(status, 200)
         return client
 
+    def test_assistant_documents_and_followups(self):
+        client = self.client("alina")
+        questions = ["Как получить справку в военкомат", "Так мне нужна справка в военкомат"]
+        for question in questions:
+            status, result = client.call("/api/assistant", {"question": question})
+            self.assertEqual(status, 200)
+            self.assertIn("Справка об обучении", result["answer"])
+            self.assertIn("Для военкомата", result["answer"])
+        status, result = client.call("/api/assistant", {"question": "А сколько готовится?", "history": questions})
+        self.assertEqual(status, 200)
+        self.assertIn("1–2 рабочих дня", result["answer"])
+        status, result = client.call("/api/assistant", {"question": "А где забрать?", "history": questions + ["А сколько готовится?"]})
+        self.assertEqual(status, 200)
+        self.assertIn("студенческому билету", result["answer"])
+        self.assertNotIn("1–2", client.call("/api/assistant", {"question": "А сколько готовится?", "history": [questions[0], "Какие пары завтра?"]})[1]["answer"])
+
+    def test_assistant_does_not_confuse_dates_or_deadlines(self):
+        client = self.client("alina")
+        data = client.call("/api/dashboard")[1]
+        target = (server.date.fromisoformat(data["today"]) + timedelta(days=2)).isoformat()
+        result = client.call("/api/assistant", {"question": "Какие пары послезавтра?"})[1]["answer"]
+        self.assertTrue(result.startswith("Послезавтра:"))
+        for lesson in next(d for d in data["schedule"] if d["date"] == target)["lessons"]:
+            self.assertIn(lesson["title"], result)
+        self.assertTrue(client.call("/api/assistant", {"question": "Какие дедлайны?"})[1]["answer"].startswith(("Задания:", "Активных заданий нет")))
+        monday = client.call("/api/assistant", {"question": "Пары в понедельник?"})[1]["answer"]
+        expected = next(d for d in data["schedule"] if d["date"] >= data["today"] and server.date.fromisoformat(d["date"]).weekday() == 0)
+        self.assertTrue(monday.startswith(expected["date"]))
+
+    def test_assistant_reports_only_own_requests_and_validates_history(self):
+        client = self.client("alina")
+        reply = client.call("/api/assistant", {"question": "Статус моей справки"})[1]["answer"]
+        self.assertIn("Ваши заявки", reply)
+        for request in client.call("/api/dashboard")[1]["requests"]:
+            if request["kind"] == "Справка об обучении":
+                self.assertIn(request["id"][:6].upper(), reply)
+        for history in ("bad", ["x"] * 7, [None], ["x" * 501]):
+            self.assertEqual(client.call("/api/assistant", {"question": "Справка", "history": history})[0], 400)
+
     def test_passwords_are_salted_hashes(self):
         with sqlite3.connect(os.environ["CAMPUS_DB"]) as db:
             rows = db.execute("SELECT salt, password_hash FROM users").fetchall()
