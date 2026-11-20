@@ -100,7 +100,7 @@ export function viewToday() {
       ${risk.length ? `<div class="card flush"><div class="risk">${risk.slice(0, 4).map(({j, s, why}) => `<button class="risk-row" data-stud="${esc(j.group)}|${esc(s.id)}"><span class="face mono sm" aria-hidden="true">${esc(s.initials)}</span><span><strong>${esc(s.name)}</strong><span>${esc(j.group)} · ${why.map(esc).join(' · ')}</span></span>${icon('chevron')}</button>`).join('')}</div></div><p class="cap">Ниже 60 баллов или 75% посещаемости. Полный список в журнале.</p>` : empty('check', 'Все студенты выше порогов допуска')}
     </section></div>
     ${consultSection()}
-    <nav class="service-links" aria-label="Действия преподавателя"><button class="link" data-tannounce>${icon('megaphone')}Сообщение группе</button><a href="#journal">${icon('study')}Группы и журнал</a><a href="#rooms">${icon('building')}Аудитории</a></nav>
+    <nav class="service-links" aria-label="Действия преподавателя"><button type="button" class="btn" data-tannounce>${icon('megaphone')}<span>Сообщение группе</span></button><a class="btn ghost" href="#journal">${icon('study')}<span>Группы и журнал</span></a><a class="btn ghost" href="#rooms">${icon('building')}<span>Аудитории</span></a></nav>
     ${routeCard ? `<details class="disclosure"><summary>Карта ближайшего занятия</summary>${routeCard}</details>` : ''}
   </div>`;
 }
