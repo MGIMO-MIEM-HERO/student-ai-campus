@@ -11,7 +11,11 @@ async function ready(page, count) {
   if(count===2) {
     await page.locator('.floor-model').scrollIntoViewIfNeeded();
     await page.waitForSelector('.floor-model[data-ready="true"]');
-  } else await page.waitForSelector('[data-ready="true"]');
+  } else {
+    // На телефоне форма входа стоит выше модели, а сцена монтируется лениво — сначала прокручиваем к ней.
+    await page.locator('[data-scene]').first().scrollIntoViewIfNeeded();
+    await page.waitForSelector('[data-ready="true"]');
+  }
 }
 async function main() {
   const browser = await chromium.launch({executablePath, headless:true, args:['--no-sandbox','--enable-unsafe-swiftshader']});
@@ -84,7 +88,10 @@ async function main() {
     const page=await mobileBrowser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true,reducedMotion:'no-preference'});
     await page.goto(base);await ready(page,1);
     await page.locator('[data-demo="alina"]').click();await page.waitForSelector('.topbar');
-    await page.goto(base+'/#rooms');await page.waitForSelector('[data-scene="territory"][data-ready="true"]');
+    await page.goto(base+'/#rooms');
+    // Территория теперь в раскрывающемся блоке в конце страницы «Корпуса»: раскрываем его, интерьер этажа остаётся вне экрана.
+    await page.locator('details.disclosure:has([data-scene="territory"]) > summary').click();
+    await page.locator('[data-scene="territory"]').scrollIntoViewIfNeeded();await page.waitForSelector('[data-scene="territory"][data-ready="true"]');
     assert.equal(await page.locator('.floor-model canvas').count(),0,'Offscreen interior must not allocate a renderer before it is needed');
     await page.locator('.floor-model').scrollIntoViewIfNeeded();await ready(page,2);
     await page.waitForFunction(()=>document.querySelector('.floor-model')?.dataset.animating==='false');
@@ -125,6 +132,7 @@ async function main() {
   try {
     const page=await fallbackBrowser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce'});
     await page.goto(base);
+    await page.locator('[data-scene]').first().scrollIntoViewIfNeeded();
     await page.waitForSelector('.scene-unavailable');
     assert.ok(await page.locator('.territory-fallback').isVisible());
     await page.locator('[data-demo="alina"]').click();await page.waitForSelector('.topbar');
