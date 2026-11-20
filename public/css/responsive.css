@@ -2,6 +2,17 @@
 .login-mobile-brand{display:none}
 
 @media(max-width:959px){
+  /* Keep Cyrillic text in a local font and avoid nested blur layers on small screens. */
+  :root{--font-sans:"Golos Text",system-ui,sans-serif}
+  body{-webkit-font-smoothing:auto;text-rendering:auto}
+  .card,.stat,.lesson,.hw,.tcard,.news,.empty,.demo,.chip,.seg,.gb-tabs,
+  .hm-card,.hm-qa,.hm-page .news,dialog.sheet,.btn.ghost,.now-book,.nav{
+    -webkit-backdrop-filter:none;backdrop-filter:none;
+  }
+  .nav{background:rgba(246,247,244,.97)}
+  dialog.sheet{background:rgba(250,250,248,.98)}
+  .small,.cap,.l-meta,.l-place,.tfacts,.now-meta,.now-extra,.now-who{font-size:14px;line-height:1.5}
+  .eyebrow,.hm-eyebrow,.today-head .eyebrow,.lib-hint,.lib-caption-1,.lib-caption-2{font-size:12px;line-height:1.5}
   body,.login,.about{min-height:100svh}
   html{scroll-padding-top:calc(80px + env(safe-area-inset-top))}
   .topbar{padding-top:env(safe-area-inset-top)}
