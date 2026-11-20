@@ -479,6 +479,8 @@ class Handler(BaseHTTPRequestHandler):
                 kind, note = body.get("kind"), body.get("note", "")
                 if kind not in KINDS or not isinstance(note, str) or len(note) > 1000:
                     raise ValueError()
+                if kind == "Обращение в деканат" and not note.strip():
+                    return self.reply(400, {"error": "Опишите вопрос в тексте обращения."})
                 request_id = secrets.token_hex(8)
                 db.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", (
                     request_id, user["login"], kind, note.strip(), "Принята", msk_today().isoformat()))

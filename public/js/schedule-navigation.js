@@ -5,6 +5,9 @@ export const scheduleEntries=(data)=>(data?.schedule||[]).flatMap((day)=>day.les
 export function nextPhysicalLesson(data,clock=mskNow()) {
   return scheduleEntries(data).find(({lesson,date})=>!lesson.cancelled&&lesson.format!=='Онлайн'&&roomKey(lesson)&&(date>clock.date||date===clock.date&&toMin(lesson.end)>clock.minutes));
 }
+export function nextTeacherLesson(data,teacher,clock=mskNow()) {
+  return scheduleEntries(data).find(({lesson,date})=>!lesson.cancelled&&lesson.teacher?.key===teacher&&(date>clock.date||date===clock.date&&toMin(lesson.end)>clock.minutes));
+}
 export function findNavigationLesson(data,id) {return scheduleEntries(data).find(({lesson})=>lesson.id===id);}
 export function syncNavigation(state,data) {
   if(!state.routeLesson)return;

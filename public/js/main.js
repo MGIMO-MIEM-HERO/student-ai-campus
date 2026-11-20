@@ -171,7 +171,7 @@ function openSheet(html) {
 }
 function closeSheet() { if (sheet.open) sheet.close(); }
 sheet.addEventListener('close', () => { sheetBody.innerHTML = ''; if (lastFocus?.isConnected) lastFocus.focus(); });
-function openSearch() { if (!S.data || isStaff()) return; openSheet((isTeacher() ? tch : stu).searchSheet()); document.querySelector('#search-q')?.focus(); }
+function openSearch() { if (!S.data || isStaff() || document.querySelector('[data-lib-sheet]:not([hidden])')) return; openSheet((isTeacher() ? tch : stu).searchSheet()); document.querySelector('#search-q')?.focus(); }
 
 function setData(next) { S.data = next; indexLessons(); syncNavigation(S,next); }
 function resetUi() { resetIntro(); closeIntro(true); Object.assign(S, {day: null, week: 0, messages: [], busy: false, noticeFilter: 'all', queueFilter: 'active', roomQuery: '', libraryQuery: '', librarySection: 0, libraryAvailable: false, schedulePair: null, mapDate:null,routeEnabled:false,routeLesson:null,routeBlocked:false,routeNotice:'',routeOrigin:'entry',bld: 'А', pair: null, room: '', floor: null, hwFilter: 'active', newsCat: 'all', off: null, tfilter: 'review'}); }
@@ -366,6 +366,7 @@ document.addEventListener('submit', async (event) => {
   }
 });
 document.addEventListener('change',(event)=>{
+  if(event.target.id==='kind'&&event.target.closest('#request-form')){const note=sheetBody.querySelector('#note').value;openSheet(stu.requestSheet(event.target.value,note));sheetBody.querySelector('#kind').focus();}
   if(event.target.id==='schedule-room-pair'||event.target.id==='schedule-room-building'){const id=event.target.id;if(id==='schedule-room-pair')S.schedulePair=Number(event.target.value);else S.bld=event.target.value;render();document.getElementById(id)?.focus({preventScroll:true});}
   if(event.target.id==='route-origin'){S.routeOrigin=event.target.value;S.modelMode='floor';S.focusMap=true;render();}
   if(event.target.id==='map-date'){S.mapDate=event.target.value;S.routeLesson=null;S.routeBlocked=false;S.routeNotice='';S.pair=null;render();}
@@ -412,7 +413,7 @@ document.addEventListener('pointercancel', () => { drag = null; });
 setInterval(() => { document.querySelectorAll('[data-clock]').forEach((el) => { el.textContent = stu.clockText(); }); }, 15000);
 
 /* актуальность данных */
-const busyUi = () => sheet.open || document.activeElement?.matches?.('input,textarea,select') || S.busy || !!document.querySelector('[data-scene][data-animating="true"]');
+const busyUi = () => sheet.open || !!document.querySelector('[data-lib-sheet]:not([hidden])') || document.activeElement?.matches?.('input,textarea,select') || S.busy || !!document.querySelector('[data-scene][data-animating="true"]');
 async function refresh() {
   if (!S.data || busyUi() || document.hidden || hashParts()[0] === 'verify') return;
   const version = S.version;

@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {S} from '../public/js/state.js';
 import {floorLayout} from '../public/js/campus.js';
 import {buildRoute,roomDoor} from '../public/js/wayfinding.js';
-import {nextPhysicalLesson,syncNavigation} from '../public/js/schedule-navigation.js';
+import {nextPhysicalLesson,nextTeacherLesson,syncNavigation} from '../public/js/schedule-navigation.js';
 
 const campus=JSON.parse(execFileSync('python3',['-c','import campus_data,json; print(json.dumps(campus_data.directory()))'],{cwd:new URL('..',import.meta.url),encoding:'utf8'}));
 S.data={campus,schedule:[]};
@@ -42,6 +42,18 @@ test('next class skips ended, cancelled and online lessons and includes an ongoi
   const data={schedule:[{date:'2026-11-16',lessons:[lesson('past',{start:'08:00',end:'09:00'}),lesson('cancel',{cancelled:true}),lesson('online',{format:'Онлайн'}),lesson('physical')]}]};
   assert.equal(nextPhysicalLesson(data,{date:'2026-11-16',minutes:660}).lesson.id,'physical');
   assert.equal(nextPhysicalLesson(data,{date:'2026-11-16',minutes:800}),undefined);
+});
+test('teacher cards skip ended and cancelled lessons and keep an ongoing or online lesson',()=>{
+  const teacher={key:'vetrova'};
+  const data={schedule:[{date:'2026-11-20',lessons:[
+    lesson('ended',{start:'08:00',end:'09:00',teacher}),
+    lesson('cancelled',{cancelled:true,teacher}),
+    lesson('other',{teacher:{key:'granov'}}),
+    lesson('online',{format:'Онлайн',teacher})
+  ]},{date:'2026-11-23',lessons:[lesson('next-week',{teacher})]}]};
+  assert.equal(nextTeacherLesson(data,'vetrova',{date:'2026-11-20',minutes:660}).lesson.id,'online');
+  assert.equal(nextTeacherLesson(data,'vetrova',{date:'2026-11-20',minutes:730}).lesson.id,'next-week');
+  assert.equal(nextTeacherLesson(data,'vetrova',{date:'2026-11-24',minutes:0}),undefined);
 });
 test('room/time changes update a pinned route; cancellation/online stop routing; source-floor view survives a refresh',()=>{
   const state={routeLesson:'class',room:'А-304',floor:1},data={campus,schedule:[{date:'2026-11-17',lessons:[lesson('class')]}]};

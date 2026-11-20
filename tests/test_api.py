@@ -153,6 +153,20 @@ class ApiTest(unittest.TestCase):
                 if lesson["building"] and not lesson["change"]:
                     self.assertIn(f"{lesson['building']}-{lesson['room']}", data["campus"]["busy"][str(lesson["pair"])])
 
+    def test_appeal_requires_text_but_certificate_comment_is_optional(self):
+        client = self.client("alina")
+        before = len(client.call("/api/dashboard")[1]["requests"])
+        for body in ({"kind": "Обращение в деканат"},
+                     {"kind": "Обращение в деканат", "note": " \n\t "}):
+            status, error = client.call("/api/requests", body)
+            self.assertEqual(status, 400)
+            self.assertIn("тексте обращения", error["error"])
+        self.assertEqual(len(client.call("/api/dashboard")[1]["requests"]), before)
+        status, data = client.call("/api/requests", {"kind": "Обращение в деканат", "note": "  Вопрос об учёбе  "})
+        self.assertEqual(status, 201)
+        self.assertTrue(any(r["note"] == "Вопрос об учёбе" for r in data["requests"]))
+        self.assertEqual(client.call("/api/requests", {"kind": "Справка об обучении"})[0], 201)
+
     def test_staff_marks_room_and_students_see_it(self):
         staff = self.client("dekanat")
         free_key = next(r["key"] for r in staff.call("/api/dashboard")[1]["campus"]["rooms"]

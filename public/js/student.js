@@ -7,7 +7,7 @@ import {building3d, legend3d, pairChips, buildingSeg, activePair, activeFloor, r
 import {ring, sparkline, dayTimeline, weekGrid} from './viz.js';
 import {territoryScene} from './scene-host.js';
 import {navigationPanel,navigationCaption} from './navigation-ui.js';
-import {scheduleEntries, nextPhysicalLesson} from './schedule-navigation.js';
+import {scheduleEntries, nextPhysicalLesson, nextTeacherLesson} from './schedule-navigation.js';
 import {routeMapCard, quickActions} from './home.js';
 import {libraryShelf, bookForCourse} from './library.js';
 
@@ -177,13 +177,8 @@ export function teachersCarousel(title = 'Преподаватели') {
   const list = S.data.teachers || [];
   if (!list.length) return '';
   const next = (t) => {
-    const today = nowIso();
-    for (const dd of S.data.schedule) {
-      if (dd.date < today) continue;
-      const l = dd.lessons.find((x) => x.teacher.name === t.name && !x.cancelled);
-      if (l) return `${cap(relativeDay(dd.date, today))}, ${l.start} · ${esc(l.title)}`;
-    }
-    return '';
+    const clock = mskNow(), entry = nextTeacherLesson(S.data, t.key, clock);
+    return entry ? `${cap(relativeDay(entry.date, clock.date))}, ${entry.lesson.start} · ${esc(entry.lesson.title)}` : '';
   };
   return `<section class="sec">${secHead(title, `<div class="car-nav"><button class="icon-btn flip" data-scroll="-1" aria-label="Предыдущие преподаватели">${icon('arrow')}</button><button class="icon-btn" data-scroll="1" aria-label="Следующие преподаватели">${icon('arrow')}</button></div>`)}
     <div class="carousel" data-carousel tabindex="0" aria-label="${esc(title)}, прокрутка вбок">${list.map((t) => `<article class="tcard">${face(t, 'lg')}
@@ -386,12 +381,12 @@ export function viewRequests() {
     <section class="sec">${secHead('Частые вопросы')}<div class="faqs"><details class="faq"><summary>Сколько готовится справка об обучении?</summary><p>Обычно 1–2 рабочих дня. Статус меняется в истории заявки, а когда документ готов, появляется его электронная версия.</p></details><details class="faq"><summary>Как проверить подлинность электронной справки?</summary><p>На документе есть QR-код и ссылка. Страница проверки открывается без входа в кабинет и показывает, действителен ли документ.</p></details><details class="faq"><summary>Где получить оригинал с печатью?</summary><p>В деканате: Корпус А, ауд. 112, 1 этаж. Приём по будням с 10:00 до 17:00, перерыв с 13:00 до 14:00. Возьмите студенческий билет.</p></details><details class="faq"><summary>Что делать, если заявку отклонили?</summary><p>Причина указана в комментарии деканата в истории заявки. Исправьте замечание и подайте заявку заново или направьте обращение.</p></details><details class="faq"><summary>Можно ли задать вопрос без справки?</summary><p>Да. Выберите «Обращение в деканат» и опишите вопрос. Ответ придёт в историю заявки, срок до 5 рабочих дней.</p></details></div></section>
     ${dean ? `<section class="card"><div class="stack"><p class="eyebrow">Где находится деканат</p><p class="title">Корпус А, ауд. ${esc(dean.room)}, ${dean.floor} этаж</p><p>${esc(dean.hint)}.</p><div class="chips"><button class="btn ghost sm" data-goto-room="${esc(dean.key)}">${icon('building')}Показать на схеме</button></div></div></section>` : ''}</div>`;
 }
-export function requestSheet(kind) {
+export function requestSheet(kind, note = '') {
   const doc = DOCS.find((x) => x.kind === kind) || DOCS[0];
   return `<div class="sheet-in"><div class="sheet-top"><div><p class="eyebrow">Новая заявка</p><h2 id="sheet-title" class="title">${doc.kind}</h2></div><button class="sheet-close" data-close aria-label="Закрыть">${icon('x')}</button></div>
     <p class="small">${doc.what} Срок: ${doc.sla}. ${doc.how}.</p>
     <form id="request-form"><label for="kind">Тип заявки</label><select id="kind" name="kind">${DOCS.map((x) => `<option ${x.kind === doc.kind ? 'selected' : ''}>${x.kind}</option>`).join('')}</select>
-    <label for="note">Комментарий <span class="muted">(необязательно)</span></label><textarea id="note" name="note" maxlength="1000" placeholder="Например: для оформления визы, нужен оригинал"></textarea>
+    <label for="note">${doc.kind === APPEAL ? 'Текст обращения' : 'Комментарий <span class="muted">(необязательно)</span>'}</label><textarea id="note" name="note" maxlength="1000" ${doc.kind === APPEAL ? 'required' : ''} placeholder="${doc.kind === APPEAL ? 'Опишите вопрос, с которым нужна помощь' : 'Например: для оформления визы, нужен оригинал'}">${esc(note)}</textarea>
     <p class="form-error" role="alert"></p><button class="btn block">Отправить заявку</button></form></div>`;
 }
 export function viewDoc(id) {
