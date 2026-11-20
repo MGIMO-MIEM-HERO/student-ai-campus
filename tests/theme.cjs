@@ -45,15 +45,37 @@ test('preserves the theme across route renders and synchronizes another tab',()=
   page.storage('light');assert.equal(page.button().attributes['aria-pressed'],'false');
   assert.equal(page.writes.length,0);
 });
+const cssTokens=css=>Object.fromEntries([...css.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6})/gi)].map(m=>[m[1],m[2]]));
+const luminance=hex=>{
+  const rgb=hex.slice(1).match(/../g).map(h=>parseInt(h,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+  return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
+};
+function assertContrast(foreground,background,label){
+  const a=luminance(foreground),b=luminance(background);
+  assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,label);
+}
 test('dark hero labels, secondary text and map labels keep readable contrast',()=>{
-  const css=fs.readFileSync(path.join(__dirname,'../public/css/theme.css'),'utf8');
-  const tokens=Object.fromEntries([...css.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6})/gi)].map(m=>[m[1],m[2]]));
-  const luminance=hex=>{
-    const rgb=hex.slice(1).match(/../g).map(h=>parseInt(h,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
-    return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
-  };
+  const tokens=cssTokens(fs.readFileSync(path.join(__dirname,'../public/css/theme.css'),'utf8'));
   for(const [foreground,background] of [['--ink','--paper'],['--ink','--surface'],['--muted','--card'],['--hero-chip-fg','--hero-chip-bg'],['--hero-chip-muted','--hero-chip-bg'],['#ffffff','--route-active'],['#ffffff','--pine'],['#ffffff','--pine-2']]){
-    const a=luminance(tokens[foreground]||foreground),b=luminance(tokens[background]||background);
-    assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,`${foreground} on ${background}`);
+    assertContrast(tokens[foreground]||foreground,tokens[background]||background,`${foreground} on ${background}`);
+  }
+});
+
+test('notification counts, group numbers and submitted tasks stay readable in both themes',()=>{
+  const light=cssTokens(fs.readFileSync(path.join(__dirname,'../public/css/tokens.css'),'utf8'));
+  const dark={...light,...cssTokens(fs.readFileSync(path.join(__dirname,'../public/css/theme.css'),'utf8'))};
+  for(const [theme,tokens] of [['light',light],['dark',dark]]){
+    for(const [foreground,background] of [['--badge-fg','--badge-bg'],['--info','--info-bg'],['--ok','--ok-bg'],['--ink-2','--card']]){
+      assertContrast(tokens[foreground],tokens[background],`${theme}: ${foreground} on ${background}`);
+    }
+  }
+});
+
+test('light floor diagrams keep dark labels for every room status in either UI theme',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'../public/css/architecture.css'),'utf8');
+  const map=cssTokens(css.match(/\.plan,\.plan-mini\{([^}]+)\}/)[1]);
+  for(const fill of ['#dff0e5','#ebebee','#f8dfd9','#b2cbd6','#fafafa','#e4e7e3','#edf2ee']){
+    assertContrast(map['--ink'],fill,`Room label on ${fill}`);
+    assertContrast(map['--muted'],fill,`Room details on ${fill}`);
   }
 });

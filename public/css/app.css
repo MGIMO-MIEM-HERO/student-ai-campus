@@ -585,7 +585,7 @@ body{background:var(--paper)}
 .nav a[aria-current="page"]{color:var(--ink)}
 .nav a[aria-current="page"]::before{background:var(--ink)}
 .avatar{background:var(--ink);color:#fff;font:600 15px/1 var(--font-sans)}
-.badge,.nav .badge,.icon-btn .badge{background:var(--ink)}
+.badge,.nav .badge,.icon-btn .badge{background:var(--badge-bg);color:var(--badge-fg);font-size:11px;font-weight:600}
 .icon-btn:hover{background:var(--card)}
 @media (min-width:960px){
   .topbar-in{gap:22px}
@@ -702,7 +702,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{background:var(-
 .hw-check{width:30px;height:30px;margin-top:2px;border-radius:50%;border:1.5px solid var(--line-strong);background:var(--surface);display:grid;place-items:center;color:transparent;transition:background-color .15s,border-color .15s,color .15s}
 .hw-check svg{width:16px;height:16px}
 .hw-check:hover{border-color:var(--ink);color:var(--line-strong)}
-.hw-check[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.hw-check[aria-pressed="true"]{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
 .hw-score{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--surface);box-shadow:var(--shadow-soft);line-height:1}
 .hw-score b{font:600 17px/1 var(--font-sans);letter-spacing:-.02em}.hw-score small{font-size:10.5px;color:var(--muted);margin-top:-6px}
 .hw-body{display:grid;gap:6px;border:0;background:none;padding:0;text-align:left;color:var(--ink);min-width:0;font:inherit}
@@ -717,7 +717,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{background:var(-
 .due.warn{color:var(--warn)}.due.bad{color:var(--bad)}
 .hw-who{display:inline-flex;align-items:center;gap:8px}
 .hw.is-done strong,.hw.is-graded strong{color:var(--muted)}
-.hw.is-done strong{text-decoration:line-through;text-decoration-color:rgba(16,17,19,.3)}
+.hw.is-done strong{color:var(--ink-2);text-decoration:line-through;text-decoration-color:currentColor;text-decoration-thickness:2px;text-decoration-skip-ink:none}
 .sheet-hw{display:grid;gap:8px}
 .sheet-hw .hw{background:var(--card)}
 .due-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -893,7 +893,7 @@ text.no,text.seats{paint-order:stroke;stroke-width:5px;stroke-linejoin:round}
 /* ===== Кабинет преподавателя ===== */
 img.avatar{object-fit:cover;padding:0}
 .page-head-side{align-self:flex-end}
-.gpill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font:500 12px/1.4 var(--font-sans)}
+.gpill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:var(--r-pill);background:var(--info-bg);color:var(--info);font:600 12px/1.4 var(--font-sans)}
 .tally{display:grid;place-items:center;min-width:44px;height:36px;padding:0 8px;border-radius:12px;background:var(--card);font:600 14px/1 var(--font-sans);color:var(--ink)}
 .tally.sm{height:30px;min-width:40px;font-size:13px;background:var(--card);color:var(--muted)}
 .tally.ok{background:#dff0e5;color:var(--ok)}

@@ -20,6 +20,7 @@
   --neutral:#c8d3df;--neutral-bg:#2d3948;
   --hero-chip-bg:#314654;--hero-chip-fg:#f0f3f7;--hero-chip-muted:#c3cfd9;
   --route-active:#355c70;
+  --badge-bg:#c2e1f4;--badge-fg:#15212c;
   --glass:rgba(28,35,45,.96);--glass-strong:#28323e;
   --glass-edge:rgba(221,232,244,.15);--glass-line:rgba(221,232,244,.2);
   --glass-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px -20px #000;
@@ -37,7 +38,7 @@ html[data-theme="dark"] :is(.chip[aria-pressed="true"],.seg button[aria-pressed=
 html[data-theme="dark"] .avatar{background:#36575f;color:#fff}
 /* Components that use the text token as a filled background need an explicit inverse pair. */
 html[data-theme="dark"] .btn:where(:not(.ghost):not(.light)),
-html[data-theme="dark"] :is(.badge,.nav .badge,.icon-btn .badge,.tag.ink,.pill.dark,.day[aria-pressed="true"],.hw-check[aria-pressed="true"],.strip .cur,.slot.on,button.slot[aria-pressed="true"],.gpill,.now-who .tally,.jr thead th.is-today span,.due-strip li.today,.skip-link,.fl.on .fl-tag),
+html[data-theme="dark"] :is(.tag.ink,.pill.dark,.day[aria-pressed="true"],.strip .cur,.slot.on,button.slot[aria-pressed="true"],.now-who .tally,.jr thead th.is-today span,.due-strip li.today,.skip-link,.fl.on .fl-tag),
 html[data-theme="dark"] .steps li::before,
 html[data-theme="dark"] #toast{background:var(--pine);border-color:var(--pine);color:#fff}
 html[data-theme="dark"] .btn:where(:not(.ghost):not(.light):hover:not(:disabled)){background:var(--pine-2);border-color:var(--pine-2)}
@@ -72,6 +73,13 @@ html[data-theme="dark"] .hm-wing.on{fill:var(--route-active);stroke:#294959}
 html[data-theme="dark"] .hm-steps li{background:var(--surface)}
 html[data-theme="dark"] :is(.plan,.interior-plan){background:#edf2ee;color:#253d46;border-radius:12px}
 html[data-theme="dark"] .sheet-top{background:var(--surface)}
+html[data-theme="dark"] .risk-row .face.mono{background:var(--surface);color:var(--ink-2)}
+html[data-theme="dark"] :is(.tally.ok,.jm.m-p){background:var(--ok-bg);color:var(--ok)}
+html[data-theme="dark"] :is(.territory-heading .eyebrow,.territory-heading>p,.territory-bottom .model-description,.territory-bottom .model-source){color:var(--ink-2)}
+html[data-theme="dark"] .model-view:not(.scene-evening){color:#243b43}
+html[data-theme="dark"] .model-view:not(.scene-evening) :is(.model-stamp,.model-stamp small,.scene-status){color:#405760}
+html[data-theme="dark"] .model-controls button:hover{background:var(--neutral-bg);color:var(--ink)}
+html[data-theme="dark"] .plan-side:has(.plan-scroll[data-more="true"])::after{color:var(--muted)}
 html[data-theme="dark"] :is(.navigation-panel,.navigation-lesson,.navigation-stages button,.territory){background:var(--card);color:var(--ink);border-color:var(--line-strong)}
 html[data-theme="dark"] .navigation-lesson.on{border-color:var(--sky-ink);background:var(--info-bg)}
 html[data-theme="dark"] :is(.navigation-lesson small,.navigation-context span){color:var(--muted)}
