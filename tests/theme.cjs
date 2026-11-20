@@ -22,7 +22,7 @@ function boot(saved,{blocked=false,header=true}={}){
 test('restores a saved dark theme and accessible toggle state',()=>{
   const page=boot('dark');
   assert.equal(page.root.dataset.theme,'dark');
-  assert.equal(page.meta.content,'#111923');
+  assert.equal(page.meta.content,'#11151b');
   assert.equal(page.button().attributes['aria-pressed'],'true');
   assert.match(page.button().attributes['aria-label'],/светлую/);
 });
@@ -44,4 +44,16 @@ test('preserves the theme across route renders and synchronizes another tab',()=
   assert.equal(page.button().attributes['aria-pressed'],'true');
   page.storage('light');assert.equal(page.button().attributes['aria-pressed'],'false');
   assert.equal(page.writes.length,0);
+});
+test('dark hero labels, secondary text and map labels keep readable contrast',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'../public/css/theme.css'),'utf8');
+  const tokens=Object.fromEntries([...css.matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6})/gi)].map(m=>[m[1],m[2]]));
+  const luminance=hex=>{
+    const rgb=hex.slice(1).match(/../g).map(h=>parseInt(h,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+    return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
+  };
+  for(const [foreground,background] of [['--ink','--paper'],['--ink','--surface'],['--muted','--card'],['--hero-chip-fg','--hero-chip-bg'],['--hero-chip-muted','--hero-chip-bg'],['#ffffff','--route-active'],['#ffffff','--pine'],['#ffffff','--pine-2']]){
+    const a=luminance(tokens[foreground]||foreground),b=luminance(tokens[background]||background);
+    assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,`${foreground} on ${background}`);
+  }
 });

@@ -7,7 +7,7 @@
     const dark=value==='dark';
     root.dataset.theme=dark?'dark':'light';
     const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta)meta.content=dark?'#111923':'#ffffff';
+    if(meta)meta.content=dark?'#11151b':'#ffffff';
     document.querySelectorAll('[data-theme-toggle]').forEach(button=>{
       const label=dark?'Включить светлую тему':'Включить тёмную тему';
       button.setAttribute('aria-label',label);button.setAttribute('title',label);
