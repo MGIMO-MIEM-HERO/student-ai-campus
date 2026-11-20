@@ -16,6 +16,8 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
   const initial={a:territory?-.14:-20*Math.PI/180,e:.76,z:1,x:0,depth:0};
   const target={...initial,a:territory?-.14:S.rz*Math.PI/180,...views.get(viewKey())};
   const current={...target};
+  const renderSize=new T.Vector2(),details=[];
+  model.traverse(o=>{if(o.userData.detail||o.userData.labels)details.push(o);});
   let frame=0,disposed=false,visible=true,dirtyShadow=true,gesture=null,velocity=0;
   let lastTime=0,lastDraw=0,tourUntil=0,tourStart=0,tourAngle=0,frameCount=0,slowFrames=0;
   const abort=new AbortController(),opts={signal:abort.signal};
@@ -59,7 +61,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     const crisp=Math.min(devicePixelRatio||1,2,Math.sqrt(pixelBudget/(width*height)));
     const ratio=moving?Math.min(crisp,mobile?(slowFrames>5?.85:1.15):1.5):crisp;
     if(Math.abs(renderer.getPixelRatio()-ratio)>.01)renderer.setPixelRatio(ratio);
-    const size=renderer.getSize(new T.Vector2());if(size.x!==width||size.y!==height)renderer.setSize(width,height,false);
+    const size=renderer.getSize(renderSize);if(size.x!==width||size.y!==height)renderer.setSize(width,height,false);
     const worldWidth=territory?55:mode==='building'?43:35;
     const {center,radius}=bounds[mode];
     const aspect=width/height;
@@ -89,7 +91,7 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     ).multiplyScalar(distance).add(orbitCenter);
     camera.lookAt(orbitCenter);
     const close=!moving&&width*current.z/worldWidth>32;
-    model.traverse((o)=>{
+    details.forEach((o)=>{
       if(o.userData.detail===1)o.visible=!moving&&(current.z>1.22||width>700);
       if(o.userData.detail===2)o.visible=close;
       if(o.userData.detail===3)o.visible=!close;

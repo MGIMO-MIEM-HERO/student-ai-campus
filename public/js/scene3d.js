@@ -32,7 +32,8 @@ export function mountScene(host) {
   scene.add(hemi);
   const sun = new T.DirectionalLight(0xffe7c7,3.1);
   sun.castShadow=true;
-  const shadowRes=mobile?1024:(territory&&renderer.capabilities.maxTextureSize>=4096?4096:2048);
+  const shadowRes=mobile?1024:2048;
+  host.dataset.shadowSize=String(shadowRes);
   sun.shadow.mapSize.set(shadowRes,shadowRes);
   sun.shadow.bias=-.0003; sun.shadow.normalBias=.035; sun.shadow.radius=3;
   scene.add(sun);
@@ -53,11 +54,11 @@ export function mountScene(host) {
     if(!path.curves.length||path.getLength()<=.001)return;
     const marker=new T.Group();
     const material=(color,opacity=1)=>new T.MeshBasicMaterial({color,transparent:true,opacity,depthTest:false,depthWrite:false,toneMapped:false,side:T.DoubleSide});
-    const sphere=new T.Mesh(new T.SphereGeometry(radius,16,12),material(0xe4ffff));
+    const sphere=new T.Mesh(new T.SphereGeometry(radius,8,6),material(0xe4ffff));
     sphere.position.y=radius*1.6;marker.add(sphere);
     // Overlapping translucent rings soften the halo without textures or shaders.
-    for(let i=0;i<4;i++) {
-      const halo=new T.Mesh(new T.RingGeometry(radius*.65,radius*(1.6+i*.35),32),material(0x65e4ff,.12-i*.025));
+    for(let i=0;i<2;i++) {
+      const halo=new T.Mesh(new T.RingGeometry(radius*.65,radius*(1.6+i*.5),16),material(0x65e4ff,.16-i*.06));
       halo.rotation.x=-Math.PI/2;halo.position.y=.025;marker.add(halo);
     }
     marker.traverse((o)=>{o.raycast=()=>{};o.castShadow=false;o.renderOrder=40;});
@@ -65,11 +66,11 @@ export function mountScene(host) {
     marker.position.copy(path.getPoint(reduced.matches?1:0));
     walkers.push({path,marker,elapsed:0});
   }
-  const hasAnimation=()=>walkers.some(({marker})=>isVisible(marker));
+  const hasAnimation=()=>walkers.some(({marker,elapsed})=>elapsed<6&&isVisible(marker));
   const animate=(dt)=>{
     for(const walker of walkers) {
       if(!isVisible(walker.marker))continue;
-      walker.elapsed=(walker.elapsed+dt)%6.8;
+      walker.elapsed=Math.min(6,walker.elapsed+dt);
       // CurvePath.getPoint uses segment lengths, keeping speed constant at corners.
       walker.marker.position.copy(walker.path.getPoint(reduced.matches?1:Math.min(walker.elapsed/6,1)));
     }

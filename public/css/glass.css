@@ -104,6 +104,18 @@ html.scene-evening .territory-heading .eyebrow,html.scene-evening .territory-hea
 html.scene-evening .territory-heading h2{color:#f2f5f8}
 html.scene-evening .territory-bottom{border-color:rgba(255,255,255,.12);color:#d3dde8}
 html.scene-evening .territory-bottom p,html.scene-evening .territory .model-description{color:#c9d5e2}
+
+/* Lighting belongs to the model panel; page headings keep their light surface. */
+html.scene-evening body::after{display:none}
+html.scene-evening .territory:has(.model-view.scene-evening){background:#182335;color:#edf3fa;border-radius:24px;overflow:hidden}
+.model-view.scene-evening{background:#182335;color:#edf3fa}
+.model-view.scene-evening .model-stamp small,.model-view.scene-evening .model-stamp>span{color:#d4e1ef}
+.seg button[data-bld][aria-pressed="true"]{background:#2b3534;color:#fff;box-shadow:inset 0 0 0 2px #2b3534}
+.seg button[data-bld][aria-pressed="true"] small{color:#fff;opacity:1}
+html.scene-evening .territory [data-wing][aria-pressed="true"]{background:#f1f6fa;color:#182335;border-color:#fff;box-shadow:0 0 0 2px #79c3dc}
+.login-side.sky{grid-template-rows:auto auto auto;align-content:start}
+.login-side .territory-compact{align-self:start;margin-top:0}
+.login-side .territory-view{height:clamp(300px,40vh,420px)}
 html.scene-evening .territory [data-wing]{background:rgba(255,255,255,.1);color:#eef2f6;border-color:rgba(255,255,255,.2)}
 html.scene-evening .territory [data-wing][aria-pressed="true"]{background:#eef2f6;color:#1d2a38}
 .territory-heading h2{font-family:var(--font-serif);font-weight:400;letter-spacing:-.035em}
