@@ -1,5 +1,6 @@
 import * as T from './vendor/three.module.js';
 import {S} from './state.js';
+import {icon} from './icons.js';
 
 // Keep a chosen close-up when room selection or dashboard refresh replaces DOM.
 const views=new Map();
@@ -19,11 +20,15 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
   const renderSize=new T.Vector2(),details=[];
   model.traverse(o=>{if(o.userData.detail||o.userData.labels)details.push(o);});
   let frame=0,disposed=false,visible=true,dirtyShadow=true,gesture=null,velocity=0;
-  let lastTime=0,lastDraw=0,tourUntil=0,tourStart=0,tourAngle=0,frameCount=0,slowFrames=0;
+  let lastTime=0,nextDraw=0,frameInterval=0,tourUntil=0,tourStart=0,tourAngle=0,frameCount=0,slowFrames=0;
   const abort=new AbortController(),opts={signal:abort.signal};
   const setTour=(playing)=>{
     tourStart=performance.now();tourAngle=target.a;tourUntil=playing?tourStart+12000:0;
-    host.querySelectorAll('[data-model-action="tour"]').forEach((b)=>{b.setAttribute('aria-pressed',String(playing));b.textContent=playing?'Пауза':'Облёт';});
+    host.querySelectorAll('[data-model-action="tour"]').forEach((b)=>{
+      b.setAttribute('aria-pressed',String(playing));
+      b.setAttribute('aria-label',playing?'Приостановить облёт':'Запустить облёт');
+      b.innerHTML=`${icon(playing?'pause':'orbit')}<span>${playing?'Пауза':'Облёт'}</span>`;
+    });
   };
   const saveRotation=()=>{if(!territory)S.rz=target.a*180/Math.PI;};
   const request=()=>{if(!frame&&!disposed&&visible&&!document.hidden)frame=requestAnimationFrame(tick);};
@@ -43,9 +48,16 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
   function tick(time) {
     frame=0;if(disposed||!visible||document.hidden)return;
     const animatingRoute=!reduced.matches&&hasAnimation();
-    // Route animation is capped at 30 fps on desktop as well as mobile.
-    if((mobile||animatingRoute)&&lastDraw&&time-lastDraw<(animatingRoute?1000/30:30)){request();return;}
-    const dt=Math.min((time-(lastTime||time-16))/1000,.05);lastTime=time;lastDraw=time;
+    const cameraActive=!!tourUntil||!!gesture||Math.abs(velocity)>.006||['a','e','z','x','depth'].some(k=>Math.abs(current[k]-target[k])>.0008);
+    // Budget the camera at 60 Hz on desktop, stationary routes and mobile at 30 Hz.
+    // A marker must neither throttle a tour nor make 144 Hz screens overdraw the scene.
+    const interval=1000/(mobile||animatingRoute&&!cameraActive?30:60);
+    if(interval!==frameInterval){frameInterval=interval;nextDraw=0;}
+    if(interval&&time+.25<nextDraw){request();return;}
+    // Preserve the cadence on 60/75/120/144 Hz screens instead of starting a new
+    // interval after each draw (which drops 30 Hz to 20–25 Hz on some displays).
+    nextDraw=interval?(nextDraw&&time-nextDraw<interval*2?nextDraw+interval:time+interval):0;
+    const elapsed=Math.max(0,(time-(lastTime||time-16))/1000),dt=Math.min(elapsed,.05);lastTime=time;
     if(tourUntil) {
       if(reduced.matches)setTour(false);
       else {target.a=tourAngle+Math.PI*2*Math.min(1,(time-tourStart)/12000);if(time>=tourUntil)setTour(false);}
@@ -99,11 +111,12 @@ export function mountControls({host,renderer,scene,camera,model,territory,floorG
     });
     // The world and sun stay still when the camera moves: shadows need one bake.
     renderer.shadowMap.needsUpdate=dirtyShadow;
-    animate(dt);
+    // Smoothing is bounded after a slow frame; route duration uses actual visible time.
+    animate(elapsed);
     const started=performance.now();renderer.render(scene,camera);const cpu=performance.now()-started;
     if(moving&&cpu>22)slowFrames++;
     dirtyShadow=false;frameCount++;
-    Object.assign(host.dataset,{ready:'true',animating:String(moving||animatingRoute),frames:String(frameCount),drawCalls:String(renderer.info.render.calls),triangles:String(renderer.info.render.triangles),textures:String(renderer.info.memory.textures),geometries:String(renderer.info.memory.geometries),pixelRatio:ratio.toFixed(2),viewZoom:current.z.toFixed(3),renderCpuMs:cpu.toFixed(2),quality:mobile?'mobile':'desktop'});
+    Object.assign(host.dataset,{ready:'true',animating:String(moving||animatingRoute),cameraAnimating:String(moving),routeAnimating:String(animatingRoute),frameIntervalMs:(elapsed*1000).toFixed(1),frames:String(frameCount),drawCalls:String(renderer.info.render.calls),triangles:String(renderer.info.render.triangles),textures:String(renderer.info.memory.textures),geometries:String(renderer.info.memory.geometries),pixelRatio:ratio.toFixed(2),viewZoom:current.z.toFixed(3),renderCpuMs:cpu.toFixed(2),quality:mobile?'mobile':'desktop'});
     host.querySelector('[data-scene-status]').textContent='';
     if(moving||animatingRoute)request();else {lastTime=0;saveRotation();views.set(viewKey(),{...target});}
   }

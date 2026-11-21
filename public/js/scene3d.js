@@ -63,16 +63,16 @@ export function mountScene(host) {
     }
     marker.traverse((o)=>{o.raycast=()=>{};o.castShadow=false;o.renderOrder=40;});
     group.add(marker);
-    marker.position.copy(path.getPoint(reduced.matches?1:0));
-    walkers.push({path,marker,elapsed:0});
+    path.getPoint(reduced.matches?1:0,marker.position);
+    walkers.push({path,marker,elapsed:reduced.matches?6:0});
   }
   const hasAnimation=()=>walkers.some(({marker,elapsed})=>elapsed<6&&isVisible(marker));
   const animate=(dt)=>{
     for(const walker of walkers) {
-      if(!isVisible(walker.marker))continue;
-      walker.elapsed=Math.min(6,walker.elapsed+dt);
+      if(!isVisible(walker.marker)||walker.elapsed>=6)continue;
+      walker.elapsed=reduced.matches?6:Math.min(6,walker.elapsed+dt);
       // CurvePath.getPoint uses segment lengths, keeping speed constant at corners.
-      walker.marker.position.copy(walker.path.getPoint(reduced.matches?1:Math.min(walker.elapsed/6,1)));
+      walker.path.getPoint(walker.elapsed/6,walker.marker.position);
     }
   };
   let xray=null;

@@ -33,6 +33,7 @@ html[data-theme="dark"] :is(.nav,.card,.stat,.lesson,.hw,.tcard,.news,.empty,.de
 html[data-theme="dark"] :is(input,select,textarea,.search-btn){background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
 html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:var(--muted)}
 html[data-theme="dark"] :is(.btn.ghost,.btn.light,.model-controls,.model-modes,.model-tour){background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+html[data-theme="dark"] .model-tour[aria-pressed="true"]{background:var(--pine);color:#fff;border-color:var(--sky-ink)}
 html[data-theme="dark"] :is(.model-controls button,.model-modes button){color:var(--ink)}
 html[data-theme="dark"] :is(.chip[aria-pressed="true"],.seg button[aria-pressed="true"],.seg button[data-bld][aria-pressed="true"],.model-modes button[aria-pressed="true"]){background:#436973;color:#fff}
 html[data-theme="dark"] .avatar{background:#36575f;color:#fff}
