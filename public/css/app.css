@@ -413,7 +413,7 @@ details.more .free-list{margin-top:8px}
 .room{display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;padding:16px 0;border-top:1px solid var(--line)}
 .room:first-child{border-top:0}
 .room-no{display:grid;place-items:center;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);min-height:60px;text-align:center;font:500 26px/1.05 var(--font-serif);width:100%;color:var(--ink);font-variant-numeric:lining-nums}
-.room-no small{display:block;font:500 10px/1.6 var(--font-sans);letter-spacing:.12em;color:var(--gold-ink)}
+.room-no small{display:block;font:500 10px/1.6 var(--font-sans);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:var(--gold-ink)}
 .room.mine .room-no{background:var(--navy);border-color:var(--navy);color:#f3ede2}.room.mine .room-no small{color:#d3b784}
 .room-info{display:grid;gap:3px;align-content:start;min-width:0;font-size:15px}
 .room-info .tag{justify-self:start;margin-top:6px;white-space:normal}

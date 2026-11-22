@@ -1,4 +1,4 @@
-import * as T from './vendor/three.module.js';
+import * as T from './vendor/three.module.min.js';
 
 // Small, deterministic textures and shared geometry: detail without model downloads.
 function surfaceTexture(kind) {

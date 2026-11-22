@@ -1,4 +1,4 @@
-import * as T from './vendor/three.module.js';
+import * as T from './vendor/three.module.min.js';
 import {S} from './state.js';
 import {floorLayout, roomState,routeForFloor,currentRoute} from './campus.js';
 

@@ -29,7 +29,7 @@ node tests/browser_3d.cjs
 
 ## Зависимости и локальные навыки
 
-Three.js 0.185.0 поставляется локально в `public/js/vendor/three.module.js` и `three.core.js`, из официального npm-пакета `three`; MIT-лицензия — `THREE-LICENSE.txt`. CDN и внешний доступ во время использования не нужны. Модуль загружается только там, где нужен макет. Строгая CSP сохранена.
+Three.js 0.185.0 поставляется локально в `public/js/vendor/three.module.min.js` и `three.core.min.js` (минифицированные сборки), из официального npm-пакета `three`; MIT-лицензия — `THREE-LICENSE.txt`. CDN и внешний доступ во время использования не нужны. Модуль загружается только там, где нужен макет. Строгая CSP сохранена.
 
 Шесть навыков из [CloudAI-X/threejs-skills](https://github.com/CloudAI-X/threejs-skills), commit `0e181866f095b5f06d005133876e926515390d95`, установлены в `.agents/skills/`: fundamentals, geometry, materials, lighting, interaction, performance. Источники и SHA-256 файлов записаны в `skills-lock.json`, MIT-лицензия сохранена рядом. Копии тех же шести навыков лежат в `.claude/skills/threejs-*` (с `THREEJS-LICENSE`), чтобы их видел Claude Code. Ранее установленный `design-taste-frontend` оставлен в `.claude/skills/`. Эти навыки не являются зависимостями сайта.
 

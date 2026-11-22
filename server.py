@@ -1,4 +1,5 @@
 """Campus prototype. Run with Python 3.11+."""
+import gzip
 import hashlib
 import hmac
 import json
@@ -26,6 +27,18 @@ MSK = timezone(timedelta(hours=3))
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".woff2": "font/woff2",
                 ".webmanifest": "application/manifest+json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".txt": "text/plain; charset=utf-8"}
+
+
+COMPRESSIBLE = {".html", ".js", ".css", ".json", ".svg", ".webmanifest", ".txt"}
+_gzip_cache = {}
+
+
+def gzipped(path):
+    """Сжатая копия статического файла; пересчитывается при изменении файла."""
+    key = (path, path.stat().st_mtime_ns)
+    if key not in _gzip_cache:
+        _gzip_cache[key] = gzip.compress(path.read_bytes(), 6)
+    return _gzip_cache[key]
 
 
 def msk_today():
@@ -390,7 +403,7 @@ def assistant_answer(question, data, history=()):
 
 
 class Handler(BaseHTTPRequestHandler):
-    def reply(self, code, body, content_type="application/json; charset=utf-8", cookie=None, cache="no-store"):
+    def reply(self, code, body, content_type="application/json; charset=utf-8", cookie=None, cache="no-store", headers=()):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, ensure_ascii=False).encode()
         self.send_response(code)
@@ -404,6 +417,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if cookie:
             self.send_header("Set-Cookie", cookie)
+        for name, value in headers:
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -668,7 +683,10 @@ class Handler(BaseHTTPRequestHandler):
                 target = (PUBLIC / ("index.html" if url_path == "/" else url_path.lstrip("/"))).resolve()
                 if PUBLIC in target.parents and target.is_file() and target.suffix in STATIC_TYPES:
                     cache = "public, max-age=31536000, immutable" if target.suffix == ".woff2" else "no-cache"
-                    return self.reply(200, target.read_bytes(), STATIC_TYPES[target.suffix], cache=cache)
+                    body, extra = target.read_bytes(), ()
+                    if target.suffix in COMPRESSIBLE and "gzip" in self.headers.get("Accept-Encoding", ""):
+                        body, extra = gzipped(target), (("Content-Encoding", "gzip"), ("Vary", "Accept-Encoding"))
+                    return self.reply(200, body, STATIC_TYPES[target.suffix], cache=cache, headers=extra)
             self.reply(404, {"error": "Страница не найдена."})
         except (ValueError, TypeError, UnicodeDecodeError):
             self.reply(400, {"error": "Проверьте введённые данные."})

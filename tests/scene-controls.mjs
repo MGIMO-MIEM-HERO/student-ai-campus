@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import * as T from '../public/js/vendor/three.module.js';
+import * as T from '../public/js/vendor/three.module.min.js';
 import {mountControls} from '../public/js/scene-controls.js';
 import {S} from '../public/js/state.js';
 

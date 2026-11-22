@@ -174,3 +174,5 @@ html.scene-evening .territory-bottom{border-top-color:rgba(255,255,255,.14)}
 body::after{height:calc(var(--dusk-h,min(900px,88vh)) + 100px);
   background:linear-gradient(180deg,#121b28 0,#182335 var(--dusk-h,70%),rgba(24,35,53,.72) calc(var(--dusk-h,70%) + 18px),rgba(60,74,96,.4) calc(var(--dusk-h,70%) + 42px),rgba(150,162,178,.16) calc(var(--dusk-h,70%) + 70px),rgba(236,238,234,0) 100%)!important}
 html.scene-evening .territory-bottom p,html.scene-evening .territory .model-description{color:#c9d5e2}
+/* Отдельная страница библиотеки — такая же скруглённая поверхность, как остальные карточки */
+.page>.lib-page,main>.lib-page,#main>.lib-page{border-radius:var(--r-lg);box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 24px 60px -40px rgba(16,24,40,.35);border:1px solid var(--line)}
