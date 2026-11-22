@@ -275,7 +275,7 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(all(h["teacher"]["email"].endswith("@univer.example") for h in data["homework"]))
         self.assertEqual(len(data["teachers"]), 6)
         self.assertTrue(all(t["photo"] for t in data["teachers"]))
-        with urllib.request.urlopen(self.base + data["teachers"][0]["photo"]) as response:
+        with urllib.request.urlopen(self.base + "/" + data["teachers"][0]["photo"]) as response:
             self.assertEqual(response.headers["Content-Type"], "image/webp")
         status, after = alina.call("/api/homework", {"id": "hw-alg-4", "done": True})
         self.assertEqual(status, 200)

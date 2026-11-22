@@ -478,7 +478,7 @@ export function viewProfile() {
           <div class="idcard3d-edges" aria-hidden="true">${'<span></span>'.repeat(7)}</div>
           <article class="idcard sky idcard3d-front" aria-label="Электронный студенческий билет" data-idcard-front>
             <span class="ic-holo" aria-hidden="true"></span>
-            <div class="row ic-top"><span class="ic-brand"><img src="/mark.png" alt="" width="28" height="28">Кампус</span><span class="tag mint">Обучается</span></div>
+            <div class="row ic-top"><span class="ic-brand"><img src="mark.png" alt="" width="28" height="28">Кампус</span><span class="tag mint">Обучается</span></div>
             <div class="ic-mid"><span class="ic-photo" aria-hidden="true">${esc(p.name.split(' ').map((w) => w[0]).slice(0, 2).join(''))}</span>
               <div class="who"><p class="ic-kicker">Студенческий билет</p><p class="h2">${esc(p.name)}</p><p>${esc(p.program)} · ${p.year} курс</p></div><span class="ic-chip" aria-hidden="true"></span></div>
             <div class="grid"><dl><div><dt>Группа</dt><dd>${esc(p.group_name)}</dd></div><div><dt>Зачётная книжка</dt><dd>${esc(p.record_book || '')}</dd></div><div><dt>Действителен до</dt><dd>${dayMonth(p.card_valid_until)} ${p.card_valid_until.slice(0, 4)}</dd></div></dl>${qr}</div>

@@ -166,7 +166,7 @@ def teacher(key):
     return {"key": key, "name": name, "short": short, "title": title, "dept": dept, "hours": hours,
             "initials": parts[1][0] + parts[0][0],
             "email": f"{_latin(parts[1][0])}.{_latin(parts[0])}@univer.example",
-            "photo": f"/assets/people/{key}.webp" if photo.exists() else None}
+            "photo": f"assets/people/{key}.webp" if photo.exists() else None}
 
 
 def week_info(day):

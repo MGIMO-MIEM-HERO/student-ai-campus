@@ -1,5 +1,12 @@
+// В статической сборке для GitHub Pages (html[data-static]) сервера нет: запросы обслуживает demo-api.js.
+const STATIC = document.documentElement.dataset.static === '1';
+
 export async function api(path, body) {
-  const response = await fetch('/api/' + path, body === undefined ? {} : {
+  if (STATIC) {
+    const {demoApi} = await import('./demo-api.js');
+    return demoApi(path, body);
+  }
+  const response = await fetch('api/' + path, body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
   });
   let result;

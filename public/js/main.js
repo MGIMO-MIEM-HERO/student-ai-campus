@@ -42,8 +42,8 @@ function flash(message) {
 }
 /* Название продукта и знак: корпус кампуса в круге. */
 const BRAND = 'Кампус';
-const brand = (href) => `<a class="brand" href="${href}"><img src="/mark.png" alt="" width="36" height="36"><span class="brand-text"><b>${BRAND}</b><small>${ROLE_LABEL[S.data?.role] || 'личный кабинет'} · концепт</small></span></a>`;
-const footer = () => `<footer class="foot"><img class="foot-mark" src="/mark.png" alt="" width="28" height="28"><p>${BRAND} · Конкурсный концепт MGIMO×AI Challenge. Данные вымышлены. <a href="#about">О проекте</a></p></footer>`;
+const brand = (href) => `<a class="brand" href="${href}"><img src="mark.png" alt="" width="36" height="36"><span class="brand-text"><b>${BRAND}</b><small>${ROLE_LABEL[S.data?.role] || 'личный кабинет'} · концепт</small></span></a>`;
+const footer = () => `<footer class="foot"><img class="foot-mark" src="mark.png" alt="" width="28" height="28"><p>${BRAND} · Конкурсный концепт MGIMO×AI Challenge. Данные вымышлены. <a href="#about">О проекте</a></p></footer>`;
 
 /* оболочка */
 function shell(content, key) {
@@ -64,18 +64,18 @@ function shell(content, key) {
 }
 
 function loginScreen(error = '', login = '') {
-  const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['vetrova', 'Ирина Ветрова', 'преподаватель, высшая математика', '/assets/people/vetrova.webp'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
-  app.innerHTML = `<div class="login"><section class="login-side sky">${brand('/')}
+  const demo = [['alina', 'Алина Северова', 'студентка, ПИ-241, 2 курс'], ['mark', 'Марк Луговой', 'студент, МО-251, 1 курс'], ['vetrova', 'Ирина Ветрова', 'преподаватель, высшая математика', 'assets/people/vetrova.webp'], ['dekanat', 'Вера Деканова', 'сотрудник деканата']];
+  app.innerHTML = `<div class="login"><section class="login-side sky">${brand('./')}
       <div class="login-copy"><h1>Учёба в одном кабинете</h1><p class="lede">Расписание, задания и документы — всё, что нужно на учебный день.</p></div>
       ${territoryScene(true)}</section>
-    <main class="login-main" id="main" tabindex="-1"><div class="login-mobile-brand">${brand('/')}</div><div class="login-card"><h2 class="title">Вход в кабинет</h2>
+    <main class="login-main" id="main" tabindex="-1"><div class="login-mobile-brand">${brand('./')}</div><div class="login-card"><h2 class="title">Вход в кабинет</h2>
       <form id="login-form"><label for="login">Логин</label><input id="login" name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(login)}">
       <label for="password">Пароль</label><input type="password" id="password" name="password" required autocomplete="current-password">
       <p class="form-error" role="alert">${esc(error)}</p><p class="form-status" role="status" aria-live="polite"></p><button class="btn block">Войти</button></form>
       <p class="eyebrow">Демонстрационные аккаунты</p>
       <div class="demo-grid">${demo.map(([id, name, role, photo]) => `<button class="demo" data-demo="${id}">${photo ? `<img class="avatar" src="${photo}" alt="" width="38" height="38">` : `<span class="avatar" aria-hidden="true">${name[0]}</span>`}<span><strong>${name}</strong><span>${role}</span></span>${icon('arrow')}</button>`).join('')}</div>
       <p class="cap">Пароль демонстрационных аккаунтов: <b>${DEMO_PASSWORD}</b></p><a class="link" href="#about">Как устроен Кампус ${icon('arrow')}</a> <button class="link" type="button" data-deck-open>Режим презентации ${icon('arrow')}</button></div>
-      <p class="disclaimer">${BRAND} — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.</p></main></div>`;
+      <p class="disclaimer">${BRAND} — концепт-прототип для конкурса MGIMO×AI Challenge. Не является официальным сервисом университета, логотип университета не используется. Все данные вымышлены.${document.documentElement.dataset.static === '1' ? ' Это статическая демо-версия: ваши действия сохраняются только в этом браузере.' : ''}</p></main></div>`;
   decorate(app);
   app.setAttribute('aria-busy', 'false');
 }
@@ -86,7 +86,7 @@ function errorScreen() {
 }
 async function verifyScreen(code) {
   featureCleanups.forEach((dispose) => dispose()); featureCleanups = [];
-  const frame = (inner) => { app.innerHTML = `<header class="topbar"><div class="topbar-in">${brand('/')}<span class="tag">Концепт</span></div></header><div class="verify">${inner}<p class="disclaimer">Страница проверки концепт-прототипа. Документы не имеют юридической силы. Персональные данные показаны в сокращённом виде.</p><a class="btn ghost" href="/">Перейти в кабинет</a></div>`; app.setAttribute('aria-busy', 'false'); };
+  const frame = (inner) => { app.innerHTML = `<header class="topbar"><div class="topbar-in">${brand('./')}<span class="tag">Концепт</span></div></header><div class="verify">${inner}<p class="disclaimer">Страница проверки концепт-прототипа. Документы не имеют юридической силы. Персональные данные показаны в сокращённом виде.</p><a class="btn ghost" href="./">Перейти в кабинет</a></div>`; app.setAttribute('aria-busy', 'false'); };
   frame('<div class="sk"></div>');
   syncIdCard(app);
   const row = (k, v) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`;

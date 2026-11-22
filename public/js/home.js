@@ -48,7 +48,7 @@ export function idTeaser(p) {
   if (!p) return '';
   const ini = esc((p.name || '').split(' ').map((w) => w[0]).slice(0, 2).join(''));
   return `<a class="hm-card hm-id" href="#profile" aria-label="Открыть студенческий билет">
-    <span class="hm-id-card" aria-hidden="true"><span class="hm-id-top"><img src="/mark.png" alt="" width="22" height="22">Кампус</span>
+    <span class="hm-id-card" aria-hidden="true"><span class="hm-id-top"><img src="mark.png" alt="" width="22" height="22">Кампус</span>
       <span class="hm-id-mid"><span class="hm-id-ph">${ini}</span><span><b>${esc(p.name)}</b><small>${esc(p.group_name || '')}</small></span></span><span class="hm-id-chip"></span></span>
     <span class="hm-id-copy"><p class="hm-eyebrow">Студенческий билет</p><h2 class="hm-title">Всегда под рукой</h2>
       <p class="hm-text">Электронный билет с QR-кодом: переворачивается, по коду проверяется статус обучения.</p><span class="link">Открыть билет ${icon('arrow')}</span></span></a>`;
